@@ -1,0 +1,65 @@
+export interface Topic {
+  id: string;
+  title: string;
+  engine: string;
+  workdir: string;
+  model: string | null;
+  sessionId: string | null;
+  dangerMode: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface ToolCall {
+  id: string;
+  name: string;
+  input: any;
+  state: "running" | "done" | "cancelled" | "error";
+  result: string | null;
+}
+
+export interface Message {
+  id: string;
+  topicId: string;
+  role: "user" | "assistant" | "system";
+  content: string;
+  toolCalls?: any;
+  createdAt: number;
+}
+
+export interface CliInfo {
+  name: string;
+  binary: string;
+  installed: boolean;
+  path: string | null;
+  version: string | null;
+  loggedIn: boolean;
+}
+
+export interface FileEntry {
+  name: string;
+  path: string;
+  isDir: boolean;
+  size: number;
+}
+
+export type StreamEvent =
+  | { kind: "started"; topicId: string; sessionId: string | null }
+  | { kind: "assistantText"; topicId: string; messageId: string; delta: string }
+  | { kind: "assistantDone"; topicId: string; messageId: string; content: string }
+  | { kind: "toolCall"; topicId: string; tool: ToolCall }
+  | { kind: "toolResult"; topicId: string; toolId: string; state: string; result: string | null }
+  | { kind: "permissionRequest"; topicId: string; requestId: string; tool: string; input: any; command: string | null }
+  | { kind: "error"; topicId: string; message: string }
+  | { kind: "exited"; topicId: string; code: number | null }
+  | { kind: "log"; topicId: string; line: string };
+
+export interface UiMessage {
+  id: string;
+  role: "user" | "assistant" | "system";
+  content: string;
+  tools: ToolCall[];
+  pending?: boolean;
+  interrupted?: boolean;
+  createdAt: number;
+}

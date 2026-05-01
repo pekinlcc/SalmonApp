@@ -1,0 +1,19 @@
+# Build outputs
+salmon/node_modules/
+salmon/dist/
+salmon/src-tauri/target/
+salmon/src-tauri/gen/schemas/
+*.tsbuildinfo
+
+# Release artifacts (uploaded to GitHub Releases instead)
+dist/
+
+# CCCPlayer local activity log
+.cccplayer/
+
+# IDE / OS junk
+.vscode/
+.idea/
+.DS_Store
+*.log
+*.swp

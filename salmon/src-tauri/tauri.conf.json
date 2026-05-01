@@ -1,0 +1,47 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Salmon",
+  "version": "0.1.0",
+  "identifier": "app.salmon.desktop",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Salmon",
+        "width": 1280,
+        "height": 820,
+        "minWidth": 960,
+        "minHeight": 600,
+        "decorations": true,
+        "resizable": true
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["deb", "appimage"],
+    "category": "DeveloperTool",
+    "shortDescription": "Salmon — desktop client for Claude Code / Codex CLI",
+    "longDescription": "Salmon is an Ubuntu desktop client that drives your locally-logged-in Claude Code or Codex CLI in a three-pane GUI: topic list, chat, and live file/diff preview. It does not store API keys — credentials stay with the CLI.",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.png"
+    ],
+    "linux": {
+      "deb": {
+        "depends": ["libwebkit2gtk-4.1-0", "libgtk-3-0"]
+      }
+    }
+  },
+  "plugins": {}
+}
