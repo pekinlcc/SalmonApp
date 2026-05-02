@@ -47,6 +47,8 @@ pub fn run() {
             commands::list_messages,
             commands::list_workdir_files,
             commands::read_file_text,
+            commands::render_office_preview,
+            commands::suggest_topic_title,
             commands::set_danger_mode,
             commands::running_topics,
             commands::debug_log,

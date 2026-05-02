@@ -4,6 +4,9 @@ salmon/dist/
 salmon/src-tauri/target/
 salmon/src-tauri/gen/schemas/
 *.tsbuildinfo
+# Compiled vite config — only the .ts source is tracked
+salmon/vite.config.js
+salmon/vite.config.d.ts
 
 # Release artifacts (uploaded to GitHub Releases instead)
 dist/

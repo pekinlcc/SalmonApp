@@ -184,6 +184,7 @@ export default function App() {
           maybeNotify(e.topicId);
         }
         setFilesRefreshKey((k) => k + 1);
+        maybeAutoTitle(e.topicId);
         break;
       case "log":
         setLogsByTopic((lg) => {
@@ -194,6 +195,27 @@ export default function App() {
       default:
         break;
     }
+  };
+
+  const titleAttemptedRef = useRef<Set<string>>(new Set());
+  const maybeAutoTitle = (topicId: string) => {
+    if (titleAttemptedRef.current.has(topicId)) return;
+    setTopics((cur) => {
+      const t = cur.find((x) => x.id === topicId);
+      if (!t) return cur;
+      const isDefault = t.title === "新建 Topic" || t.title.trim() === "";
+      if (!isDefault) return cur;
+      titleAttemptedRef.current.add(topicId);
+      api
+        .suggestTopicTitle(topicId)
+        .then((newTitle) => {
+          setTopics((cs) => cs.map((x) => (x.id === topicId ? { ...x, title: newTitle } : x)));
+        })
+        .catch((e) => {
+          api.debugLog(`auto-title failed for ${topicId}: ${e}`);
+        });
+      return cur;
+    });
   };
 
   const maybeNotify = async (topicId: string) => {

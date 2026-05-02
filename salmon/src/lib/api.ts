@@ -26,6 +26,10 @@ export const api = {
   listWorkdirFiles: (workdir: string) =>
     invoke<FileEntry[]>("list_workdir_files", { workdir }),
   readFileText: (path: string) => invoke<string>("read_file_text", { path }),
+  renderOfficePreview: (path: string) =>
+    invoke<string[]>("render_office_preview", { path }),
+  suggestTopicTitle: (id: string) =>
+    invoke<string>("suggest_topic_title", { id }),
   setDangerMode: (id: string, danger: boolean) =>
     invoke<void>("set_danger_mode", { id, danger }),
   runningTopics: () => invoke<string[]>("running_topics"),

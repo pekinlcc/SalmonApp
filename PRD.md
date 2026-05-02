@@ -1,7 +1,18 @@
-# Salmon App — 产品需求文档（PRD v0.2）
+# Salmon App — 产品需求文档（PRD v0.3）
 
-> 状态：**已对齐，可进入设计/开发**
-> 版本：v0.2 — 2026-04-30
+> 状态：**MVP 已落地,进入完善阶段**
+> 版本：v0.3 — 2026-05-02
+> v0.2 → v0.3 变更（已实现的增量,本文已对应更新各章节）：
+> - **品牌资产**：定稿"几何折纸鱼"图标(SVG 源 + 32/128/256/1024 PNG),`.deb` 安装后写入 hicolor 主题,Dock/Activities 可见
+> - **右栏 Preview 升级**:
+>   - `.md` / `.markdown` → ReactMarkdown + remark-gfm + rehype-highlight,代码块语法高亮、表格、引用块按品牌色渲染
+>   - `.html` / `.htm` / `.svg` → `<iframe sandbox="allow-same-origin">` 渲染源文件,JS 默认隔离禁用
+>   - `.pptx` / `.docx` / `.xlsx` / `.odp` / `.odt` / `.ods` → LibreOffice headless 转 PDF + `pdftoppm` 切页 → 缓存目录 `~/.cache/salmon/preview/<hash>-<mtime>/slide-N.png`,以 base64 data URL 数组返回前端竖排展示;首次约 2-3s,二次命中缓存即时返回
+>   - 二进制文件 → 类型识别 + 大小 + 头 16 字节,友好占位
+>   - **切换 Topic 自动重置 Preview 状态**(原先会沿用上一个 Topic 的文件路径,现已修复)
+> - **Topic 自动标题**:首轮"用户消息→助手回复"完成且当前标题仍为"新建 Topic"时,后台静默调 `claude -p "为对话生成 2-6 字中文标题…"` 取结果重命名,失败不打扰
+> - **布局健壮性**:`grid-template-rows: 100vh` + 三栏 `min-height: 0`,修复对话超长时输入框被挤出视口、聊天区无法滚动的旧 bug
+>
 > v0.1 → v0.2 变更：根据用户反馈确立 "Topic = Terminal Tab" 心智模型，解决了工作目录绑定、子进程生命周期、斜杠命令分发、多 Topic 并发等关键问题；落定权限审批 UX、退出确认、桌面通知等交互；技术栈定为 Tauri 2；移除候选项与待确认问题，改为决策清单 + 已知风险 + 默认决策。
 
 ---
@@ -116,11 +127,23 @@ Tab 式切换，**和当前选中的工具调用/消息联动**：
 | --- | --- |
 | **Files** | 工作目录的文件树；本次会话新增 `A` / 修改 `M` 高亮 |
 | **Diff** | 选中某次 Edit 工具调用时，展示 before/after diff |
-| **Preview** | 单文件预览：md 渲染、图片、PDF（首页）、代码语法高亮 |
+| **Preview** | 单文件预览,按扩展名分派:见 4.3.1 |
 | **Logs** | 当前 Topic 的 CLI 原始 stdout/stderr，便于排错 |
 
 - 顶部按钮：在 VSCode 打开 / 在终端打开 / 复制路径
 - **右栏宽度可拖拽调整、整体可折叠**（窄屏友好）
+- **切换 Topic 时清空所选预览路径**——新 Topic 的 workdir 不同,旧路径失去意义
+
+#### 4.3.1 Preview 渲染分派表
+
+| 扩展名 | 渲染方式 | 备注 |
+| --- | --- | --- |
+| `.md` `.markdown` `.mdx` | ReactMarkdown + remark-gfm + rehype-highlight | 与对话区一致风格,标题分隔线、表格、引用块带品牌色 |
+| `.html` `.htm` `.xhtml` `.svg` | `<iframe sandbox="allow-same-origin" srcDoc=...>` | JS 默认禁用避免污染主进程,允许相对资源 |
+| `.pptx` `.docx` `.xlsx` `.odp` `.odt` `.ods` | LibreOffice headless 转 PDF → `pdftoppm -r 110 -png` 切页 → base64 PNG 列表 | 缓存键 = 路径 hash + mtime,二次命中跳过转换 |
+| 文本类(其他可 UTF-8 解码的) | `read_file_text` 后塞入 `<div class="preview-text">` | 等宽字体 |
+| 已知二进制 (pdf, zip, 图片, 音视频, 字体, 可执行文件) | 类型识别 + 大小 + 头 16 字节 hex,友好占位 | 不阻塞,不报错 |
+| > 2MB 文件 | 占位"文件过大"提示 | 避免内存爆炸 |
 
 ---
 
@@ -201,7 +224,19 @@ CLI 触发工具调用时若需用户授权（如 `Allow Bash to run "rm -rf nod
 - **不在 App 内做登录流程**（OAuth / API Key 让 CLI 自己管）
 - 检测到至少一个 CLI 可用后，引导"创建第一个 Topic"
 
-### 6.5 中断的语义
+### 6.5 自动 Topic 标题
+
+新建 Topic 时不强制取标题(默认占位"新建 Topic")。首轮对话(用户消息 + 助手完整回复 + Exited 事件)结束后,如果标题仍是默认值,后端自动:
+1. 取首条用户消息(截前 240 字)+ 首条助手回复(截前 320 字)
+2. 用 Topic 配置的 CLI(`claude -p` 或 `codex -p`)无 `--resume` 跑一次 headless,提示"为下面对话生成 2-6 字中文标题,只返回标题文字本身"
+3. 清洗结果(去引号/书名号/句末标点,截 20 字),写入 DB,前端 setState 立即可见
+
+特性:
+- 静默执行,不打扰对话(失败仅写 debug log)
+- 每个 Topic 仅尝试一次(前端 `titleAttemptedRef` 标记)
+- 用户随时双击标题手动改,自动改后用户重命名优先级高于自动
+
+### 6.6 中断的语义
 
 用户点中断 / 关闭 Topic / 退出 Salmon：
 - 已渲染的不完整消息打 `[已中断]` 标记
@@ -271,10 +306,13 @@ CLI 触发工具调用时若需用户授权（如 `Allow Bash to run "rm -rf nod
 - [x] 危险模式开关
 
 ### Should（P1，第二迭代）
+- [x] Logs Tab + Preview Tab(见 4.3.1)
+- [x] Markdown / HTML / Office 文件预览(LibreOffice 渲染)
+- [x] 自动 Topic 标题生成(见 6.5)
+- [x] 品牌图标 + .deb 安装入口
 - [ ] Codex CLI 后端（依赖前置 spike 通过）
 - [ ] 跨消息全文搜索（FTS5）
 - [ ] 拖拽文件 → 自动 `@` 引用
-- [ ] Logs Tab + Preview Tab
 - [ ] Dark mode 完整调校
 - [ ] 长 Topic 虚拟滚动（>500 条消息）
 - [ ] 永久权限白名单管理 UI

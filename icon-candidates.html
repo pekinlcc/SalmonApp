@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>Salmon App — Icon Candidates</title>
+<style>
+  :root {
+    --salmon-50:  #FFF1ED;
+    --salmon-100: #FFD9CD;
+    --salmon-300: #FFA68A;
+    --salmon-500: #FA8072;
+    --salmon-600: #E5685A;
+    --salmon-700: #B7493D;
+    --ink-900: #1B1F23;
+    --ink-700: #3A4047;
+    --ink-500: #6B7280;
+    --ink-100: #E6E8EB;
+    --ink-50:  #F5F6F7;
+    --bg:      #FAFAF9;
+    --panel:   #FFFFFF;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 14px/1.55 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: var(--ink-900);
+    background: var(--bg);
+    padding: 32px 40px 80px;
+  }
+  h1 { margin: 0 0 4px; font-size: 22px; }
+  .lead { color: var(--ink-500); margin: 0 0 32px; }
+  .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 28px; max-width: 1280px; }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--ink-100);
+    border-radius: 12px;
+    padding: 22px;
+    box-shadow: 0 1px 0 rgba(16,18,20,0.04), 0 4px 18px rgba(16,18,20,0.04);
+  }
+  .card h3 { margin: 0 0 4px; font-size: 15px; }
+  .card .desc { color: var(--ink-500); font-size: 12.5px; margin: 0 0 14px; }
+  .row { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+  .hero { width: 128px; height: 128px; }
+  .sizes { display: flex; align-items: flex-end; gap: 14px; padding-left: 10px; border-left: 1px dashed var(--ink-100); }
+  .sizes .lab { font-size: 10px; color: var(--ink-500); text-align: center; margin-top: 4px; }
+  .icon-frame { display: flex; flex-direction: column; align-items: center; }
+  .bg-dark { background: #1B1F23; padding: 12px; border-radius: 8px; display: inline-flex; }
+  .compare { display: flex; gap: 16px; margin-top: 14px; }
+  .compare .b { padding: 10px; border-radius: 8px; background: var(--ink-50); }
+  .compare .b.dark { background: #1B1F23; }
+  .num { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 6px; background: var(--salmon-500); color: white; font-weight: 700; font-size: 12px; margin-right: 8px; }
+</style>
+</head>
+<body>
+
+<h1>Salmon — 图标候选</h1>
+<p class="lead">每款给一个 128px 主图,下面放 64/48/32/16 验证小尺寸辨识度,以及在浅/深底色下的样子。</p>
+
+<div class="grid">
+
+<!-- ============ 1: 跃起的鲑鱼 (Leaping Salmon) ============ -->
+<div class="card">
+  <h3><span class="num">1</span>跃起的鲑鱼</h3>
+  <p class="desc">最直白的拟物——一条跃出水面的鲑鱼,水波在底部。强势识别度,但小尺寸可能糊。</p>
+  <div class="row">
+    <svg class="hero" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="g1-body" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#FFA68A"/>
+          <stop offset="1" stop-color="#E5685A"/>
+        </linearGradient>
+      </defs>
+      <rect width="128" height="128" rx="28" fill="#FFF1ED"/>
+      <!-- water -->
+      <path d="M0 96 Q 32 86, 64 96 T 128 96 L 128 128 L 0 128 Z" fill="#FFD9CD"/>
+      <path d="M0 104 Q 32 94, 64 104 T 128 104" stroke="#FFA68A" stroke-width="2" fill="none"/>
+      <!-- fish body -->
+      <g transform="translate(64 64) rotate(-22)">
+        <ellipse cx="0" cy="0" rx="36" ry="14" fill="url(#g1-body)"/>
+        <!-- tail -->
+        <path d="M30 0 L 50 -16 L 46 0 L 50 16 Z" fill="#B7493D"/>
+        <!-- top fin -->
+        <path d="M-6 -12 L 4 -22 L 14 -12 Z" fill="#B7493D"/>
+        <!-- bottom fin -->
+        <path d="M0 12 L 8 18 L 14 12 Z" fill="#B7493D"/>
+        <!-- eye -->
+        <circle cx="-22" cy="-3" r="2.6" fill="#1B1F23"/>
+        <!-- gill line -->
+        <path d="M-14 -8 Q -12 0 -14 8" stroke="#B7493D" stroke-width="1.6" fill="none"/>
+      </g>
+    </svg>
+    <div class="sizes">
+      <div class="icon-frame"><svg width="64" height="64" viewBox="0 0 128 128"><use href="#i1"/></svg><div class="lab">64</div></div>
+      <div class="icon-frame"><svg width="48" height="48" viewBox="0 0 128 128"><use href="#i1"/></svg><div class="lab">48</div></div>
+      <div class="icon-frame"><svg width="32" height="32" viewBox="0 0 128 128"><use href="#i1"/></svg><div class="lab">32</div></div>
+      <div class="icon-frame"><svg width="16" height="16" viewBox="0 0 128 128"><use href="#i1"/></svg><div class="lab">16</div></div>
+    </div>
+  </div>
+  <svg width="0" height="0" style="position:absolute"><symbol id="i1" viewBox="0 0 128 128">
+    <rect width="128" height="128" rx="28" fill="#FFF1ED"/>
+    <path d="M0 96 Q 32 86, 64 96 T 128 96 L 128 128 L 0 128 Z" fill="#FFD9CD"/>
+    <g transform="translate(64 64) rotate(-22)">
+      <ellipse cx="0" cy="0" rx="36" ry="14" fill="#E5685A"/>
+      <path d="M30 0 L 50 -16 L 46 0 L 50 16 Z" fill="#B7493D"/>
+      <path d="M-6 -12 L 4 -22 L 14 -12 Z" fill="#B7493D"/>
+      <path d="M0 12 L 8 18 L 14 12 Z" fill="#B7493D"/>
+      <circle cx="-22" cy="-3" r="2.6" fill="#1B1F23"/>
+    </g>
+  </symbol></svg>
+</div>
+
+<!-- ============ 2: S 字标 + 鱼尾 (S-mark) ============ -->
+<div class="card">
+  <h3><span class="num">2</span>S 字标 + 鱼尾</h3>
+  <p class="desc">"Salmon" 首字母 S,下半部演化成鱼尾。极简符号路线,小尺寸最稳。</p>
+  <div class="row">
+    <svg class="hero" viewBox="0 0 128 128">
+      <rect width="128" height="128" rx="28" fill="#FA8072"/>
+      <path d="M88 38
+               C 88 28, 76 24, 64 24
+               C 50 24, 40 32, 40 44
+               C 40 56, 52 60, 64 64
+               C 76 68, 88 72, 88 84
+               C 88 96, 78 102, 66 102
+               L 30 102 L 50 86
+               L 36 78 L 50 70 Z"
+            fill="white"/>
+    </svg>
+    <div class="sizes">
+      <div class="icon-frame"><svg width="64" height="64" viewBox="0 0 128 128"><use href="#i2"/></svg><div class="lab">64</div></div>
+      <div class="icon-frame"><svg width="48" height="48" viewBox="0 0 128 128"><use href="#i2"/></svg><div class="lab">48</div></div>
+      <div class="icon-frame"><svg width="32" height="32" viewBox="0 0 128 128"><use href="#i2"/></svg><div class="lab">32</div></div>
+      <div class="icon-frame"><svg width="16" height="16" viewBox="0 0 128 128"><use href="#i2"/></svg><div class="lab">16</div></div>
+    </div>
+  </div>
+  <svg width="0" height="0" style="position:absolute"><symbol id="i2" viewBox="0 0 128 128">
+    <rect width="128" height="128" rx="28" fill="#FA8072"/>
+    <path d="M88 38 C 88 28, 76 24, 64 24 C 50 24, 40 32, 40 44 C 40 56, 52 60, 64 64 C 76 68, 88 72, 88 84 C 88 96, 78 102, 66 102 L 30 102 L 50 86 L 36 78 L 50 70 Z" fill="white"/>
+  </symbol></svg>
+</div>
+
+<!-- ============ 3: 寿司鲑鱼条纹 (Sashimi) ============ -->
+<div class="card">
+  <h3><span class="num">3</span>鲑鱼刺身条纹</h3>
+  <p class="desc">引用鲑鱼肉那种粉橙间白色脂肪条纹的视觉签名。文化辨识度高,色彩纯粹。</p>
+  <div class="row">
+    <svg class="hero" viewBox="0 0 128 128">
+      <defs>
+        <clipPath id="clip3"><rect width="128" height="128" rx="28"/></clipPath>
+      </defs>
+      <g clip-path="url(#clip3)">
+        <rect width="128" height="128" fill="#FA8072"/>
+        <path d="M-10 30 C 30 24, 60 38, 138 26 L 138 38 C 60 50, 30 36, -10 42 Z" fill="white" opacity="0.92"/>
+        <path d="M-10 64 C 30 58, 70 76, 138 60 L 138 72 C 70 88, 30 70, -10 76 Z" fill="white" opacity="0.92"/>
+        <path d="M-10 100 C 40 92, 70 108, 138 96 L 138 108 C 70 120, 40 104, -10 112 Z" fill="white" opacity="0.92"/>
+      </g>
+    </svg>
+    <div class="sizes">
+      <div class="icon-frame"><svg width="64" height="64" viewBox="0 0 128 128"><use href="#i3"/></svg><div class="lab">64</div></div>
+      <div class="icon-frame"><svg width="48" height="48" viewBox="0 0 128 128"><use href="#i3"/></svg><div class="lab">48</div></div>
+      <div class="icon-frame"><svg width="32" height="32" viewBox="0 0 128 128"><use href="#i3"/></svg><div class="lab">32</div></div>
+      <div class="icon-frame"><svg width="16" height="16" viewBox="0 0 128 128"><use href="#i3"/></svg><div class="lab">16</div></div>
+    </div>
+  </div>
+  <svg width="0" height="0" style="position:absolute"><symbol id="i3" viewBox="0 0 128 128">
+    <defs><clipPath id="clip3b"><rect width="128" height="128" rx="28"/></clipPath></defs>
+    <g clip-path="url(#clip3b)">
+      <rect width="128" height="128" fill="#FA8072"/>
+      <path d="M-10 30 C 30 24, 60 38, 138 26 L 138 38 C 60 50, 30 36, -10 42 Z" fill="white" opacity="0.92"/>
+      <path d="M-10 64 C 30 58, 70 76, 138 60 L 138 72 C 70 88, 30 70, -10 76 Z" fill="white" opacity="0.92"/>
+      <path d="M-10 100 C 40 92, 70 108, 138 96 L 138 108 C 70 120, 40 104, -10 112 Z" fill="white" opacity="0.92"/>
+    </g>
+  </symbol></svg>
+</div>
+
+<!-- ============ 4: 几何/折纸鲑鱼 (Origami) ============ -->
+<div class="card">
+  <h3><span class="num">4</span>几何折纸鱼</h3>
+  <p class="desc">三角面拼成的鱼。开发者审美,与 CLI/工具属性契合;每个面用渐进色拉对比。</p>
+  <div class="row">
+    <svg class="hero" viewBox="0 0 128 128">
+      <rect width="128" height="128" rx="28" fill="#FFF1ED"/>
+      <!-- body triangles -->
+      <polygon points="22,64 56,40 80,64" fill="#FFA68A"/>
+      <polygon points="22,64 56,88 80,64" fill="#FA8072"/>
+      <polygon points="80,64 56,40 100,52" fill="#E5685A"/>
+      <polygon points="80,64 56,88 100,76" fill="#B7493D"/>
+      <!-- tail -->
+      <polygon points="100,52 100,76 118,40" fill="#B7493D"/>
+      <polygon points="100,52 100,76 118,88" fill="#E5685A"/>
+      <!-- eye -->
+      <circle cx="44" cy="60" r="3.2" fill="#1B1F23"/>
+    </svg>
+    <div class="sizes">
+      <div class="icon-frame"><svg width="64" height="64" viewBox="0 0 128 128"><use href="#i4"/></svg><div class="lab">64</div></div>
+      <div class="icon-frame"><svg width="48" height="48" viewBox="0 0 128 128"><use href="#i4"/></svg><div class="lab">48</div></div>
+      <div class="icon-frame"><svg width="32" height="32" viewBox="0 0 128 128"><use href="#i4"/></svg><div class="lab">32</div></div>
+      <div class="icon-frame"><svg width="16" height="16" viewBox="0 0 128 128"><use href="#i4"/></svg><div class="lab">16</div></div>
+    </div>
+  </div>
+  <svg width="0" height="0" style="position:absolute"><symbol id="i4" viewBox="0 0 128 128">
+    <rect width="128" height="128" rx="28" fill="#FFF1ED"/>
+    <polygon points="22,64 56,40 80,64" fill="#FFA68A"/>
+    <polygon points="22,64 56,88 80,64" fill="#FA8072"/>
+    <polygon points="80,64 56,40 100,52" fill="#E5685A"/>
+    <polygon points="80,64 56,88 100,76" fill="#B7493D"/>
+    <polygon points="100,52 100,76 118,40" fill="#B7493D"/>
+    <polygon points="100,52 100,76 118,88" fill="#E5685A"/>
+    <circle cx="44" cy="60" r="3.2" fill="#1B1F23"/>
+  </symbol></svg>
+</div>
+
+<!-- ============ 5: 鱼形对话气泡 (Chat fish) ============ -->
+<div class="card">
+  <h3><span class="num">5</span>鱼形对话气泡</h3>
+  <p class="desc">把鱼尾当作气泡尖角,身体是聊天气泡。直白点出"对话客户端"属性。</p>
+  <div class="row">
+    <svg class="hero" viewBox="0 0 128 128">
+      <rect width="128" height="128" rx="28" fill="white" stroke="#FFD9CD" stroke-width="2"/>
+      <!-- bubble body -->
+      <path d="M28 56
+               C 28 36, 48 26, 68 26
+               C 92 26, 108 40, 108 60
+               C 108 78, 94 90, 76 92
+               L 60 108 L 56 92
+               C 40 88, 28 76, 28 56 Z"
+            fill="#FA8072"/>
+      <!-- tail (folds out from bubble pointer) -->
+      <path d="M56 92 L 18 110 L 30 92 L 18 76 Z" fill="#B7493D"/>
+      <!-- chat dots -->
+      <circle cx="56" cy="58" r="4" fill="white"/>
+      <circle cx="70" cy="58" r="4" fill="white"/>
+      <circle cx="84" cy="58" r="4" fill="white"/>
+    </svg>
+    <div class="sizes">
+      <div class="icon-frame"><svg width="64" height="64" viewBox="0 0 128 128"><use href="#i5"/></svg><div class="lab">64</div></div>
+      <div class="icon-frame"><svg width="48" height="48" viewBox="0 0 128 128"><use href="#i5"/></svg><div class="lab">48</div></div>
+      <div class="icon-frame"><svg width="32" height="32" viewBox="0 0 128 128"><use href="#i5"/></svg><div class="lab">32</div></div>
+      <div class="icon-frame"><svg width="16" height="16" viewBox="0 0 128 128"><use href="#i5"/></svg><div class="lab">16</div></div>
+    </div>
+  </div>
+  <svg width="0" height="0" style="position:absolute"><symbol id="i5" viewBox="0 0 128 128">
+    <rect width="128" height="128" rx="28" fill="white" stroke="#FFD9CD" stroke-width="2"/>
+    <path d="M28 56 C 28 36, 48 26, 68 26 C 92 26, 108 40, 108 60 C 108 78, 94 90, 76 92 L 60 108 L 56 92 C 40 88, 28 76, 28 56 Z" fill="#FA8072"/>
+    <path d="M56 92 L 18 110 L 30 92 L 18 76 Z" fill="#B7493D"/>
+    <circle cx="56" cy="58" r="4" fill="white"/>
+    <circle cx="70" cy="58" r="4" fill="white"/>
+    <circle cx="84" cy="58" r="4" fill="white"/>
+  </symbol></svg>
+</div>
+
+<!-- ============ 6: 终端提示符 + 鲑鱼色 (Prompt) ============ -->
+<div class="card">
+  <h3><span class="num">6</span>终端提示符</h3>
+  <p class="desc">"&gt;_" 提示符,全鲑鱼色。最技术向、最克制,完全不画鱼但靠色彩绑定品牌。</p>
+  <div class="row">
+    <svg class="hero" viewBox="0 0 128 128">
+      <rect width="128" height="128" rx="28" fill="#1B1F23"/>
+      <!-- prompt arrow -->
+      <path d="M 30 38 L 64 64 L 30 90" stroke="#FA8072" stroke-width="10" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      <!-- cursor underline -->
+      <rect x="72" y="84" width="28" height="10" rx="2" fill="#FA8072"/>
+    </svg>
+    <div class="sizes">
+      <div class="icon-frame"><svg width="64" height="64" viewBox="0 0 128 128"><use href="#i6"/></svg><div class="lab">64</div></div>
+      <div class="icon-frame"><svg width="48" height="48" viewBox="0 0 128 128"><use href="#i6"/></svg><div class="lab">48</div></div>
+      <div class="icon-frame"><svg width="32" height="32" viewBox="0 0 128 128"><use href="#i6"/></svg><div class="lab">32</div></div>
+      <div class="icon-frame"><svg width="16" height="16" viewBox="0 0 128 128"><use href="#i6"/></svg><div class="lab">16</div></div>
+    </div>
+  </div>
+  <svg width="0" height="0" style="position:absolute"><symbol id="i6" viewBox="0 0 128 128">
+    <rect width="128" height="128" rx="28" fill="#1B1F23"/>
+    <path d="M 30 38 L 64 64 L 30 90" stroke="#FA8072" stroke-width="10" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="72" y="84" width="28" height="10" rx="2" fill="#FA8072"/>
+  </symbol></svg>
+</div>
+
+</div>
+
+<div style="margin-top: 40px; padding: 18px 22px; background: var(--ink-50); border-radius: 12px; max-width: 1280px;">
+  <strong>评价维度建议:</strong>
+  <span style="color: var(--ink-700)">① 16/32 px 时还认得吗 ② 在 Dock/任务栏深底色和 Files 浅底色都好看吗 ③ 看一眼能不能想起这是什么 app ④ 跟 Anthropic/Claude 的橙色不冲突吗</span>
+</div>
+
+</body>
+</html>
