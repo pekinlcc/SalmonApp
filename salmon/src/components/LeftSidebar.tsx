@@ -8,19 +8,17 @@ interface Props {
   runningIds: Set<string>;
   spawningId: string | null;
   cliStatus: CliInfo[];
-  defaultEngine: string;
-  onChangeDefaultEngine: (engine: string) => void;
   onSelect: (id: string) => void;
   onNewTopic: () => void;
+  onOpenSettings: () => void;
   onDeleteTopic: (id: string) => void;
   onRenameTopic: (id: string, title: string) => void;
 }
 
 export function LeftSidebar(props: Props) {
-  const { topics, selectedId, runningIds, spawningId, cliStatus, defaultEngine } = props;
+  const { topics, selectedId, runningIds, spawningId, cliStatus } = props;
   const [query, setQuery] = useState("");
   const [menuFor, setMenuFor] = useState<string | null>(null);
-  const [engineMenuOpen, setEngineMenuOpen] = useState(false);
 
   const filtered = useMemo(() => {
     if (!query.trim()) return topics;
@@ -35,7 +33,14 @@ export function LeftSidebar(props: Props) {
       <div className="left-head">
         <div className="logo">S</div>
         <div className="name">Salmon</div>
-        <div className="ver">v0.1.0</div>
+        <div className="ver">v0.3.2</div>
+        <button
+          className="settings-btn"
+          title="设置"
+          onClick={props.onOpenSettings}
+        >
+          ⚙
+        </button>
       </div>
 
       <button className="new-btn" onClick={props.onNewTopic}>
@@ -126,50 +131,16 @@ export function LeftSidebar(props: Props) {
       </div>
 
       <div className="left-foot">
-        <div className="engine-switch">
-          <button
-            className="engine-btn"
-            onClick={() => setEngineMenuOpen((v) => !v)}
-            title="切换默认引擎(只影响新建 Topic)"
-          >
-            <span className={`engine-pill ${defaultEngine === "claude" ? "engine-cc" : "engine-cx"}`}>
-              {defaultEngine === "claude" ? "CC" : "CX"}
-            </span>
-            <span className="engine-name">
-              {cliStatus.find((c) => c.binary === defaultEngine)?.name ||
-                (defaultEngine === "claude" ? "Claude Code" : "Codex")}
-            </span>
-            <span className="caret">▾</span>
-          </button>
-          {engineMenuOpen && (
-            <div className="engine-menu" onMouseLeave={() => setEngineMenuOpen(false)}>
-              {cliStatus.map((c) => {
-                const disabled = !c.installed || !c.loggedIn;
-                return (
-                  <div
-                    key={c.binary}
-                    className={`engine-menu-item ${defaultEngine === c.binary ? "active" : ""} ${disabled ? "disabled" : ""}`}
-                    onClick={() => {
-                      if (disabled) return;
-                      props.onChangeDefaultEngine(c.binary);
-                      setEngineMenuOpen(false);
-                    }}
-                  >
-                    <span className={`engine-pill ${c.binary === "claude" ? "engine-cc" : "engine-cx"}`}>
-                      {c.binary === "claude" ? "CC" : "CX"}
-                    </span>
-                    <span className="em-name">{c.name}</span>
-                    <span className="em-status">
-                      {!c.installed ? "未安装" : !c.loggedIn ? "未登录" : "已登录"}
-                    </span>
-                    {defaultEngine === c.binary && <span className="em-check">✓</span>}
-                  </div>
-                );
-              })}
-              <div className="engine-menu-hint">已存在 Topic 的引擎不会变;只影响下一次"新建 Topic"</div>
+        {cliStatus.map((c) => {
+          const cls = !c.installed ? "miss" : c.loggedIn ? "" : "warn";
+          const label = !c.installed ? "未安装" : c.loggedIn ? "已登录" : "未登录";
+          return (
+            <div key={c.binary} className={`health ${cls}`} title={c.path || ""}>
+              <span className="dot" />
+              {c.name}: {label}
             </div>
-          )}
-        </div>
+          );
+        })}
       </div>
     </aside>
   );

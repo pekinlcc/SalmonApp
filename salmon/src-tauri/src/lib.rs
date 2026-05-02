@@ -51,6 +51,8 @@ pub fn run() {
             commands::suggest_topic_title,
             commands::get_default_engine,
             commands::set_default_engine,
+            commands::get_chat_layout,
+            commands::set_chat_layout,
             commands::set_danger_mode,
             commands::running_topics,
             commands::debug_log,

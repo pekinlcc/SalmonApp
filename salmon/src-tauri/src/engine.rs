@@ -163,8 +163,7 @@ async fn run_session(
     rx: &mut mpsc::UnboundedReceiver<EngineCmd>,
     on_session_id: Box<dyn Fn(&str) + Send + Sync>,
 ) -> Result<()> {
-    // For MVP we focus on Claude Code. Codex can be added later with a different driver.
-    if engine_kind != "claude" {
+    if engine_kind != "claude" && engine_kind != "codex" {
         let _ = app.emit(
             "salmon-stream",
             StreamEvent::Error {
@@ -201,104 +200,106 @@ async fn run_session(
                 // otherwise default permissions apply. Future: use --permission-prompt-tool.
             }
             EngineCmd::Send(prompt) => {
-                eprintln!("[salmon] Send arm entered; prompt len={}", prompt.len());
-                let claude_bin = match which::which("claude") {
+                eprintln!("[salmon] Send arm entered; prompt len={} engine={}", prompt.len(), engine_kind);
+
+                // Build the per-engine command.
+                let bin_name = engine_kind.as_str();
+                let bin = match which::which(bin_name) {
                     Ok(p) => p,
                     Err(e) => {
-                        eprintln!("[salmon] which::which(claude) failed: {e}");
-                        let _ = app.emit(
-                            "salmon-stream",
-                            StreamEvent::Error {
-                                topic_id: topic_id.clone(),
-                                message: format!("claude binary not found in PATH: {e}"),
-                            },
-                        );
-                        let _ = app.emit(
-                            "salmon-stream",
-                            StreamEvent::Exited {
-                                topic_id: topic_id.clone(),
-                                code: Some(127),
-                            },
-                        );
+                        let _ = app.emit("salmon-stream", StreamEvent::Error {
+                            topic_id: topic_id.clone(),
+                            message: format!("{} binary not found in PATH: {}", bin_name, e),
+                        });
+                        let _ = app.emit("salmon-stream", StreamEvent::Exited {
+                            topic_id: topic_id.clone(), code: Some(127),
+                        });
                         continue;
                     }
                 };
-                eprintln!("[salmon] using claude binary: {}", claude_bin.display());
 
-                let mut cmd_builder = Command::new(&claude_bin);
+                let mut cmd_builder = Command::new(&bin);
+                if engine_kind == "claude" {
+                    cmd_builder
+                        .arg("-p")
+                        .arg("--output-format").arg("stream-json")
+                        .arg("--verbose")
+                        .arg(&prompt)
+                        .current_dir(&workdir);
+                    if let Some(sid) = &current_session_id {
+                        cmd_builder.arg("--resume").arg(sid);
+                    }
+                    if let Some(m) = &model {
+                        cmd_builder.arg("--model").arg(m);
+                    }
+                    if danger_mode {
+                        cmd_builder.arg("--dangerously-skip-permissions");
+                    }
+                } else {
+                    // codex
+                    cmd_builder.arg("exec");
+                    if let Some(sid) = &current_session_id {
+                        cmd_builder.arg("resume").arg(sid);
+                    }
+                    cmd_builder
+                        .arg("--json")
+                        .arg("--skip-git-repo-check")
+                        .arg("--cd").arg(&workdir);
+                    if let Some(m) = &model {
+                        cmd_builder.arg("-c").arg(format!("model={}", m));
+                    }
+                    if danger_mode {
+                        cmd_builder.arg("--dangerously-bypass-approvals-and-sandbox");
+                    }
+                    cmd_builder.arg(&prompt);
+                }
                 cmd_builder
-                    .arg("-p")
-                    .arg("--output-format").arg("stream-json")
-                    .arg("--verbose")
-                    .arg(&prompt)
-                    .current_dir(&workdir)
                     .stdin(Stdio::null())
                     .stdout(Stdio::piped())
                     .stderr(Stdio::piped())
                     .kill_on_drop(true);
 
-                if let Some(sid) = &current_session_id {
-                    cmd_builder.arg("--resume").arg(sid);
-                }
-                if let Some(m) = &model {
-                    cmd_builder.arg("--model").arg(m);
-                }
-                if danger_mode {
-                    cmd_builder.arg("--dangerously-skip-permissions");
-                }
-
-                eprintln!("[salmon] spawning child claude…");
+                eprintln!("[salmon] spawning child {}…", bin_name);
                 let mut child = match cmd_builder.spawn() {
                     Ok(c) => c,
                     Err(e) => {
-                        eprintln!("[salmon] spawn failed: {e}");
-                        let _ = app.emit(
-                            "salmon-stream",
-                            StreamEvent::Error {
-                                topic_id: topic_id.clone(),
-                                message: format!("spawn claude failed: {e}"),
-                            },
-                        );
-                        let _ = app.emit(
-                            "salmon-stream",
-                            StreamEvent::Exited {
-                                topic_id: topic_id.clone(),
-                                code: Some(-1),
-                            },
-                        );
+                        let _ = app.emit("salmon-stream", StreamEvent::Error {
+                            topic_id: topic_id.clone(),
+                            message: format!("spawn {} failed: {}", bin_name, e),
+                        });
+                        let _ = app.emit("salmon-stream", StreamEvent::Exited {
+                            topic_id: topic_id.clone(), code: Some(-1),
+                        });
                         continue;
                     }
                 };
-                eprintln!("[salmon] child spawned, pid={:?}", child.id());
 
                 let stdout = child.stdout.take().unwrap();
                 let stderr = child.stderr.take().unwrap();
-
                 let mut sid_collected: Option<String> = None;
                 let mut line_count: u32 = 0;
 
-                // Read stdout, stderr and child wait concurrently and inline
-                // (avoid relying on tokio::spawn from inside a tauri::async_runtime task).
                 let mut stdout_reader = BufReader::new(stdout).lines();
                 let mut stderr_reader = BufReader::new(stderr).lines();
 
                 let app_for_loop = app.clone();
                 let tid_for_loop = topic_id.clone();
+                let kind_for_loop = engine_kind.clone();
 
                 let stdout_fut = async {
                     while let Ok(Some(line)) = stdout_reader.next_line().await {
                         if line.trim().is_empty() { continue; }
                         line_count += 1;
-                        eprintln!("[salmon] stdout line: {}", &line.chars().take(140).collect::<String>());
-                        let _ = app_for_loop.emit(
-                            "salmon-stream",
-                            StreamEvent::Log {
-                                topic_id: tid_for_loop.clone(),
-                                line: line.clone(),
-                            },
-                        );
+                        let _ = app_for_loop.emit("salmon-stream", StreamEvent::Log {
+                            topic_id: tid_for_loop.clone(),
+                            line: line.clone(),
+                        });
                         if let Ok(v) = serde_json::from_str::<serde_json::Value>(&line) {
-                            handle_stream_event(&app_for_loop, &tid_for_loop, &v, &mut sid_collected);
+                            if kind_for_loop == "claude" {
+                                handle_stream_event(&app_for_loop, &tid_for_loop, &v, &mut sid_collected);
+                            } else {
+                                handle_codex_event(&app_for_loop, &tid_for_loop, &v, &mut sid_collected);
+                            }
                         }
                     }
                 };
@@ -307,23 +308,18 @@ async fn run_session(
                 let tid_for_err = topic_id.clone();
                 let stderr_fut = async {
                     while let Ok(Some(line)) = stderr_reader.next_line().await {
-                        eprintln!("[salmon] stderr line: {}", &line);
-                        let _ = app_for_err.emit(
-                            "salmon-stream",
-                            StreamEvent::Log {
-                                topic_id: tid_for_err.clone(),
-                                line: format!("[stderr] {line}"),
-                            },
-                        );
+                        let _ = app_for_err.emit("salmon-stream", StreamEvent::Log {
+                            topic_id: tid_for_err.clone(),
+                            line: format!("[stderr] {line}"),
+                        });
                     }
                 };
 
                 let wait_fut = child.wait();
                 let (_, _, status) = tokio::join!(stdout_fut, stderr_fut, wait_fut);
-                eprintln!("[salmon] child wait returned: {:?}, parsed {} lines", status, line_count);
-                let collected_sid = sid_collected;
+                eprintln!("[salmon] {} child wait returned: {:?}, parsed {} lines", bin_name, status, line_count);
 
-                if let Some(sid) = collected_sid {
+                if let Some(sid) = sid_collected {
                     if current_session_id.as_deref() != Some(sid.as_str()) {
                         current_session_id = Some(sid.clone());
                         on_session_id(&sid);
@@ -336,23 +332,15 @@ async fn run_session(
                 };
                 if let Ok(s) = &status {
                     if !s.success() {
-                        let _ = app.emit(
-                            "salmon-stream",
-                            StreamEvent::Error {
-                                topic_id: topic_id.clone(),
-                                message: format!("claude exited with status {:?}", s.code()),
-                            },
-                        );
+                        let _ = app.emit("salmon-stream", StreamEvent::Error {
+                            topic_id: topic_id.clone(),
+                            message: format!("{} exited with status {:?}", bin_name, s.code()),
+                        });
                     }
                 }
-                // Per-turn done event so frontend can clear "处理中"
-                let _ = app.emit(
-                    "salmon-stream",
-                    StreamEvent::Exited {
-                        topic_id: topic_id.clone(),
-                        code: exit_code,
-                    },
-                );
+                let _ = app.emit("salmon-stream", StreamEvent::Exited {
+                    topic_id: topic_id.clone(), code: exit_code,
+                });
             }
         }
     }
@@ -488,6 +476,149 @@ fn handle_stream_event(
         }
         "result" => {
             // final summary; nothing to emit beyond what we already streamed
+        }
+        _ => {}
+    }
+}
+
+/// Parse one Codex CLI JSONL event line. Codex emits a small set of types:
+/// `thread.started` (carries thread_id, our session id), `turn.started`,
+/// `item.completed` (with a typed `item` object — `agent_message` for
+/// assistant text, plus various tool-call types), `turn.completed`
+/// (with usage). Tool-call surfacing is best-effort: we map any item with
+/// a recognizable name + input into a ToolCall card so users can see what
+/// codex did, but the schema is less fixed than Claude's stream-json so
+/// some items render as plain text fallbacks.
+fn handle_codex_event(
+    app: &AppHandle,
+    topic_id: &str,
+    v: &serde_json::Value,
+    sid_out: &mut Option<String>,
+) {
+    let kind = v.get("type").and_then(|x| x.as_str()).unwrap_or("");
+    match kind {
+        "thread.started" => {
+            if let Some(tid) = v.get("thread_id").and_then(|x| x.as_str()) {
+                *sid_out = Some(tid.to_string());
+                let _ = app.emit(
+                    "salmon-stream",
+                    StreamEvent::Started {
+                        topic_id: topic_id.to_string(),
+                        session_id: Some(tid.to_string()),
+                    },
+                );
+            }
+        }
+        "item.completed" | "item.started" => {
+            let Some(item) = v.get("item") else { return };
+            let itype = item.get("type").and_then(|x| x.as_str()).unwrap_or("");
+            let id = item.get("id").and_then(|x| x.as_str()).unwrap_or("").to_string();
+            match itype {
+                "agent_message" => {
+                    if kind != "item.completed" {
+                        return;
+                    }
+                    if let Some(text) = item.get("text").and_then(|x| x.as_str()) {
+                        let _ = app.emit(
+                            "salmon-stream",
+                            StreamEvent::AssistantDone {
+                                topic_id: topic_id.to_string(),
+                                message_id: id,
+                                content: text.to_string(),
+                            },
+                        );
+                    }
+                }
+                "agent_reasoning" | "reasoning" => {
+                    // codex's chain-of-thought; surface as a small note when present.
+                    if kind != "item.completed" {
+                        return;
+                    }
+                    if let Some(text) = item
+                        .get("text")
+                        .and_then(|x| x.as_str())
+                        .or_else(|| item.get("summary").and_then(|x| x.as_str()))
+                    {
+                        if !text.trim().is_empty() {
+                            let _ = app.emit(
+                                "salmon-stream",
+                                StreamEvent::AssistantDone {
+                                    topic_id: topic_id.to_string(),
+                                    message_id: id,
+                                    content: format!("> _(reasoning)_ {}", text),
+                                },
+                            );
+                        }
+                    }
+                }
+                // Tool-like events. Map into our ToolCall shape on item.started so
+                // the card shows up immediately; flip to done on item.completed.
+                _ => {
+                    let name = match itype {
+                        "command_execution" | "local_shell_call" => "Bash",
+                        "file_change" | "file_edit" | "patch_apply" => "Edit",
+                        "file_read" => "Read",
+                        "web_search" => "WebSearch",
+                        "web_fetch" => "WebFetch",
+                        other if !other.is_empty() => other,
+                        _ => return,
+                    };
+                    let mut input = item.clone();
+                    if let Some(obj) = input.as_object_mut() {
+                        obj.remove("id");
+                        obj.remove("type");
+                    }
+                    if kind == "item.started" {
+                        let tc = ToolCall {
+                            id: id.clone(),
+                            name: name.to_string(),
+                            input,
+                            state: "running".into(),
+                            result: None,
+                        };
+                        let _ = app.emit(
+                            "salmon-stream",
+                            StreamEvent::ToolCall {
+                                topic_id: topic_id.to_string(),
+                                tool: tc,
+                            },
+                        );
+                    } else {
+                        // completed
+                        let result = item
+                            .get("output")
+                            .map(|c| {
+                                if c.is_string() {
+                                    c.as_str().unwrap_or("").to_string()
+                                } else {
+                                    c.to_string()
+                                }
+                            })
+                            .or_else(|| {
+                                item.get("text")
+                                    .and_then(|x| x.as_str())
+                                    .map(|s| s.to_string())
+                            });
+                        let exit_status = item
+                            .get("exit_code")
+                            .and_then(|x| x.as_i64())
+                            .unwrap_or(0);
+                        let state = if exit_status != 0 { "error" } else { "done" };
+                        let _ = app.emit(
+                            "salmon-stream",
+                            StreamEvent::ToolResult {
+                                topic_id: topic_id.to_string(),
+                                tool_id: id,
+                                state: state.into(),
+                                result,
+                            },
+                        );
+                    }
+                }
+            }
+        }
+        "turn.started" | "turn.completed" => {
+            // Could be used for usage display; ignored for MVP.
         }
         _ => {}
     }

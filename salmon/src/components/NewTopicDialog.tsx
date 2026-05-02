@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
-import type { CliInfo } from "../lib/types";
+import type { CliInfo, Topic } from "../lib/types";
 
 interface Props {
   cliStatus: CliInfo[];
   defaultEngine: string;
+  topics: Topic[];
   onCancel: () => void;
   onCreate: (args: {
     title: string;
@@ -15,14 +16,21 @@ interface Props {
   }) => void;
 }
 
-export function NewTopicDialog({ cliStatus, defaultEngine, onCancel, onCreate }: Props) {
+export function NewTopicDialog({ cliStatus, defaultEngine, topics, onCancel, onCreate }: Props) {
   const available = cliStatus.filter((c) => c.installed && c.loggedIn);
   const fallbackEngine = available[0]?.binary || "claude";
   const initialEngine = available.find((c) => c.binary === defaultEngine)
     ? defaultEngine
     : fallbackEngine;
 
-  const [workdir, setWorkdir] = useState<string>("");
+  // Pre-fill workdir from the most recently active Topic, so most users
+  // can just hit Enter on the new-topic dialog.
+  const initialWorkdir = useMemo(() => {
+    if (topics.length === 0) return "";
+    return [...topics].sort((a, b) => b.updatedAt - a.updatedAt)[0].workdir || "";
+  }, [topics]);
+
+  const [workdir, setWorkdir] = useState<string>(initialWorkdir);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [title, setTitle] = useState<string>("");
   const [model, setModel] = useState<string>("");
@@ -30,8 +38,26 @@ export function NewTopicDialog({ cliStatus, defaultEngine, onCancel, onCreate }:
   const [engineOverride, setEngineOverride] = useState<string>(initialEngine);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // If the chosen workdir already has a Topic, that Topic's engine wins —
+  // CLI session resume is per-engine, so two Topics in the same dir can't
+  // share a transcript across engines without confusion.
+  const lockedEngine = useMemo(() => {
+    if (!workdir) return null;
+    const existing = topics
+      .filter((t) => t.workdir === workdir)
+      .sort((a, b) => b.updatedAt - a.updatedAt)[0];
+    return existing ? existing.engine : null;
+  }, [workdir, topics]);
+
+  useEffect(() => {
+    if (lockedEngine && lockedEngine !== engineOverride) {
+      setEngineOverride(lockedEngine);
+    }
+  }, [lockedEngine]);
+
   useEffect(() => {
     inputRef.current?.focus();
+    inputRef.current?.select();
   }, []);
 
   const pickDir = async () => {
@@ -81,10 +107,67 @@ export function NewTopicDialog({ cliStatus, defaultEngine, onCancel, onCreate }:
           </div>
         </label>
 
+        <label>
+          <span>
+            引擎
+            {lockedEngine && (
+              <span style={{ marginLeft: 6, color: "var(--salmon-700)", fontWeight: 400, fontSize: 11 }}>
+                （此目录已有 Topic,沿用 {engineLabel(lockedEngine)}）
+              </span>
+            )}
+          </span>
+          <div className="engine-row" style={{ marginTop: 2 }}>
+            {cliStatus.map((c) => {
+              const unavailable = !c.installed || !c.loggedIn;
+              const lockedOut = !!lockedEngine && lockedEngine !== c.binary;
+              const disabled = unavailable || lockedOut;
+              const checked = engineOverride === c.binary;
+              return (
+                <label
+                  key={c.binary}
+                  className={`engine-card ${checked ? "selected" : ""} ${disabled ? "disabled" : ""}`}
+                  title={
+                    lockedOut
+                      ? `此目录已锁定 ${engineLabel(lockedEngine!)}`
+                      : !c.installed
+                      ? "未安装"
+                      : !c.loggedIn
+                      ? "未登录"
+                      : ""
+                  }
+                >
+                  <input
+                    type="radio"
+                    name="topic-engine"
+                    value={c.binary}
+                    checked={checked}
+                    disabled={disabled}
+                    onChange={() => setEngineOverride(c.binary)}
+                  />
+                  <div className="engine-card-body">
+                    <div className="engine-card-title">
+                      <span className={`engine-pill ${c.binary === "claude" ? "engine-cc" : "engine-cx"}`}>
+                        {c.binary === "claude" ? "CC" : "CX"}
+                      </span>
+                      <span>{c.name}</span>
+                    </div>
+                    <div className="engine-card-status">
+                      {!c.installed ? "未安装" : !c.loggedIn ? "未登录" : "已登录"}
+                      {c.version && <span className="engine-card-ver"> · {c.version}</span>}
+                    </div>
+                  </div>
+                </label>
+              );
+            })}
+          </div>
+          {lockedEngine && (
+            <div style={{ fontSize: 11, color: "var(--ink-500)", marginTop: 6, lineHeight: 1.55 }}>
+              同目录跨引擎会让 CLI 的 session resume 错乱,所以引擎被锁。要换引擎就得换目录。
+            </div>
+          )}
+        </label>
+
         <div style={{ fontSize: 12, color: "var(--ink-500)", marginTop: -4, marginBottom: 10 }}>
-          引擎 <strong style={{ color: "var(--ink-700)" }}>{engineLabel(engineOverride)}</strong>
-          {engineOverride !== defaultEngine && "（本次覆盖）"}
-          {" · "}
           <a
             href="#"
             onClick={(e) => { e.preventDefault(); setAdvancedOpen((v) => !v); }}
@@ -92,21 +175,11 @@ export function NewTopicDialog({ cliStatus, defaultEngine, onCancel, onCreate }:
           >
             {advancedOpen ? "收起高级" : "高级"}
           </a>
+          {!advancedOpen && <span> · 标题、模型、危险模式</span>}
         </div>
 
         {advancedOpen && (
           <div style={{ borderTop: "1px solid var(--ink-100)", paddingTop: 10 }}>
-            <label>
-              <span>引擎（仅本 Topic）</span>
-              <select value={engineOverride} onChange={(e) => setEngineOverride(e.target.value)}>
-                {cliStatus.map((c) => (
-                  <option key={c.binary} value={c.binary} disabled={!c.installed || !c.loggedIn}>
-                    {c.name}{!c.installed ? "（未安装）" : !c.loggedIn ? "（未登录）" : ""}
-                  </option>
-                ))}
-              </select>
-            </label>
-
             <label>
               <span>标题（可空，首轮对话后自动生成）</span>
               <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="例如：refactor auth middleware" />

@@ -73,6 +73,13 @@ pub fn create_topic(
     model: Option<String>,
     danger_mode: bool,
 ) -> Result<Topic, String> {
+    let p = PathBuf::from(&workdir);
+    if !p.exists() {
+        return Err(format!("工作目录不存在: {}", workdir));
+    }
+    if !p.is_dir() {
+        return Err(format!("不是一个目录: {}", workdir));
+    }
     let mut db = state.db.lock();
     let t = db
         .create_topic(&title, &engine, &workdir, model.as_deref(), danger_mode)
@@ -221,6 +228,29 @@ pub fn set_default_engine(
         .db
         .lock()
         .set_setting("default_engine", &engine)
+        .map_err(map_err)
+}
+
+#[tauri::command]
+pub fn get_chat_layout(state: State<'_, AppState>) -> Result<String, String> {
+    let v = state
+        .db
+        .lock()
+        .get_setting("chat_layout")
+        .map_err(map_err)?;
+    Ok(v.unwrap_or_else(|| "thinking".to_string()))
+}
+
+#[tauri::command]
+pub fn set_chat_layout(state: State<'_, AppState>, layout: String) -> Result<(), String> {
+    let v = match layout.as_str() {
+        "inline" | "thinking" => layout,
+        _ => return Err(format!("invalid layout: {}", layout)),
+    };
+    state
+        .db
+        .lock()
+        .set_setting("chat_layout", &v)
         .map_err(map_err)
 }
 

@@ -1,6 +1,15 @@
-# Salmon App — 产品需求文档（PRD v0.3.1）
+# Salmon App — 产品需求文档（PRD v0.3.2）
 
 > 状态：**MVP 已落地,进入完善阶段**
+> 版本：v0.3.2 — 2026-05-02
+> v0.3.1 → v0.3.2 增量(均已实现):
+> - **Codex 驱动正式落地**:替换原先 `engine 'codex' not yet supported` 占位,后端用 `codex exec --json --skip-git-repo-check --cd <wd>` 跑首轮,捕获 `thread.started.thread_id` 当 session id,后续 `codex exec resume <sid>` 续 session;`item.completed` 的 `agent_message`/`command_execution`/`local_shell_call`/`file_read`/`file_change`/`web_search` 等映射到现有 ToolCall 卡片渲染
+> - **对话布局开关**(Settings → 对话布局):新加 `Block` 数据模型,助手回复的 text 段和工具调用按到达顺序入 `blocks: Block[]`,渲染分两种风格——**折叠思考 + 答案**(默认,工具调用全收进 `▾ 思考过程 · N 步` disclosure,尾部文字作为答案显示)、**内联时序交错**(Cherry Studio / Claude.ai 风,text/tool 完全按 stream 顺序)
+> - **新建 Topic 弹窗主面板放出引擎选择**:两张引擎卡片(同 Settings 的样式)直接铺开,不再藏在"高级"里;工作目录默认预填最近 Topic 的 workdir(Enter 即可提交);若该目录已有 Topic,另一张引擎卡 disabled 显示"此目录已锁定 XX"
+> - **后端 `create_topic` 校验**:工作目录必须存在且是目录,否则返回中文错误,杜绝"目录手输错 → Topic 一发就崩"
+> - **设置对话框**:左上齿轮按钮 ⚙ 入口,目前承载"默认引擎"(替代之前左下的引擎切换器)和"对话布局"两块,持久化到 `settings` 表
+> - **左下回到简洁两行登录状态**(Claude Code: 已登录 · Codex: 已登录),"当前/默认引擎"中间态指示器移除——Topic 引擎在列表里的 CC/CX 徽章已经表达
+>
 > 版本：v0.3.1 — 2026-05-02
 > v0.3 → v0.3.1 增量(均已实现):
 > - **新建 Topic 极简化**:弹窗只剩"工作目录"必填,标题/模型/危险模式收进"高级"折叠区

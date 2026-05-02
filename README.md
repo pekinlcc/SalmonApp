@@ -2,7 +2,7 @@
 
 > A three-pane desktop client for the **Claude Code CLI** and **Codex CLI** — Ubuntu / Linux first.
 >
-> Status: **v0.3.1** — MVP plus a real Preview pane (Markdown / HTML / Office docs), auto-generated topic titles, an origami-fish brand mark, and a workdir-only Topic creation flow with a global engine switcher. End-to-end against a locally-logged-in `claude` or `codex`. Topics persist across launches; the panel reuses your existing CLI credentials so there's no second account to manage.
+> Status: **v0.3.2** — MVP plus a real Preview pane (Markdown / HTML / Office docs), auto-generated topic titles, an origami-fish brand mark, a fully working Codex driver, and a chat layout that shows tool calls in chronological order (with an optional collapsed-thinking mode). End-to-end against a locally-logged-in `claude` or `codex`. Topics persist across launches; the panel reuses your existing CLI credentials so there's no second account to manage.
 
 <p align="center">
   <img src="salmon/src-tauri/icons/icon.png" alt="Salmon icon" width="128" />
@@ -131,6 +131,20 @@ Key choices:
 - **Per-Topic PTY** — each Topic owns one `tokio::process::Child` running `claude` (or `codex`) in JSONL streaming mode. Stream events flow through an unbounded mpsc channel and out to the UI as Tauri events.
 - **SQLite** in `~/.local/share/Salmon/salmon.db` — Topics, messages, tool calls, permission decisions, token counts. Plain text. Export / clear available from the UI.
 - **No API calls from Salmon itself** — every model interaction is a child process invocation.
+
+## v0.3.2 — Codex driver + chat layouts + Topic creation overhaul
+
+- **Codex CLI is now a real engine, not a stub.** The `codex` topic type used to short-circuit with `engine 'codex' not yet supported in this build`; v0.3.2 wires up the actual driver. Salmon spawns `codex exec --json --skip-git-repo-check --cd <workdir> "<prompt>"` for the first turn (capturing `thread_id` from the `thread.started` event), and `codex exec resume <thread_id> "<prompt>"` for subsequent turns — same per-Topic session-resume semantics that Claude Code already had. Tool-call items (`command_execution`, `local_shell_call`, `file_read`, `file_change`, `web_search` …) get mapped to the same ToolCall card the Claude side uses, so you see what Codex actually did in the workdir. `agent_message` items become assistant text.
+- **Chat layouts (Settings → 对话布局).** Assistant turns now keep their text + tool calls in arrival order via a `blocks` array, instead of "all text first, then all tools" which broke the time line. Two layouts:
+  - **Folded thinking + answer** (default) — every tool call collapses into a `▾ 思考过程 · N 步` disclosure; the trailing text is the visible final answer. The answer is plain prose now, no orange blockquote bar.
+  - **Inline interleaved** (Cherry Studio / Claude.ai style) — text and tools alternate exactly as they streamed.
+- **Topic creation flow rewritten.**
+  - Two engine cards (Claude Code / Codex) are visible up-front next to the workdir input — no more digging into "高级" to switch engines.
+  - The workdir input is **pre-filled with the most recently used Topic's workdir**, so the common case is "Enter to confirm".
+  - When the chosen workdir already has a Topic, the **other engine's card is locked out**: same-folder-cross-engine session resume doesn't actually work in either CLI, so we make that constraint explicit at creation time instead of letting it confuse users later.
+  - **`create_topic` now validates** that the workdir exists + is a directory; previously a typo got you a topic that crashed every send.
+- **Settings dialog** (gear icon top-left of the sidebar). Currently houses *默认引擎* (which engine new Topics default to) and *对话布局*. Persisted in SQLite `settings`.
+- **Sidebar bottom-left simplified.** Back to the original two-pill CLI health (Claude Code: 已登录 · Codex: 已登录). The intermediate "current/default engine" indicator was confusing and is gone — engine state is now exposed via the per-Topic badge in the list and the Settings dialog.
 
 ## v0.3.1 — UX polish
 

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { sendNotification, isPermissionGranted, requestPermission } from "@tauri-apps/plugin-notification";
 import { ask } from "@tauri-apps/plugin-dialog";
-import type { CliInfo, Message, StreamEvent, ToolCall, Topic, UiMessage } from "./lib/types";
+import type { Block, ChatLayout, CliInfo, Message, StreamEvent, ToolCall, Topic, UiMessage } from "./lib/types";
 import { api } from "./lib/api";
 import { LeftSidebar } from "./components/LeftSidebar";
 import { ChatStream } from "./components/ChatStream";
@@ -10,6 +10,7 @@ import { Composer } from "./components/Composer";
 import { RightPane } from "./components/RightPane";
 import { NewTopicDialog } from "./components/NewTopicDialog";
 import { Onboarding } from "./components/Onboarding";
+import { SettingsDialog } from "./components/SettingsDialog";
 
 interface PendingPerm {
   id: string;
@@ -23,6 +24,8 @@ export default function App() {
   const [showOnboarding, setShowOnboarding] = useState(true);
   const [topics, setTopics] = useState<Topic[]>([]);
   const [defaultEngine, setDefaultEngine] = useState<string>("claude");
+  const [chatLayout, setChatLayout] = useState<ChatLayout>("thinking");
+  const [showSettings, setShowSettings] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showNew, setShowNew] = useState(false);
 
@@ -56,7 +59,20 @@ export default function App() {
       const eng = await api.getDefaultEngine();
       setDefaultEngine(eng);
     } catch {}
+    try {
+      const layout = await api.getChatLayout();
+      if (layout === "inline" || layout === "thinking") setChatLayout(layout);
+    } catch {}
     return { clis: det.clis, topics: ts };
+  }, []);
+
+  const onChangeChatLayout = useCallback(async (layout: ChatLayout) => {
+    setChatLayout(layout);
+    try {
+      await api.setChatLayout(layout);
+    } catch (e) {
+      api.debugLog(`set_chat_layout failed: ${e}`);
+    }
   }, []);
 
   const onChangeDefaultEngine = useCallback(async (engine: string) => {
@@ -115,19 +131,15 @@ export default function App() {
       case "assistantDone": {
         setMessagesByTopic((m) => {
           const list = [...(m[e.topicId] || [])];
-          // try to merge into a "current assistant" message; else append new
           let cur = list[list.length - 1];
           if (!cur || cur.role !== "assistant" || !cur.pending) {
-            cur = {
-              id: e.messageId || cryptoId(),
-              role: "assistant",
-              content: "",
-              tools: [],
-              pending: true,
-              createdAt: Date.now(),
-            };
+            cur = newAssistantMessage(e.messageId || cryptoId());
             list.push(cur);
           }
+          cur.blocks = [
+            ...cur.blocks,
+            { kind: "text", content: e.content, createdAt: Date.now() },
+          ];
           cur.content = (cur.content ? cur.content + "\n\n" : "") + e.content;
           return { ...m, [e.topicId]: list };
         });
@@ -139,16 +151,13 @@ export default function App() {
           const list = [...(m[e.topicId] || [])];
           let cur = list[list.length - 1];
           if (!cur || cur.role !== "assistant" || !cur.pending) {
-            cur = {
-              id: cryptoId(),
-              role: "assistant",
-              content: "",
-              tools: [],
-              pending: true,
-              createdAt: Date.now(),
-            };
+            cur = newAssistantMessage(cryptoId());
             list.push(cur);
           }
+          cur.blocks = [
+            ...cur.blocks,
+            { kind: "tool", tool: e.tool, createdAt: Date.now() },
+          ];
           cur.tools = [...cur.tools, e.tool];
           return { ...m, [e.topicId]: list };
         });
@@ -164,10 +173,21 @@ export default function App() {
                 t.result = e.result || null;
               }
             }
+            msg.blocks = msg.blocks.map((b) =>
+              b.kind === "tool" && b.tool.id === e.toolId
+                ? {
+                    ...b,
+                    tool: {
+                      ...b.tool,
+                      state: (e.state as any) || "done",
+                      result: e.result || null,
+                    },
+                  }
+                : b
+            );
           }
           return { ...m, [e.topicId]: list };
         });
-        // refresh files panel
         setFilesRefreshKey((k) => k + 1);
         break;
       }
@@ -289,12 +309,14 @@ export default function App() {
       // optimistic user message
       setMessagesByTopic((m) => {
         const list = [...(m[selectedId] || [])];
+        const now = Date.now();
         list.push({
           id: cryptoId(),
           role: "user",
           content: text,
+          blocks: [{ kind: "text", content: text, createdAt: now }],
           tools: [],
-          createdAt: Date.now(),
+          createdAt: now,
         });
         return { ...m, [selectedId]: list };
       });
@@ -374,10 +396,9 @@ export default function App() {
         runningIds={runningIds}
         spawningId={spawningId}
         cliStatus={cliStatus}
-        defaultEngine={defaultEngine}
-        onChangeDefaultEngine={onChangeDefaultEngine}
         onSelect={onSelect}
         onNewTopic={() => setShowNew(true)}
+        onOpenSettings={() => setShowSettings(true)}
         onDeleteTopic={onDelete}
         onRenameTopic={onRename}
       />
@@ -424,6 +445,7 @@ export default function App() {
               messages={messagesByTopic[selectedTopic.id] || []}
               pendingPermission={pendingPermByTopic[selectedTopic.id] || null}
               errorBanner={errorByTopic[selectedTopic.id] || null}
+              chatLayout={chatLayout}
               onApprovePermission={onApprove}
               onSelectTool={setSelectedTool}
             />
@@ -446,8 +468,20 @@ export default function App() {
         <NewTopicDialog
           cliStatus={cliStatus}
           defaultEngine={defaultEngine}
+          topics={topics}
           onCancel={() => setShowNew(false)}
           onCreate={onCreateTopic}
+        />
+      )}
+
+      {showSettings && (
+        <SettingsDialog
+          chatLayout={chatLayout}
+          defaultEngine={defaultEngine}
+          cliStatus={cliStatus}
+          onChangeChatLayout={onChangeChatLayout}
+          onChangeDefaultEngine={onChangeDefaultEngine}
+          onClose={() => setShowSettings(false)}
         />
       )}
     </div>
@@ -461,11 +495,26 @@ function cryptoId(): string {
   return Math.random().toString(36).slice(2);
 }
 
+function newAssistantMessage(id: string): UiMessage {
+  return {
+    id,
+    role: "assistant",
+    content: "",
+    blocks: [],
+    tools: [],
+    pending: true,
+    createdAt: Date.now(),
+  };
+}
+
 function hydrate(msgs: Message[]): UiMessage[] {
   return msgs.map((m) => ({
     id: m.id,
     role: m.role,
     content: m.content,
+    blocks: m.content
+      ? [{ kind: "text" as const, content: m.content, createdAt: m.createdAt }]
+      : [],
     tools: [],
     createdAt: m.createdAt,
   }));

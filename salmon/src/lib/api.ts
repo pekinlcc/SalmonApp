@@ -33,6 +33,9 @@ export const api = {
   getDefaultEngine: () => invoke<string>("get_default_engine"),
   setDefaultEngine: (engine: string) =>
     invoke<void>("set_default_engine", { engine }),
+  getChatLayout: () => invoke<string>("get_chat_layout"),
+  setChatLayout: (layout: string) =>
+    invoke<void>("set_chat_layout", { layout }),
   setDangerMode: (id: string, danger: boolean) =>
     invoke<void>("set_danger_mode", { id, danger }),
   runningTopics: () => invoke<string[]>("running_topics"),

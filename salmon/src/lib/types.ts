@@ -54,12 +54,23 @@ export type StreamEvent =
   | { kind: "exited"; topicId: string; code: number | null }
   | { kind: "log"; topicId: string; line: string };
 
+export type Block =
+  | { kind: "text"; content: string; createdAt: number }
+  | { kind: "tool"; tool: ToolCall; createdAt: number };
+
 export interface UiMessage {
   id: string;
   role: "user" | "assistant" | "system";
+  // For backward compatibility (historic messages from DB carry text only here),
+  // assistant messages prefer `blocks` for in-order rendering. User messages
+  // use `content` only.
   content: string;
+  blocks: Block[];
+  /** @deprecated Kept for transitional code paths; new code reads `blocks`. */
   tools: ToolCall[];
   pending?: boolean;
   interrupted?: boolean;
   createdAt: number;
 }
+
+export type ChatLayout = "inline" | "thinking";
