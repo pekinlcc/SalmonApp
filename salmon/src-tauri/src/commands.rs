@@ -203,6 +203,28 @@ pub fn list_workdir_files(workdir: String) -> Result<Vec<FileEntry>, String> {
 }
 
 #[tauri::command]
+pub fn get_default_engine(state: State<'_, AppState>) -> Result<String, String> {
+    let v = state
+        .db
+        .lock()
+        .get_setting("default_engine")
+        .map_err(map_err)?;
+    Ok(v.unwrap_or_else(|| "claude".to_string()))
+}
+
+#[tauri::command]
+pub fn set_default_engine(
+    state: State<'_, AppState>,
+    engine: String,
+) -> Result<(), String> {
+    state
+        .db
+        .lock()
+        .set_setting("default_engine", &engine)
+        .map_err(map_err)
+}
+
+#[tauri::command]
 pub fn suggest_topic_title(
     state: State<'_, AppState>,
     id: String,

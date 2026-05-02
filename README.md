@@ -2,7 +2,7 @@
 
 > A three-pane desktop client for the **Claude Code CLI** and **Codex CLI** — Ubuntu / Linux first.
 >
-> Status: **v0.3** — MVP plus a real Preview pane (Markdown / HTML / Office docs), auto-generated topic titles, and an origami-fish brand mark. End-to-end against a locally-logged-in `claude` or `codex`. Topics persist across launches; the panel reuses your existing CLI credentials so there's no second account to manage.
+> Status: **v0.3.1** — MVP plus a real Preview pane (Markdown / HTML / Office docs), auto-generated topic titles, an origami-fish brand mark, and a workdir-only Topic creation flow with a global engine switcher. End-to-end against a locally-logged-in `claude` or `codex`. Topics persist across launches; the panel reuses your existing CLI credentials so there's no second account to manage.
 
 <p align="center">
   <img src="salmon/src-tauri/icons/icon.png" alt="Salmon icon" width="128" />
@@ -131,6 +131,12 @@ Key choices:
 - **Per-Topic PTY** — each Topic owns one `tokio::process::Child` running `claude` (or `codex`) in JSONL streaming mode. Stream events flow through an unbounded mpsc channel and out to the UI as Tauri events.
 - **SQLite** in `~/.local/share/Salmon/salmon.db` — Topics, messages, tool calls, permission decisions, token counts. Plain text. Export / clear available from the UI.
 - **No API calls from Salmon itself** — every model interaction is a child process invocation.
+
+## v0.3.1 — UX polish
+
+- **One-field Topic creation** — the new-Topic dialog now asks for *just* a workdir. Engine, title, model and danger-mode all hide behind a collapsed "高级" pane.
+- **Global engine switcher** in the bottom-left status bar — pick the default engine (Claude Code / Codex) once; it's persisted in SQLite and applied to every new Topic. Existing Topics stay on whatever engine they were created with (the CLI's `--resume <session-id>` is per-engine, so cross-engine resume isn't possible — see [PRD §4.1](PRD.md)).
+- The dialog still allows a per-Topic override under "高级" without changing the global default.
 
 ## v0.3 — what's new since MVP
 

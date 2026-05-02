@@ -22,6 +22,7 @@ export default function App() {
   const [cliStatus, setCliStatus] = useState<CliInfo[]>([]);
   const [showOnboarding, setShowOnboarding] = useState(true);
   const [topics, setTopics] = useState<Topic[]>([]);
+  const [defaultEngine, setDefaultEngine] = useState<string>("claude");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showNew, setShowNew] = useState(false);
 
@@ -51,7 +52,20 @@ export default function App() {
     setTopics(ts);
     const running = await api.runningTopics();
     setRunningIds(new Set(running));
+    try {
+      const eng = await api.getDefaultEngine();
+      setDefaultEngine(eng);
+    } catch {}
     return { clis: det.clis, topics: ts };
+  }, []);
+
+  const onChangeDefaultEngine = useCallback(async (engine: string) => {
+    setDefaultEngine(engine);
+    try {
+      await api.setDefaultEngine(engine);
+    } catch (e) {
+      api.debugLog(`set_default_engine failed: ${e}`);
+    }
   }, []);
 
   useEffect(() => {
@@ -360,6 +374,8 @@ export default function App() {
         runningIds={runningIds}
         spawningId={spawningId}
         cliStatus={cliStatus}
+        defaultEngine={defaultEngine}
+        onChangeDefaultEngine={onChangeDefaultEngine}
         onSelect={onSelect}
         onNewTopic={() => setShowNew(true)}
         onDeleteTopic={onDelete}
@@ -429,6 +445,7 @@ export default function App() {
       {showNew && (
         <NewTopicDialog
           cliStatus={cliStatus}
+          defaultEngine={defaultEngine}
           onCancel={() => setShowNew(false)}
           onCreate={onCreateTopic}
         />

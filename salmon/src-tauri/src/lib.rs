@@ -49,6 +49,8 @@ pub fn run() {
             commands::read_file_text,
             commands::render_office_preview,
             commands::suggest_topic_title,
+            commands::get_default_engine,
+            commands::set_default_engine,
             commands::set_danger_mode,
             commands::running_topics,
             commands::debug_log,

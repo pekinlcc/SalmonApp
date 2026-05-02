@@ -30,6 +30,9 @@ export const api = {
     invoke<string[]>("render_office_preview", { path }),
   suggestTopicTitle: (id: string) =>
     invoke<string>("suggest_topic_title", { id }),
+  getDefaultEngine: () => invoke<string>("get_default_engine"),
+  setDefaultEngine: (engine: string) =>
+    invoke<void>("set_default_engine", { engine }),
   setDangerMode: (id: string, danger: boolean) =>
     invoke<void>("set_danger_mode", { id, danger }),
   runningTopics: () => invoke<string[]>("running_topics"),

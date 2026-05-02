@@ -155,6 +155,27 @@ impl Db {
         Ok(())
     }
 
+    pub fn get_setting(&self, key: &str) -> Result<Option<String>> {
+        let mut stmt = self
+            .conn
+            .prepare("SELECT value FROM settings WHERE key=?")?;
+        let mut rows = stmt.query(params![key])?;
+        if let Some(r) = rows.next()? {
+            Ok(Some(r.get(0)?))
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub fn set_setting(&mut self, key: &str, value: &str) -> Result<()> {
+        self.conn.execute(
+            "INSERT INTO settings(key,value) VALUES(?,?)
+             ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+            params![key, value],
+        )?;
+        Ok(())
+    }
+
     pub fn touch_topic(&mut self, id: &str) -> Result<()> {
         let now = Utc::now().timestamp_millis();
         self.conn
