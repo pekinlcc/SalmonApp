@@ -117,6 +117,8 @@ pub fn open_topic(state: State<'_, AppState>, id: String) -> Result<(), String> 
         .ok_or_else(|| "topic not found".to_string())?;
     let db_handle = Arc::clone(&state.db);
     let topic_id_for_cb = topic.id.clone();
+    let db_for_msg = Arc::clone(&state.db);
+    let topic_id_for_msg = topic.id.clone();
     state
         .engine
         .spawn(
@@ -130,6 +132,10 @@ pub fn open_topic(state: State<'_, AppState>, id: String) -> Result<(), String> 
                 if let Some(mut db) = db_handle.try_lock() {
                     let _ = db.set_session_id(&topic_id_for_cb, sid);
                 }
+            }),
+            Box::new(move |text| {
+                let mut db = db_for_msg.lock();
+                let _ = db.append_message(&topic_id_for_msg, "assistant", text, None);
             }),
         )
         .map_err(map_err)

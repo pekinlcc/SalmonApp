@@ -39,7 +39,7 @@ export function LeftSidebar(props: Props) {
       <div className="left-head">
         <div className="logo">S</div>
         <div className="name">Salmon</div>
-        <div className="ver">v0.3.3</div>
+        <div className="ver">v0.3.4</div>
         <button
           className="settings-btn"
           title="设置"

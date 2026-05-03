@@ -92,6 +92,7 @@ impl EngineRegistry {
         session_id: Option<String>,
         danger_mode: bool,
         on_session_id: Box<dyn Fn(&str) + Send + Sync>,
+        on_assistant_message: Box<dyn Fn(&str) + Send + Sync>,
     ) -> Result<()> {
         if self.is_running(&topic_id) {
             return Ok(());
@@ -119,6 +120,7 @@ impl EngineRegistry {
                 danger_mode,
                 &mut rx,
                 on_session_id,
+                on_assistant_message,
             )
             .await;
             eprintln!("[salmon] task exited for topic={} result={:?}", topic_id_for_task, result.is_err());
@@ -162,7 +164,9 @@ async fn run_session(
     danger_mode: bool,
     rx: &mut mpsc::UnboundedReceiver<EngineCmd>,
     on_session_id: Box<dyn Fn(&str) + Send + Sync>,
+    on_assistant_message: Box<dyn Fn(&str) + Send + Sync>,
 ) -> Result<()> {
+    let on_assistant = std::sync::Arc::new(on_assistant_message);
     if engine_kind != "claude" && engine_kind != "codex" {
         let _ = app.emit(
             "salmon-stream",
@@ -301,6 +305,7 @@ async fn run_session(
                 let app_for_loop = app.clone();
                 let tid_for_loop = topic_id.clone();
                 let kind_for_loop = engine_kind.clone();
+                let on_assistant_for_loop = on_assistant.clone();
 
                 let stdout_fut = async {
                     while let Ok(Some(line)) = stdout_reader.next_line().await {
@@ -312,9 +317,9 @@ async fn run_session(
                         });
                         if let Ok(v) = serde_json::from_str::<serde_json::Value>(&line) {
                             if kind_for_loop == "claude" {
-                                handle_stream_event(&app_for_loop, &tid_for_loop, &v, &mut sid_collected);
+                                handle_stream_event(&app_for_loop, &tid_for_loop, &v, &mut sid_collected, &*on_assistant_for_loop);
                             } else {
-                                handle_codex_event(&app_for_loop, &tid_for_loop, &v, &mut sid_collected);
+                                handle_codex_event(&app_for_loop, &tid_for_loop, &v, &mut sid_collected, &*on_assistant_for_loop);
                             }
                         }
                     }
@@ -370,6 +375,7 @@ fn handle_stream_event(
     topic_id: &str,
     v: &serde_json::Value,
     sid_out: &mut Option<String>,
+    on_assistant_message: &(dyn Fn(&str) + Send + Sync),
 ) {
     let kind = v.get("type").and_then(|x| x.as_str()).unwrap_or("");
 
@@ -416,6 +422,7 @@ fn handle_stream_event(
                                         },
                                     );
                                     eprintln!("[salmon] emit AssistantDone len={} result={:?}", text.len(), r.as_ref().map(|_| ()).map_err(|e| e.to_string()));
+                                    on_assistant_message(text);
                                 }
                             }
                             "tool_use" => {
@@ -510,6 +517,7 @@ fn handle_codex_event(
     topic_id: &str,
     v: &serde_json::Value,
     sid_out: &mut Option<String>,
+    on_assistant_message: &(dyn Fn(&str) + Send + Sync),
 ) {
     let kind = v.get("type").and_then(|x| x.as_str()).unwrap_or("");
     match kind {
@@ -543,6 +551,7 @@ fn handle_codex_event(
                                 content: text.to_string(),
                             },
                         );
+                        on_assistant_message(text);
                     }
                 }
                 "agent_reasoning" | "reasoning" => {

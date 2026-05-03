@@ -1,6 +1,13 @@
-# Salmon App — 产品需求文档（PRD v0.3.3）
+# Salmon App — 产品需求文档（PRD v0.3.4）
 
 > 状态：**MVP 已落地,进入完善阶段**
+> 版本：v0.3.4 — 2026-05-03
+> v0.3.3 → v0.3.4 关键修复:
+> - **助手回复终于真的入库了** — 此前 `db.append_message` 只在 `send_message` 里被调用,把用户消息存了;助手回复只走 `StreamEvent::AssistantDone` 实时通道,**从未落盘**。重开应用时 `hydrate(listMessages)` 回放出来的就是"半截对话":只有用户问号,没有助手答案。
+> - 修法:`EngineRegistry::spawn` 加 `on_assistant_message: Box<dyn Fn(&str) + Send + Sync>` 回调,`commands::open_topic` 把它接到 `db.append_message(topic_id, "assistant", text, None)`;Claude 路径在 `handle_stream_event` 处理 `text` block 时调,Codex 路径在 `handle_codex_event` 处理 `item.completed` 的 `agent_message` 时调。
+> - 用户报"一阵一阵"的根因是 `/usr/bin/salmon`(deb 装的旧版,无持久化补丁)和 `target/release/salmon`(我们 `--no-bundle` 编出的新版,有补丁)两个二进制并存,从 Dock 启动跑老版,从命令行 launch 跑新版,所以表现间歇性丢失。v0.3.4 把补丁打进 deb 重装,统一从此版本开始所有路径都有持久化。
+> - 工具调用卡片(Bash/Read/Edit/Grep 等)目前仍是 in-memory only — 重启不丢用户/助手文本,但工具步骤的细节看不到。schema 已有 `tool_calls TEXT` 列,只是从未写过;后续单独迭代加上反序列化恢复。
+>
 > 版本：v0.3.3 — 2026-05-03
 > v0.3.2 → v0.3.3 增量(均已实现):
 > - **修复 Codex 多轮对话** — `codex exec resume <sid>` 不接受 `--cd` 参数,但 v0.3.2 一直在传,导致每条第二条消息都 usage error 退出,UI 看起来就是 Codex"消息发出去就消失"。v0.3.3 改为 spawn 时 `current_dir(workdir)`(对首次和 resume 都生效),不再传 `--cd`;同时 `suggest_topic_title` 对 Codex 改用 `codex exec --skip-git-repo-check`(原 `codex -p` 进交互模式不出 stdout)

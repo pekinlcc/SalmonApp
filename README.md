@@ -2,7 +2,7 @@
 
 > A three-pane desktop client for the **Claude Code CLI** and **Codex CLI** — Ubuntu / Linux first.
 >
-> Status: **v0.3.3** — Codex multi-turn now actually resumes correctly, archived/missing-workdir Topics get a proper banner + lifecycle, and the right pane is collapsible. End-to-end against a locally-logged-in `claude` or `codex`. Topics persist across launches; the panel reuses your existing CLI credentials so there's no second account to manage.
+> Status: **v0.3.4** — assistant replies are now actually persisted to SQLite, so chat history survives across restarts. End-to-end against a locally-logged-in `claude` or `codex`. The panel reuses your existing CLI credentials so there's no second account to manage.
 
 <p align="center">
   <img src="salmon/src-tauri/icons/icon.png" alt="Salmon icon" width="128" />
@@ -131,6 +131,14 @@ Key choices:
 - **Per-Topic PTY** — each Topic owns one `tokio::process::Child` running `claude` (or `codex`) in JSONL streaming mode. Stream events flow through an unbounded mpsc channel and out to the UI as Tauri events.
 - **SQLite** in `~/.local/share/Salmon/salmon.db` — Topics, messages, tool calls, permission decisions, token counts. Plain text. Export / clear available from the UI.
 - **No API calls from Salmon itself** — every model interaction is a child process invocation.
+
+## v0.3.4 — Persist assistant replies (history actually survives restart)
+
+Critical bug fix.
+
+- **Assistant replies are now written to SQLite.** Up through v0.3.3, only the user side of the chat was being persisted via `db.append_message`; the assistant's text only flew through the live stream-event channel and never hit disk. So when you closed the app and re-opened a Topic, you'd see your own messages with no replies — half a conversation. The new `EngineRegistry::spawn` takes an `on_assistant_message` callback; `commands::open_topic` wires it up to `db.append_message(topic_id, "assistant", text, None)`. Both the Claude (`text` block in the assistant message stream-json) and Codex (`agent_message` item.completed) paths invoke it.
+- This only affects history *going forward*. Conversations from v0.3.3 and earlier where the assistant text was lost can't be recovered — those bytes never reached the DB.
+- Tool-call cards (Bash / Read / Edit / Grep …) are still in-memory only; they reappear during a live session but don't survive a restart yet. That's a bigger schema-side fix planned for a follow-up.
 
 ## v0.3.3 — Codex follow-up turns, Topic lifecycle, collapsible right pane
 
