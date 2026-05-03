@@ -6,8 +6,15 @@ export interface Topic {
   model: string | null;
   sessionId: string | null;
   dangerMode: boolean;
+  archived?: boolean;
   createdAt: number;
   updatedAt: number;
+}
+
+export interface WorkdirCheck {
+  exists: boolean;
+  isDir: boolean;
+  readable: boolean;
 }
 
 export interface ToolCall {

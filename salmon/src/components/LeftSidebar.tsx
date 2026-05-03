@@ -13,6 +13,7 @@ interface Props {
   onOpenSettings: () => void;
   onDeleteTopic: (id: string) => void;
   onRenameTopic: (id: string, title: string) => void;
+  onArchiveTopic: (id: string, archived: boolean) => void;
 }
 
 export function LeftSidebar(props: Props) {
@@ -20,20 +21,25 @@ export function LeftSidebar(props: Props) {
   const [query, setQuery] = useState("");
   const [menuFor, setMenuFor] = useState<string | null>(null);
 
-  const filtered = useMemo(() => {
-    if (!query.trim()) return topics;
-    const q = query.toLowerCase();
-    return topics.filter((t) => t.title.toLowerCase().includes(q));
+  const [showArchived, setShowArchived] = useState(false);
+
+  const { active, archived } = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const matches = (t: Topic) => !q || t.title.toLowerCase().includes(q);
+    return {
+      active: topics.filter((t) => matches(t) && !t.archived),
+      archived: topics.filter((t) => matches(t) && t.archived),
+    };
   }, [topics, query]);
 
-  const grouped = useMemo(() => groupByTime(filtered), [filtered]);
+  const grouped = useMemo(() => groupByTime(active), [active]);
 
   return (
     <aside className="left">
       <div className="left-head">
         <div className="logo">S</div>
         <div className="name">Salmon</div>
-        <div className="ver">v0.3.2</div>
+        <div className="ver">v0.3.3</div>
         <button
           className="settings-btn"
           title="设置"
@@ -91,7 +97,7 @@ export function LeftSidebar(props: Props) {
                   <span>{relativeTime(t.updatedAt)}</span>
                 </div>
                 {menuFor === t.id && (
-                  <div style={{ marginTop: 6, display: "flex", gap: 6 }}>
+                  <div style={{ marginTop: 6, display: "flex", gap: 6, flexWrap: "wrap" }}>
                     <button
                       className="btn"
                       style={{ padding: "3px 8px", fontSize: 11 }}
@@ -103,6 +109,17 @@ export function LeftSidebar(props: Props) {
                       }}
                     >
                       重命名
+                    </button>
+                    <button
+                      className="btn"
+                      style={{ padding: "3px 8px", fontSize: 11 }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        props.onArchiveTopic(t.id, true);
+                        setMenuFor(null);
+                      }}
+                    >
+                      归档
                     </button>
                     <button
                       className="btn"
@@ -123,9 +140,76 @@ export function LeftSidebar(props: Props) {
             ))}
           </div>
         ))}
-        {filtered.length === 0 && (
+        {active.length === 0 && archived.length === 0 && (
           <div className="empty" style={{ padding: 30, fontSize: 12 }}>
             还没有 Topic。<br />点上方"新建 Topic"开始。
+          </div>
+        )}
+
+        {archived.length > 0 && (
+          <div className="archived-group">
+            <button
+              className="archived-toggle"
+              onClick={() => setShowArchived((v) => !v)}
+            >
+              <span className="caret" style={{ transform: showArchived ? "rotate(90deg)" : undefined }}>▸</span>
+              已归档
+              <span className="archived-count">{archived.length}</span>
+            </button>
+            {showArchived && archived.map((t) => (
+              <div
+                key={t.id}
+                className={`topic archived ${selectedId === t.id ? "active" : ""}`}
+                onClick={() => props.onSelect(t.id)}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  setMenuFor(menuFor === t.id ? null : t.id);
+                }}
+              >
+                <div className="t-row">
+                  <span
+                    className={`engine-pill ${t.engine === "claude" ? "engine-cc" : "engine-cx"}`}
+                  >
+                    {t.engine === "claude" ? "CC" : "CX"}
+                  </span>
+                  <span className="t-title">{t.title || "(未命名)"}</span>
+                </div>
+                <div className="t-meta">
+                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 150 }}>
+                    {shortPath(t.workdir)}
+                  </span>
+                  <span>{relativeTime(t.updatedAt)}</span>
+                </div>
+                {menuFor === t.id && (
+                  <div style={{ marginTop: 6, display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    <button
+                      className="btn"
+                      style={{ padding: "3px 8px", fontSize: 11 }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        props.onArchiveTopic(t.id, false);
+                        setMenuFor(null);
+                      }}
+                    >
+                      取消归档
+                    </button>
+                    <button
+                      className="btn"
+                      style={{ padding: "3px 8px", fontSize: 11, color: "#B7493D" }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (confirm(`确认永久删除 Topic "${t.title}"?`)) {
+                          props.onDeleteTopic(t.id);
+                        }
+                        setMenuFor(null);
+                      }}
+                    >
+                      永久删除
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         )}
       </div>

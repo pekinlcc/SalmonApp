@@ -53,6 +53,8 @@ pub fn run() {
             commands::set_default_engine,
             commands::get_chat_layout,
             commands::set_chat_layout,
+            commands::set_archived,
+            commands::check_workdir,
             commands::set_danger_mode,
             commands::running_topics,
             commands::debug_log,

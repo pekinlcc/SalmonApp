@@ -26,6 +26,28 @@ export default function App() {
   const [defaultEngine, setDefaultEngine] = useState<string>("claude");
   const [chatLayout, setChatLayout] = useState<ChatLayout>("thinking");
   const [showSettings, setShowSettings] = useState(false);
+  const [workdirOkByTopic, setWorkdirOkByTopic] = useState<Record<string, boolean>>({});
+  const [rightCollapsed, setRightCollapsed] = useState<boolean>(() => {
+    try { return localStorage.getItem("salmon.rightCollapsed") === "1"; } catch { return false; }
+  });
+  const toggleRight = useCallback(() => {
+    setRightCollapsed((v) => {
+      const next = !v;
+      try { localStorage.setItem("salmon.rightCollapsed", next ? "1" : "0"); } catch {}
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "\\") {
+        e.preventDefault();
+        toggleRight();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [toggleRight]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showNew, setShowNew] = useState(false);
 
@@ -266,7 +288,17 @@ export default function App() {
     async (id: string) => {
       setSelectedId(id);
       setSelectedTool(null);
-      // Lazy spawn + load history if not loaded
+      // Check workdir up front so we can show a proper banner instead of
+      // letting the CLI fail with a cryptic exit code on first send.
+      const t = topics.find((x) => x.id === id);
+      if (t) {
+        try {
+          const chk = await api.checkWorkdir(t.workdir);
+          setWorkdirOkByTopic((m) => ({ ...m, [id]: chk.exists && chk.isDir }));
+        } catch {
+          setWorkdirOkByTopic((m) => ({ ...m, [id]: false }));
+        }
+      }
       if (!messagesByTopic[id]) {
         try {
           const msgs = await api.listMessages(id);
@@ -283,8 +315,22 @@ export default function App() {
         }
       }
     },
-    [messagesByTopic, runningIds]
+    [messagesByTopic, runningIds, topics]
   );
+
+  const onArchive = useCallback(async (id: string, archived: boolean) => {
+    try {
+      await api.setArchived(id, archived);
+      setTopics((cur) =>
+        cur.map((t) => (t.id === id ? { ...t, archived } : t))
+      );
+      if (archived && selectedIdRef.current === id) {
+        setSelectedId(null);
+      }
+    } catch (e: any) {
+      api.debugLog(`set_archived failed: ${e}`);
+    }
+  }, []);
 
   const onCreateTopic = useCallback(
     async (args: {
@@ -389,7 +435,7 @@ export default function App() {
   }
 
   return (
-    <div className={`app`}>
+    <div className={`app ${rightCollapsed ? "right-collapsed" : ""}`}>
       <LeftSidebar
         topics={topics}
         selectedId={selectedId}
@@ -401,6 +447,7 @@ export default function App() {
         onOpenSettings={() => setShowSettings(true)}
         onDeleteTopic={onDelete}
         onRenameTopic={onRename}
+        onArchiveTopic={onArchive}
       />
 
       {!selectedTopic ? (
@@ -413,11 +460,15 @@ export default function App() {
               </button>
             </div>
           </section>
-          <aside className="right">
-            <div className="empty" style={{ padding: 30, fontSize: 12 }}>
-              （未选中 Topic）
-            </div>
-          </aside>
+          {rightCollapsed ? (
+            <RightRail onExpand={toggleRight} />
+          ) : (
+            <aside className="right">
+              <div className="empty" style={{ padding: 30, fontSize: 12 }}>
+                （未选中 Topic）
+              </div>
+            </aside>
+          )}
         </>
       ) : (
         <>
@@ -446,21 +497,34 @@ export default function App() {
               pendingPermission={pendingPermByTopic[selectedTopic.id] || null}
               errorBanner={errorByTopic[selectedTopic.id] || null}
               chatLayout={chatLayout}
+              workdirMissing={workdirOkByTopic[selectedTopic.id] === false}
+              onArchive={() => onArchive(selectedTopic.id, true)}
+              onDelete={() => {
+                if (window.confirm(`确认删除 Topic "${selectedTopic.title}"?\n（仅删除 Salmon 内的对话记录）`)) {
+                  onDelete(selectedTopic.id);
+                }
+              }}
               onApprovePermission={onApprove}
               onSelectTool={setSelectedTool}
             />
             <Composer
               busy={!!busyByTopic[selectedTopic.id]}
+              disabled={workdirOkByTopic[selectedTopic.id] === false}
               onSend={onSend}
               onInterrupt={onInterrupt}
             />
           </section>
-          <RightPane
-            topic={selectedTopic}
-            selectedTool={selectedTool}
-            logs={logsByTopic[selectedTopic.id] || []}
-            refreshKey={filesRefreshKey}
-          />
+          {rightCollapsed ? (
+            <RightRail onExpand={toggleRight} />
+          ) : (
+            <RightPane
+              topic={selectedTopic}
+              selectedTool={selectedTool}
+              logs={logsByTopic[selectedTopic.id] || []}
+              refreshKey={filesRefreshKey}
+              onCollapse={toggleRight}
+            />
+          )}
         </>
       )}
 
@@ -493,6 +557,14 @@ function cryptoId(): string {
     return (crypto as any).randomUUID();
   }
   return Math.random().toString(36).slice(2);
+}
+
+function RightRail({ onExpand }: { onExpand: () => void }) {
+  return (
+    <aside className="right-rail" title="展开右栏 (Ctrl+\\)" onClick={onExpand}>
+      <button className="right-rail-btn">◂</button>
+    </aside>
+  );
 }
 
 function newAssistantMessage(id: string): UiMessage {

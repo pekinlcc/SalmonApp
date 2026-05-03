@@ -22,6 +22,7 @@ impl Db {
                 model       TEXT,
                 session_id  TEXT,
                 danger_mode INTEGER NOT NULL DEFAULT 0,
+                archived    INTEGER NOT NULL DEFAULT 0,
                 created_at  INTEGER NOT NULL,
                 updated_at  INTEGER NOT NULL
             );
@@ -41,6 +42,11 @@ impl Db {
             );
             "#,
         )?;
+        // Lightweight migrations for existing DBs.
+        let _ = conn.execute(
+            "ALTER TABLE topics ADD COLUMN archived INTEGER NOT NULL DEFAULT 0",
+            [],
+        );
         Ok(Self { conn })
     }
 
@@ -67,6 +73,7 @@ impl Db {
             model: model.map(String::from),
             session_id: None,
             danger_mode,
+            archived: false,
             created_at: now,
             updated_at: now,
         })
@@ -74,7 +81,7 @@ impl Db {
 
     pub fn list_topics(&self) -> Result<Vec<Topic>> {
         let mut stmt = self.conn.prepare(
-            "SELECT id,title,engine,workdir,model,session_id,danger_mode,created_at,updated_at
+            "SELECT id,title,engine,workdir,model,session_id,danger_mode,archived,created_at,updated_at
              FROM topics ORDER BY updated_at DESC",
         )?;
         let rows = stmt.query_map([], |r| {
@@ -86,8 +93,9 @@ impl Db {
                 model: r.get(4)?,
                 session_id: r.get(5)?,
                 danger_mode: r.get::<_, i64>(6)? != 0,
-                created_at: r.get(7)?,
-                updated_at: r.get(8)?,
+                archived: r.get::<_, i64>(7)? != 0,
+                created_at: r.get(8)?,
+                updated_at: r.get(9)?,
             })
         })?;
         let mut out = Vec::new();
@@ -99,7 +107,7 @@ impl Db {
 
     pub fn get_topic(&self, id: &str) -> Result<Option<Topic>> {
         let mut stmt = self.conn.prepare(
-            "SELECT id,title,engine,workdir,model,session_id,danger_mode,created_at,updated_at
+            "SELECT id,title,engine,workdir,model,session_id,danger_mode,archived,created_at,updated_at
              FROM topics WHERE id = ?",
         )?;
         let mut rows = stmt.query_map(params![id], |r| {
@@ -111,14 +119,23 @@ impl Db {
                 model: r.get(4)?,
                 session_id: r.get(5)?,
                 danger_mode: r.get::<_, i64>(6)? != 0,
-                created_at: r.get(7)?,
-                updated_at: r.get(8)?,
+                archived: r.get::<_, i64>(7)? != 0,
+                created_at: r.get(8)?,
+                updated_at: r.get(9)?,
             })
         })?;
         if let Some(t) = rows.next() {
             return Ok(Some(t?));
         }
         Ok(None)
+    }
+
+    pub fn set_archived(&mut self, id: &str, archived: bool) -> Result<()> {
+        self.conn.execute(
+            "UPDATE topics SET archived=? WHERE id=?",
+            params![archived as i64, id],
+        )?;
+        Ok(())
     }
 
     pub fn delete_topic(&mut self, id: &str) -> Result<()> {

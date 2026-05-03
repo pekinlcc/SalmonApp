@@ -1,6 +1,13 @@
-# Salmon App — 产品需求文档（PRD v0.3.2）
+# Salmon App — 产品需求文档（PRD v0.3.3）
 
 > 状态：**MVP 已落地,进入完善阶段**
+> 版本：v0.3.3 — 2026-05-03
+> v0.3.2 → v0.3.3 增量(均已实现):
+> - **修复 Codex 多轮对话** — `codex exec resume <sid>` 不接受 `--cd` 参数,但 v0.3.2 一直在传,导致每条第二条消息都 usage error 退出,UI 看起来就是 Codex"消息发出去就消失"。v0.3.3 改为 spawn 时 `current_dir(workdir)`(对首次和 resume 都生效),不再传 `--cd`;同时 `suggest_topic_title` 对 Codex 改用 `codex exec --skip-git-repo-check`(原 `codex -p` 进交互模式不出 stdout)
+> - **Topic 缺失工作目录的生命周期** — `topics.archived` 新列(`db.rs` ALTER TABLE 自动迁移),`set_archived(id, archived)` / `check_workdir(path)` 后端命令;Topic 选中时前端立刻 `checkWorkdir`,不存在时聊天区显示醒目的橙色 banner(⚠ 工作目录已不存在 + 完整路径 + 解释 + [归档][永久删除] 两按钮),输入框 disable 并改 placeholder;`engine.rs` 在 spawn CLI 之前也做同样校验,缺失直接 emit 中文 Error 不让 CLI 跑去出 status 2
+> - **Topic 列表归档分组** — 右键菜单加"归档"按钮(在重命名与删除之间);归档项从主列表消失,进入底部"已归档 N"折叠分组(灰色斜体显示),展开后可"取消归档"或"永久删除"
+> - **右栏可折叠** — 380px 的 Files/Diff/Preview/Logs 栏可收起到 28px 细 rail,Tab 行右侧的 `▸` 按钮触发,或全局快捷键 `Ctrl+\\`;状态持久化在 `localStorage["salmon.rightCollapsed"]`
+>
 > 版本：v0.3.2 — 2026-05-02
 > v0.3.1 → v0.3.2 增量(均已实现):
 > - **Codex 驱动正式落地**:替换原先 `engine 'codex' not yet supported` 占位,后端用 `codex exec --json --skip-git-repo-check --cd <wd>` 跑首轮,捕获 `thread.started.thread_id` 当 session id,后续 `codex exec resume <sid>` 续 session;`item.completed` 的 `agent_message`/`command_execution`/`local_shell_call`/`file_read`/`file_change`/`web_search` 等映射到现有 ToolCall 卡片渲染

@@ -202,6 +202,21 @@ async fn run_session(
             EngineCmd::Send(prompt) => {
                 eprintln!("[salmon] Send arm entered; prompt len={} engine={}", prompt.len(), engine_kind);
 
+                // Up-front workdir check — both CLIs need a real cwd, and the error
+                // they emit when it's missing is unhelpful ("exited with status 2").
+                let wd = std::path::Path::new(&workdir);
+                if !wd.exists() || !wd.is_dir() {
+                    let _ = app.emit("salmon-stream", StreamEvent::Error {
+                        topic_id: topic_id.clone(),
+                        message: format!("工作目录不存在: {}\n\n该 Topic 已不可发消息;在右上 Topic 菜单选\"归档\"或\"删除\"。", workdir),
+                    });
+                    let _ = app.emit("salmon-stream", StreamEvent::Exited {
+                        topic_id: topic_id.clone(),
+                        code: Some(2),
+                    });
+                    continue;
+                }
+
                 // Build the per-engine command.
                 let bin_name = engine_kind.as_str();
                 let bin = match which::which(bin_name) {
@@ -219,13 +234,13 @@ async fn run_session(
                 };
 
                 let mut cmd_builder = Command::new(&bin);
+                cmd_builder.current_dir(&workdir);
                 if engine_kind == "claude" {
                     cmd_builder
                         .arg("-p")
                         .arg("--output-format").arg("stream-json")
                         .arg("--verbose")
-                        .arg(&prompt)
-                        .current_dir(&workdir);
+                        .arg(&prompt);
                     if let Some(sid) = &current_session_id {
                         cmd_builder.arg("--resume").arg(sid);
                     }
@@ -236,15 +251,16 @@ async fn run_session(
                         cmd_builder.arg("--dangerously-skip-permissions");
                     }
                 } else {
-                    // codex
+                    // codex — `--cd` is only valid on `codex exec` (the first call),
+                    // not on `codex exec resume`; relying on the spawn's current_dir
+                    // covers both cases uniformly.
                     cmd_builder.arg("exec");
                     if let Some(sid) = &current_session_id {
                         cmd_builder.arg("resume").arg(sid);
                     }
                     cmd_builder
                         .arg("--json")
-                        .arg("--skip-git-repo-check")
-                        .arg("--cd").arg(&workdir);
+                        .arg("--skip-git-repo-check");
                     if let Some(m) = &model {
                         cmd_builder.arg("-c").arg(format!("model={}", m));
                     }

@@ -10,6 +10,8 @@ pub struct Topic {
     pub model: Option<String>,
     pub session_id: Option<String>,
     pub danger_mode: bool,
+    #[serde(default)]
+    pub archived: bool,
     pub created_at: i64,
     pub updated_at: i64,
 }

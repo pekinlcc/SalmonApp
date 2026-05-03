@@ -291,14 +291,24 @@ pub fn suggest_topic_title(
     let bin = which::which(bin_name).map_err(|e| format!("{}: {}", bin_name, e))?;
 
     let mut cmd = Command::new(&bin);
-    cmd.arg("-p")
-        .arg(&prompt)
-        .current_dir(&topic.workdir)
+    cmd.current_dir(&topic.workdir)
         .stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped());
-    if let Some(m) = topic.model.as_deref() {
-        cmd.arg("--model").arg(m);
+    if bin_name == "codex" {
+        // codex with no subcommand goes interactive; we need `codex exec`
+        // for one-shot. Disable git-repo-check and read the agent_message
+        // text out of the trailing JSONL events.
+        cmd.arg("exec").arg("--skip-git-repo-check");
+        if let Some(m) = topic.model.as_deref() {
+            cmd.arg("-c").arg(format!("model={}", m));
+        }
+        cmd.arg(&prompt);
+    } else {
+        cmd.arg("-p").arg(&prompt);
+        if let Some(m) = topic.model.as_deref() {
+            cmd.arg("--model").arg(m);
+        }
     }
 
     let out = cmd.output().map_err(map_err)?;
@@ -741,6 +751,36 @@ fn binary_placeholder(path: &str, bytes: &[u8], size: u64) -> String {
         human_size(size),
         head_hex.trim()
     )
+}
+
+#[tauri::command]
+pub fn set_archived(
+    state: State<'_, AppState>,
+    id: String,
+    archived: bool,
+) -> Result<(), String> {
+    state
+        .db
+        .lock()
+        .set_archived(&id, archived)
+        .map_err(map_err)
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkdirCheck {
+    pub exists: bool,
+    pub is_dir: bool,
+    pub readable: bool,
+}
+
+#[tauri::command]
+pub fn check_workdir(path: String) -> WorkdirCheck {
+    let p = std::path::Path::new(&path);
+    let exists = p.exists();
+    let is_dir = exists && p.is_dir();
+    let readable = is_dir && std::fs::read_dir(p).is_ok();
+    WorkdirCheck { exists, is_dir, readable }
 }
 
 #[tauri::command]

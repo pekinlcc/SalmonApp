@@ -2,19 +2,21 @@ import { useState, useRef, useEffect } from "react";
 
 interface Props {
   busy: boolean;
+  disabled?: boolean;
   onSend: (text: string) => void;
   onInterrupt: () => void;
 }
 
-export function Composer({ busy, onSend, onInterrupt }: Props) {
+export function Composer({ busy, disabled, onSend, onInterrupt }: Props) {
   const [text, setText] = useState("");
   const ref = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    if (!busy) ref.current?.focus();
-  }, [busy]);
+    if (!busy && !disabled) ref.current?.focus();
+  }, [busy, disabled]);
 
   const submit = () => {
+    if (disabled) return;
     const v = text.trim();
     if (!v) return;
     onSend(v);
@@ -26,8 +28,13 @@ export function Composer({ busy, onSend, onInterrupt }: Props) {
       <div className="composer-box">
         <textarea
           ref={ref}
-          placeholder="问点什么…  Enter 发送 · Shift+Enter 换行 · / 开头是斜杠命令（透传给 CLI）"
+          placeholder={
+            disabled
+              ? "工作目录不可用,无法发送(选归档或删除该 Topic)"
+              : "问点什么…  Enter 发送 · Shift+Enter 换行 · / 开头是斜杠命令（透传给 CLI）"
+          }
           value={text}
+          disabled={disabled}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
@@ -45,7 +52,7 @@ export function Composer({ busy, onSend, onInterrupt }: Props) {
           )}
           <button
             className="send-btn"
-            disabled={busy || !text.trim()}
+            disabled={busy || disabled || !text.trim()}
             onClick={submit}
             style={{ marginLeft: "auto" }}
           >

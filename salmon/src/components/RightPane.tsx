@@ -10,11 +10,12 @@ interface Props {
   selectedTool: ToolCall | null;
   logs: string[];
   refreshKey: number;
+  onCollapse: () => void;
 }
 
 type Tab = "files" | "diff" | "preview" | "logs";
 
-export function RightPane({ topic, selectedTool, logs, refreshKey }: Props) {
+export function RightPane({ topic, selectedTool, logs, refreshKey, onCollapse }: Props) {
   const [tab, setTab] = useState<Tab>("files");
   const [files, setFiles] = useState<FileEntry[]>([]);
   const [previewPath, setPreviewPath] = useState<string | null>(null);
@@ -99,6 +100,13 @@ export function RightPane({ topic, selectedTool, logs, refreshKey }: Props) {
             {labelOf(t)}
           </div>
         ))}
+        <button
+          className="right-collapse-btn"
+          title="收起右栏 (Ctrl+\\)"
+          onClick={onCollapse}
+        >
+          ▸
+        </button>
       </div>
 
       {tab === "files" && (

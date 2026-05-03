@@ -12,12 +12,15 @@ interface Props {
   pendingPermission: { id: string; tool: string; input: any; command: string | null } | null;
   errorBanner: string | null;
   chatLayout: ChatLayout;
+  workdirMissing?: boolean;
+  onArchive?: () => void;
+  onDelete?: () => void;
   onApprovePermission: (id: string, allow: boolean) => void;
   onSelectTool: (t: ToolCall) => void;
 }
 
 export function ChatStream(props: Props) {
-  const { topic, messages, pendingPermission, errorBanner, chatLayout } = props;
+  const { topic, messages, pendingPermission, errorBanner, chatLayout, workdirMissing } = props;
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -31,6 +34,23 @@ export function ChatStream(props: Props) {
       {messages.length === 0 && !pendingPermission && (
         <div className="banner info" style={{ marginTop: 0 }}>
           这个 Topic 由 <code style={{ fontFamily: "var(--mono)", background: "#fff", padding: "0 4px", borderRadius: 3 }}>{topic.workdir}</code> 工作目录里的 <b>{topic.engine === "claude" ? "claude" : "codex"}</b> CLI 子进程驱动，凭证来自你之前的 CLI 登录。
+        </div>
+      )}
+
+      {workdirMissing && (
+        <div className="workdir-missing">
+          <div className="wm-title">⚠ 工作目录已不存在</div>
+          <div className="wm-path">
+            <code>{topic.workdir}</code>
+          </div>
+          <div className="wm-desc">
+            这个 Topic 绑定的目录已经被删除或移走。CLI(<code>{topic.engine}</code>)无法在缺失的目录里继续跑,新发的消息会立即失败。<br />
+            历史对话仍然保留可读;选下面任一操作处理:
+          </div>
+          <div className="wm-actions">
+            <button className="btn" onClick={props.onArchive}>归档(从主列表收起)</button>
+            <button className="btn" style={{ color: "#B7493D" }} onClick={props.onDelete}>永久删除</button>
+          </div>
         </div>
       )}
 

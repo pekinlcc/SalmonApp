@@ -2,7 +2,7 @@
 
 > A three-pane desktop client for the **Claude Code CLI** and **Codex CLI** — Ubuntu / Linux first.
 >
-> Status: **v0.3.2** — MVP plus a real Preview pane (Markdown / HTML / Office docs), auto-generated topic titles, an origami-fish brand mark, a fully working Codex driver, and a chat layout that shows tool calls in chronological order (with an optional collapsed-thinking mode). End-to-end against a locally-logged-in `claude` or `codex`. Topics persist across launches; the panel reuses your existing CLI credentials so there's no second account to manage.
+> Status: **v0.3.3** — Codex multi-turn now actually resumes correctly, archived/missing-workdir Topics get a proper banner + lifecycle, and the right pane is collapsible. End-to-end against a locally-logged-in `claude` or `codex`. Topics persist across launches; the panel reuses your existing CLI credentials so there's no second account to manage.
 
 <p align="center">
   <img src="salmon/src-tauri/icons/icon.png" alt="Salmon icon" width="128" />
@@ -131,6 +131,18 @@ Key choices:
 - **Per-Topic PTY** — each Topic owns one `tokio::process::Child` running `claude` (or `codex`) in JSONL streaming mode. Stream events flow through an unbounded mpsc channel and out to the UI as Tauri events.
 - **SQLite** in `~/.local/share/Salmon/salmon.db` — Topics, messages, tool calls, permission decisions, token counts. Plain text. Export / clear available from the UI.
 - **No API calls from Salmon itself** — every model interaction is a child process invocation.
+
+## v0.3.3 — Codex follow-up turns, Topic lifecycle, collapsible right pane
+
+- **Codex multi-turn actually resumes now.** v0.3.2 wired up the Codex driver but `codex exec resume <session-id>` was being passed `--cd <workdir>`, which `resume` doesn't accept — every follow-up turn died with a usage error and the chat looked like Codex went silent after the first message. v0.3.3 drops the `--cd` flag entirely and relies on the spawn's `current_dir(workdir)` for both first-turn and resume; codex remembers the workdir from the session anyway.
+- **Codex auto-titles work.** The first-turn auto-title path was running `codex -p "..."` which makes Codex go interactive; switched to `codex exec --skip-git-repo-check "..."` and the title gets generated correctly.
+- **Missing-workdir lifecycle.** Topics whose workdir is gone (deleted, moved, typo at creation) used to fail every send with a cryptic `exited with status 2`. Now:
+  - Selecting a Topic checks `workdir.exists() && is_dir()` up-front.
+  - The chat area shows a proper amber banner: ⚠ *工作目录已不存在* + the missing path + an explanation, with two buttons: **归档** and **永久删除**.
+  - The composer is disabled with a placeholder explaining why.
+  - Backend's send loop also short-circuits with a friendly Chinese error before spawning the CLI, so the same banner shows up if the dir disappears mid-session.
+- **Topic archiving.** New `topics.archived` column (auto-migrated for existing DBs). Right-click context menu in the Topic list gains an *归档* action; archived Topics drop out of the main list into a collapsed *已归档 N* group at the bottom of the sidebar. From there you can *取消归档* or *永久删除*.
+- **Right pane collapsible.** The 380px Files / Diff / Preview / Logs pane now collapses to a 28px hover rail. Toggle from the `▸` button in the tab bar or with `Ctrl+\\`. State is persisted in `localStorage`.
 
 ## v0.3.2 — Codex driver + chat layouts + Topic creation overhaul
 
