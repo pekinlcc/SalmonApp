@@ -1,3 +1,4 @@
+use crate::permission_bridge::PermissionBridge;
 use crate::types::{StreamEvent, ToolCall};
 use anyhow::{anyhow, Result};
 use parking_lot::Mutex;
@@ -28,13 +29,15 @@ pub enum EngineCmd {
 pub struct EngineRegistry {
     app: AppHandle,
     inner: Arc<Mutex<HashMap<String, Arc<Session>>>>,
+    bridge: PermissionBridge,
 }
 
 impl EngineRegistry {
-    pub fn new(app: AppHandle) -> Self {
+    pub fn new(app: AppHandle, bridge: PermissionBridge) -> Self {
         Self {
             app,
             inner: Arc::new(Mutex::new(HashMap::new())),
+            bridge,
         }
     }
 
@@ -100,6 +103,7 @@ impl EngineRegistry {
 
         let app = self.app.clone();
         let registry = self.inner.clone();
+        let bridge = self.bridge.clone();
         let (tx, mut rx) = mpsc::unbounded_channel::<EngineCmd>();
 
         let topic_id_for_task = topic_id.clone();
@@ -118,6 +122,7 @@ impl EngineRegistry {
                 model,
                 session_id,
                 danger_mode,
+                bridge,
                 &mut rx,
                 on_session_id,
                 on_assistant_message,
@@ -162,6 +167,7 @@ async fn run_session(
     model: Option<String>,
     session_id: Option<String>,
     danger_mode: bool,
+    bridge: PermissionBridge,
     rx: &mut mpsc::UnboundedReceiver<EngineCmd>,
     on_session_id: Box<dyn Fn(&str) + Send + Sync>,
     on_assistant_message: Box<dyn Fn(&str) + Send + Sync>,
@@ -253,6 +259,14 @@ async fn run_session(
                     }
                     if danger_mode {
                         cmd_builder.arg("--dangerously-skip-permissions");
+                    } else {
+                        // Route Claude's PermissionRequest hook through Salmon's
+                        // local HTTP bridge so the user sees a PermissionCard
+                        // instead of getting a silent default-deny. `--settings`
+                        // ADDS to (not replaces) the user's ~/.claude/settings.json.
+                        cmd_builder
+                            .arg("--settings")
+                            .arg(bridge.settings_json_for_topic(&topic_id));
                     }
                 } else {
                     // codex — `--cd` is only valid on `codex exec` (the first call),

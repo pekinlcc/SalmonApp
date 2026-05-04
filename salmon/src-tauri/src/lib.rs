@@ -1,6 +1,7 @@
 mod db;
 mod engine;
 mod commands;
+mod permission_bridge;
 mod platform;
 mod types;
 
@@ -11,6 +12,7 @@ use tauri::Manager;
 pub struct AppState {
     pub db: Arc<Mutex<db::Db>>,
     pub engine: Arc<engine::EngineRegistry>,
+    pub bridge: permission_bridge::PermissionBridge,
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -33,10 +35,20 @@ pub fn run() {
             std::fs::create_dir_all(&data_dir).ok();
             let db_path = data_dir.join("salmon.db");
             let db = db::Db::open(&db_path).expect("open salmon.db");
-            let engine = engine::EngineRegistry::new(app.handle().clone());
+
+            // Bring up the permission bridge BEFORE the engine — the engine
+            // hands its inline-settings JSON to every Claude spawn, so it
+            // needs the bound port to exist.
+            let app_handle = app.handle().clone();
+            let bridge = tauri::async_runtime::block_on(
+                permission_bridge::PermissionBridge::start(app_handle.clone()),
+            )
+            .expect("start permission bridge");
+            let engine = engine::EngineRegistry::new(app_handle, bridge.clone());
             app.manage(AppState {
                 db: Arc::new(Mutex::new(db)),
                 engine: Arc::new(engine),
+                bridge,
             });
             Ok(())
         })

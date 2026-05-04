@@ -168,10 +168,18 @@ pub fn approve_permission(
     request_id: String,
     allow: bool,
 ) -> Result<(), String> {
-    state
-        .engine
-        .approve(&topic_id, allow, &request_id)
-        .map_err(map_err)
+    // The `topic_id` is informational only — the bridge keys pending
+    // requests by request_id (UUID), which is globally unique. Older
+    // engine.approve() called a dead mpsc; this routes to the live HTTP
+    // handler instead.
+    let _ = topic_id;
+    if !state.bridge.answer(&request_id, allow) {
+        eprintln!(
+            "[salmon] approve_permission: no pending request {} (already answered or stale)",
+            request_id
+        );
+    }
+    Ok(())
 }
 
 #[tauri::command]
