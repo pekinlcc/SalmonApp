@@ -259,6 +259,12 @@ function RecommendationCard({
         {topicTitle && <span className="rec-topic">↳ Topic: {topicTitle}</span>}
         <span className="rec-action">下一步: {rec.actionHint}</span>
       </div>
+      {rec.payoff && (
+        <div className="rec-payoff">
+          <span className="rec-payoff-label">会换来</span>
+          <span className="rec-payoff-text">{rec.payoff}</span>
+        </div>
+      )}
       <div className="rec-actions">
         <button
           className="btn primary"

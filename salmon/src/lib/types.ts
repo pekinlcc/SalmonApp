@@ -89,6 +89,7 @@ export interface Recommendation {
   title: string;
   rationale: string;
   actionHint: string;
+  payoff: string;
   status: "pending" | "accepted" | "ignored" | "expired";
   priority: "high" | "medium" | "low";
   selfValue: "high" | "medium" | "low" | null;
