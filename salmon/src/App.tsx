@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import { sendNotification, isPermissionGranted, requestPermission } from "@tauri-apps/plugin-notification";
 import { ask } from "@tauri-apps/plugin-dialog";
 import type { Block, ChatLayout, CliInfo, Message, Recommendation, StreamEvent, ToolCall, Topic, UiMessage } from "./lib/types";
 import { api } from "./lib/api";
+import { notify, type NotifyOpts, type ToastEvent } from "./lib/notify";
 import { LeftSidebar } from "./components/LeftSidebar";
 import { ChatStream } from "./components/ChatStream";
 import { Composer } from "./components/Composer";
@@ -12,6 +12,7 @@ import { NewTopicDialog } from "./components/NewTopicDialog";
 import { Onboarding } from "./components/Onboarding";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { WelcomeBack } from "./components/WelcomeBack";
+import { Toasts } from "./components/Toasts";
 
 interface PendingPerm {
   id: string;
@@ -48,6 +49,32 @@ export default function App() {
   // "下次发送起生效" hint next to the button. Cleared by setTimeout.
   const [dangerHintTopicId, setDangerHintTopicId] = useState<string | null>(null);
 
+  // In-app toasts (used instead of system notifications when the window is
+  // focused — popping a system banner over the foreground app is annoying).
+  const [toasts, setToasts] = useState<ToastEvent[]>([]);
+  const pushToast = useCallback((t: ToastEvent) => {
+    setToasts((cur) => [...cur, t]);
+  }, []);
+  const dismissToast = useCallback((id: string) => {
+    setToasts((cur) => cur.filter((t) => t.id !== id));
+  }, []);
+
+  // Window focus drives whether notify() emits a system banner or an in-app
+  // toast. Keep a ref alongside state so event-handler callbacks defined
+  // inside the dispatcher don't capture a stale snapshot.
+  const windowFocusedRef = useRef<boolean>(true);
+  useEffect(() => {
+    const onFocus = () => { windowFocusedRef.current = true; };
+    const onBlur = () => { windowFocusedRef.current = false; };
+    windowFocusedRef.current = typeof document !== "undefined" ? document.hasFocus() : true;
+    window.addEventListener("focus", onFocus);
+    window.addEventListener("blur", onBlur);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("blur", onBlur);
+    };
+  }, []);
+
   const refreshRecsList = useCallback(async () => {
     try {
       const list = await api.listPendingRecommendations();
@@ -63,8 +90,16 @@ export default function App() {
     setRecsError(null);
     lastRecsRunRef.current = Date.now();
     try {
-      await api.generateRecommendations();
+      const out = await api.generateRecommendations();
       await refreshRecsList();
+      if (out.length > 0) {
+        fireNotify({
+          topicId: null,
+          kind: "recs",
+          title: "Salmon · 新推荐",
+          body: `${out.length} 条新建议待查看`,
+        });
+      }
     } catch (e: any) {
       setRecsError(String(e));
     } finally {
@@ -311,17 +346,36 @@ export default function App() {
         setFilesRefreshKey((k) => k + 1);
         break;
       }
-      case "permissionRequest":
+      case "permissionRequest": {
         setPendingPermByTopic((p) => ({
           ...p,
           [e.topicId]: { id: e.requestId, tool: e.tool, input: e.input, command: e.command },
         }));
+        const topic = topics.find((t) => t.id === e.topicId);
+        const detail = e.tool === "Bash" && e.command
+          ? `Bash: ${truncate(e.command, 80)}`
+          : `工具: ${e.tool}`;
+        fireNotify({
+          topicId: e.topicId,
+          kind: "permission",
+          title: `${topic?.title || "Topic"} · 需要授权`,
+          body: detail,
+        });
         break;
-      case "error":
+      }
+      case "error": {
         setErrorByTopic((er) => ({ ...er, [e.topicId]: e.message }));
         setBusyByTopic((b) => ({ ...b, [e.topicId]: false }));
+        const topic = topics.find((t) => t.id === e.topicId);
+        fireNotify({
+          topicId: e.topicId,
+          kind: "error",
+          title: `${topic?.title || "Topic"} · 错误`,
+          body: truncate(e.message, 100),
+        });
         break;
-      case "exited":
+      }
+      case "exited": {
         setBusyByTopic((b) => ({ ...b, [e.topicId]: false }));
         // Mark current pending assistant as done
         setMessagesByTopic((m) => {
@@ -333,13 +387,22 @@ export default function App() {
           }
           return { ...m, [e.topicId]: list };
         });
-        // notify if user not on this topic
-        if (selectedIdRef.current !== e.topicId) {
-          maybeNotify(e.topicId);
-        }
+        // Distinguish clean exit from crash. null/0 = success per Unix
+        // convention; engine drivers signal interruption with non-zero.
+        const topic = topics.find((t) => t.id === e.topicId);
+        const ok = e.code === null || e.code === 0;
+        fireNotify({
+          topicId: e.topicId,
+          kind: ok ? "done" : "crash",
+          title: ok
+            ? `${topic?.title || "Topic"} · 完成`
+            : `${topic?.title || "Topic"} · 异常退出 (code ${e.code})`,
+          body: ok ? "Agent 已交还控制权" : "Engine 进程异常结束,未必是任务失败",
+        });
         setFilesRefreshKey((k) => k + 1);
         maybeAutoTitle(e.topicId);
         break;
+      }
       case "log":
         setLogsByTopic((lg) => {
           const arr = [...(lg[e.topicId] || []), e.line];
@@ -372,15 +435,6 @@ export default function App() {
     });
   };
 
-  const maybeNotify = async (topicId: string) => {
-    try {
-      let granted = await isPermissionGranted();
-      if (!granted) granted = (await requestPermission()) === "granted";
-      if (!granted) return;
-      const t = topics.find((x) => x.id === topicId);
-      sendNotification({ title: "Salmon", body: `Topic 完成：${t?.title || topicId}` });
-    } catch {}
-  };
 
   const onSelect = useCallback(
     async (id: string) => {
@@ -429,6 +483,22 @@ export default function App() {
     } catch (e: any) {
       api.debugLog(`set_archived failed: ${e}`);
     }
+  }, []);
+
+  // Single dispatch point for every "the user might want to know" event.
+  // Suppresses a notification when the user is already looking at the
+  // relevant context: a topic-tied event whose topicId matches the open
+  // topic, or a recs roundup while sitting on the welcome screen.
+  const fireNotify = useCallback((opts: NotifyOpts) => {
+    const here = selectedIdRef.current;
+    if (opts.topicId !== null && here === opts.topicId) return;
+    if (opts.topicId === null && here === null) return;
+    void notify(opts, windowFocusedRef.current, pushToast);
+  }, [pushToast]);
+
+  const onToastClick = useCallback((t: ToastEvent) => {
+    if (t.topicId) setSelectedId(t.topicId);
+    else setSelectedId(null);
   }, []);
 
   const onToggleDangerMode = useCallback(async (id: string, danger: boolean) => {
@@ -712,6 +782,8 @@ export default function App() {
           onClose={() => setShowSettings(false)}
         />
       )}
+
+      <Toasts toasts={toasts} onDismiss={dismissToast} onClick={onToastClick} />
     </div>
   );
 }
@@ -721,6 +793,11 @@ function cryptoId(): string {
     return (crypto as any).randomUUID();
   }
   return Math.random().toString(36).slice(2);
+}
+
+function truncate(s: string, n: number): string {
+  if (!s) return "";
+  return s.length > n ? s.slice(0, n) + "…" : s;
 }
 
 function RightRail({ onExpand }: { onExpand: () => void }) {
