@@ -40,7 +40,7 @@ export function LeftSidebar(props: Props) {
       <div className="left-head">
         <div className="logo" onClick={props.onHome} title="返回首页" style={{ cursor: "pointer" }}>S</div>
         <div className="name" onClick={props.onHome} style={{ cursor: "pointer" }}>Salmon</div>
-        <div className="ver">v0.4.0</div>
+        <div className="ver">v0.4.1</div>
         <button
           className="settings-btn"
           title="设置"

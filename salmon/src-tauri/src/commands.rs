@@ -675,7 +675,13 @@ fn render_topic_block(t: &Topic, msgs: &[Message], char_budget: usize) -> String
     }
     let mut out = header + &body;
     if out.len() > char_budget {
-        let cap = char_budget.saturating_sub(20);
+        // String::truncate panics if the byte index falls inside a multi-byte
+        // char (CJK is 3 bytes/char in UTF-8). Snap down to the nearest
+        // char boundary first.
+        let mut cap = char_budget.saturating_sub(20);
+        while cap > 0 && !out.is_char_boundary(cap) {
+            cap -= 1;
+        }
         out.truncate(cap);
         out.push_str("…(截断)\n");
     }

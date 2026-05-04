@@ -2,7 +2,7 @@
 
 > A three-pane desktop client for the **Claude Code CLI** and **Codex CLI** — Ubuntu / Linux first.
 >
-> Status: **v0.4.0** — Welcome Back home page with sessions overview + a peer-validated recommendations agent: every hour mark (only if there's been new chat activity since last run) Salmon asks Claude Code and Codex independently for "what's worth doing next", then has each engine cross-rate the other's candidates; only items both engines independently rated *high* show up by default. End-to-end against a locally-logged-in `claude` or `codex`. The panel reuses your existing CLI credentials so there's no second account to manage.
+> Status: **v0.4.1** — Welcome Back home page with sessions overview + a peer-validated recommendations agent: every hour mark (only if there's been new chat activity since last run) Salmon asks Claude Code and Codex independently for "what's worth doing next", then has each engine cross-rate the other's candidates; only items both engines independently rated *high* show up by default. End-to-end against a locally-logged-in `claude` or `codex`. The panel reuses your existing CLI credentials so there's no second account to manage.
 
 <p align="center">
   <img src="salmon/src-tauri/icons/icon.png" alt="Salmon icon" width="128" />
@@ -131,6 +131,16 @@ Key choices:
 - **Per-Topic PTY** — each Topic owns one `tokio::process::Child` running `claude` (or `codex`) in JSONL streaming mode. Stream events flow through an unbounded mpsc channel and out to the UI as Tauri events.
 - **SQLite** in `~/.local/share/Salmon/salmon.db` — Topics, messages, tool calls, permission decisions, token counts. Plain text. Export / clear available from the UI.
 - **No API calls from Salmon itself** — every model interaction is a child process invocation.
+
+## v0.4.1 — UTF-8 hotfix for the recommendation agent
+
+Critical fix to v0.4.0 (which crashed at the first hour boundary on any non-trivial Chinese-content DB).
+
+`render_topic_block` was using `String::truncate(byte_index)` to cap each Topic summary at 1500 bytes. UTF-8 CJK characters take 3 bytes — when the budget cut landed inside a multi-byte character, `String::truncate` panicked with `assertion failed: self.is_char_boundary(new_len)`, which surfaced as a SIGABRT on the tokio worker thread the moment `generate_recommendations` ran. v0.4.1 snaps the cut down to the nearest UTF-8 char boundary first, then truncates.
+
+Symptoms: app exits without warning right around HH:00 if any active Topic has long Chinese conversations. Apport collected a 5.8 GB core dump on the user's machine; the panic message was visible in the dump's strings.
+
+Same DB / settings as v0.4.0 — drop-in upgrade.
 
 ## v0.4.0 — Welcome Back home page + peer-validated recommendation agent
 
