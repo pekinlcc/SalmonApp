@@ -394,16 +394,71 @@ pub async fn generate_recommendations(
         r.priority = combine_priority(r.self_value.as_deref(), peer.as_deref());
     }
 
-    // Drop anything neither engine rated as high — those are noise we
-    // don't even want folded.
+    // ─── Stage 1: hard quality gate ───
+    // Drop anything where the peer engine actively rated it "low" — that's a
+    // strong "no" from a second opinion, even if the source self-rated high.
+    // Also drop anything neither engine called "high".
     let before = all.len();
     all.retain(|r| {
-        r.self_value.as_deref() == Some("high") || r.peer_value.as_deref() == Some("high")
+        let s = r.self_value.as_deref();
+        let p = r.peer_value.as_deref();
+        p != Some("low") && (s == Some("high") || p == Some("high"))
     });
     eprintln!(
-        "[salmon] rec filter: kept {} / {} (dropped items that neither engine called 'high')",
+        "[salmon] rec filter: kept {} / {} (dropped peer='low' or neither='high')",
         all.len(),
         before
+    );
+
+    // ─── Stage 2: per-topic dedup ───
+    // Each topic gets at most one recommendation. Cross-topic items
+    // (topic_id == None) form their own bucket and likewise get one.
+    // Within a bucket we keep the highest-scoring item.
+    let before = all.len();
+    let mut by_topic: std::collections::HashMap<Option<String>, Recommendation> =
+        std::collections::HashMap::new();
+    for r in all.into_iter() {
+        let key = r.topic_id.clone();
+        let keep = match by_topic.get(&key) {
+            Some(existing) => rec_score(&r) > rec_score(existing),
+            None => true,
+        };
+        if keep {
+            by_topic.insert(key, r);
+        }
+    }
+    let mut all: Vec<Recommendation> = by_topic.into_values().collect();
+    eprintln!(
+        "[salmon] rec dedup: kept {} / {} (one per topic)",
+        all.len(),
+        before
+    );
+
+    // ─── Stage 3: global cap on medium-priority items ───
+    // High-priority items (both engines rated high) always show. Medium
+    // items (single-engine high) are capped globally so the folded section
+    // doesn't pile up over time.
+    const MAX_MEDIUM: usize = 2;
+    all.sort_by(|a, b| {
+        let pa = if a.priority == "high" { 0 } else { 1 };
+        let pb = if b.priority == "high" { 0 } else { 1 };
+        pa.cmp(&pb).then(rec_score(b).cmp(&rec_score(a)))
+    });
+    let before = all.len();
+    let mut medium_kept = 0usize;
+    all.retain(|r| {
+        if r.priority == "high" {
+            true
+        } else {
+            medium_kept += 1;
+            medium_kept <= MAX_MEDIUM
+        }
+    });
+    eprintln!(
+        "[salmon] rec cap: kept {} / {} (medium cap = {})",
+        all.len(),
+        before,
+        MAX_MEDIUM
     );
 
     // Persist + return.
@@ -426,6 +481,19 @@ fn combine_priority(self_v: Option<&str>, peer_v: Option<&str>) -> String {
         "high".to_string()
     } else {
         "medium".to_string()
+    }
+}
+
+/// Score a recommendation for tie-breaking during per-topic dedup and the
+/// medium-priority global cap. Higher = more confidence both engines like it.
+fn rec_score(r: &Recommendation) -> u8 {
+    match (r.self_value.as_deref(), r.peer_value.as_deref()) {
+        (Some("high"), Some("high")) => 4,
+        (Some("high"), Some("medium")) => 3,
+        (Some("medium"), Some("high")) => 3,
+        (Some("high"), _) => 2,
+        (_, Some("high")) => 2,
+        _ => 1,
     }
 }
 
@@ -625,17 +693,28 @@ async fn run_cli_for_recommendations(
 fn build_recommendation_prompt(topics_block: &str, feedback_block: &str) -> String {
     format!(
         "你是用户的工作助手。下面给你他最近的对话项目(Topic)摘要,以及他过往\
-         对推荐的反馈历史。请基于这些,生成 3-5 条**具体、可执行**的建议——\
-         \"接下来他可以让你帮他做的事\"。\n\n\
+         对推荐的反馈历史。请基于这些,生成**至多 3 条**具体、可执行的建议\
+         ——\"接下来他可以让你帮他做的事\"。\n\n\
+         【宁缺毋滥 - 这是最重要的一条】\n\
+         - 想不到真正值得做的就只给 1 条甚至 0 条(空数组),**绝不为了凑数硬挤**。\
+         用户已经被太多低价值推荐烦到了。\n\
+         - **每个 Topic 至多对应 1 条建议**;同一个 Topic 想到多个角度时,自己\
+         挑最值得用户立刻动手的那一个。\n\
+         - 如果一个 Topic 最近的对话里**没有明确未完成的 open loop**(用户问了\
+         没答完、答了没确认、计划好了没动手),不要为它生成推荐。\n\n\
          【硬性要求】\n\
          1. 每条建议必须能落到某个具体的 Topic(或明确说明跨 Topic),不要\
          说\"建议你重构整个项目\"这种空话。\n\
          2. 不要重复用户最近 5 次明确忽略过的方向。\n\
          3. 优先选\"已经在聊但没收尾\"的事——open loop 比新坑更有价值。\n\
          4. 不要建议你自己已经做完的事;不要建议纯粹的休息/放松。\n\
-         5. 用中文。\n\
-         6. 给每条打分 self_value: high/medium/low。high 留给\"用户大概率\
-         立刻动手\"的事,medium 是\"有道理但不紧迫\",low 是\"边角发散\"。\n\n\
+         5. 建议必须是用户读完**立刻就能让你执行的下一步**——不要含\"你可以\
+         先想想要不要 X\"这类需要他先做决策的内容。\n\
+         6. 用中文。\n\
+         7. 给每条打分 self_value: high/medium/low。\n\
+            - high: \"用户读完立刻会点同意\"——只要他可能犹豫一秒就降 medium。\n\
+            - medium: 有道理但不紧迫,或方向对但建议过虚。\n\
+            - low: 边角发散——这种本来就别提交。\n\n\
          【输出格式 - 严格 JSON,无其他文字,不要 markdown 代码块】\n\
          {{\n  \"recommendations\": [\n    {{\n      \"title\": \"≤16 个汉字的标题\",\n\
          \"rationale\": \"≤80 字的具体理由,引用对话里的具体事实\",\n\
