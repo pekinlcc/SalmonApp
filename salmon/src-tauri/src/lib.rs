@@ -1,6 +1,7 @@
 mod db;
 mod engine;
 mod commands;
+mod platform;
 mod types;
 
 use std::sync::Arc;
@@ -15,6 +16,11 @@ pub struct AppState {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
+
+    // Repair the GUI process's PATH so child CLIs (claude/codex) can be
+    // located the same way they would from a user's terminal. On macOS
+    // this is mandatory; on Linux it's a no-op.
+    platform::fix_path_for_gui();
 
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())

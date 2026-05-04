@@ -1,0 +1,96 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to publish (e.g. v0.4.2). If unset, uses commit sha.'
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: ubuntu-22.04
+            args: ''
+            label: linux
+          - platform: macos-latest
+            args: '--target universal-apple-darwin'
+            label: macos-universal
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: salmon/src-tauri
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Linux build deps
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            build-essential \
+            curl wget file pkg-config \
+            libgtk-3-dev
+
+      - name: Install npm dependencies
+        working-directory: salmon
+        run: npm ci
+
+      - name: Resolve tag
+        id: tag
+        shell: bash
+        run: |
+          if [ -n "${{ github.event.inputs.tag }}" ]; then
+            echo "tag=${{ github.event.inputs.tag }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          else
+            echo "tag=manual-${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build & publish (tauri-action)
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: salmon
+          tagName: ${{ steps.tag.outputs.tag }}
+          releaseName: 'Salmon ${{ steps.tag.outputs.tag }}'
+          releaseBody: |
+            Linux: install the `.deb`, or `chmod +x` and run the AppImage.
+
+            macOS (unsigned, ad-hoc): the `.dmg` is **not notarized** because the project has no Apple Developer account.
+            On first launch macOS will refuse to open it. Either:
+              - Right-click the app → *Open* → *Open* in the dialog, **or**
+              - Run `xattr -dr com.apple.quarantine /Applications/Salmon.app` after dragging it in.
+            The `.dmg` is universal (arm64 + x86_64).
+          releaseDraft: false
+          prerelease: false
+          args: ${{ matrix.args }}

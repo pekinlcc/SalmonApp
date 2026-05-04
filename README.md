@@ -1,8 +1,8 @@
 # Salmon App
 
-> A three-pane desktop client for the **Claude Code CLI** and **Codex CLI** — Ubuntu / Linux first.
+> A three-pane desktop client for the **Claude Code CLI** and **Codex CLI** — Linux + macOS.
 >
-> Status: **v0.4.2** — Welcome Back home page with sessions overview + a peer-validated recommendations agent: every hour mark (only if there's been new chat activity since last run) Salmon asks Claude Code and Codex independently for "what's worth doing next", then has each engine cross-rate the other's candidates; only items both engines independently rated *high* show up by default. End-to-end against a locally-logged-in `claude` or `codex`. The panel reuses your existing CLI credentials so there's no second account to manage.
+> Status: **v0.5.0** — macOS support added (universal `.dmg`, ad-hoc signed). Same codebase as the Linux build; PATH-repair on macOS startup so `claude`/`codex` resolve the same way they do in Terminal. Linux build (`.deb` + `.AppImage`) unchanged. End-to-end against a locally-logged-in `claude` or `codex`; the panel reuses your existing CLI credentials so there's no second account to manage.
 
 <p align="center">
   <img src="salmon/src-tauri/icons/icon.png" alt="Salmon icon" width="128" />
@@ -35,9 +35,9 @@ Salmon **does not** speak to Anthropic or OpenAI directly. It owns no API key. C
 
 ## Install
 
-### Prebuilt (Ubuntu / Debian)
+Grab the latest from [Releases](https://github.com/pekinlcc/SalmonApp/releases/latest).
 
-Grab the latest from [Releases](https://github.com/pekinlcc/SalmonApp/releases/latest):
+### Ubuntu / Debian
 
 ```bash
 # .deb — installs to /usr/bin/Salmon and adds an application entry
@@ -49,6 +49,25 @@ chmod +x Salmon_*.AppImage
 ```
 
 The `.deb` declares its WebKit / GTK runtime deps; `apt` resolves them. The AppImage bundles them.
+
+### macOS (Apple Silicon + Intel, universal `.dmg`)
+
+> ⚠ The Mac build is **not notarized** — this project has no Apple Developer account. The `.dmg` is signed ad-hoc, which is enough to launch but not enough to satisfy Gatekeeper out of the box. You'll see "Apple could not verify Salmon is free of malware" on first launch.
+
+```bash
+# 1. Open the .dmg, drag Salmon.app into /Applications
+# 2. Tell Gatekeeper to trust it. EITHER:
+
+# (a) Right-click Salmon.app → Open → click "Open" in the dialog. macOS
+#     remembers the choice; subsequent launches are normal.
+
+# OR (b) clear the quarantine bit from a terminal:
+xattr -dr com.apple.quarantine /Applications/Salmon.app
+```
+
+`(b)` is the smoother path if you trust this repo's release pipeline. The `.dmg` is universal (`arm64` + `x86_64`), so the same file works on M-series and Intel Macs.
+
+Salmon needs `claude` or `codex` discoverable on PATH. On macOS, GUI apps don't inherit your shell's PATH — Salmon walks `$SHELL -ilc 'echo $PATH'` at startup to import it, plus probes `/opt/homebrew/bin`, `/usr/local/bin`, `~/.npm-global/bin`, `~/.bun/bin`, etc. If `npm i -g @anthropic-ai/claude-code` worked in your terminal, it'll be found.
 
 ### Prerequisites
 
@@ -71,30 +90,52 @@ Salmon detects whichever is on `PATH` and offers to use them per-Topic.
 The Preview pane renders `.pptx` / `.docx` / `.xlsx` / `.odp` / `.odt` / `.ods` by shelling out to LibreOffice headless and slicing the resulting PDF with `pdftoppm`. Install once:
 
 ```bash
+# Linux
 sudo apt install libreoffice-impress libreoffice-writer libreoffice-calc poppler-utils
+
+# macOS (either of these)
+brew install --cask libreoffice && brew install poppler
+# or download LibreOffice.app from libreoffice.org/download/ — Salmon
+# probes /Applications/LibreOffice.app/Contents/MacOS/soffice automatically.
 ```
 
 Without these, Office files fall back to a friendly "binary file" placeholder instead of crashing the preview.
 
 ## Build from source
 
-System deps for Tauri 2 on Ubuntu 24.04:
+Common: Rust toolchain (`rustup` 1.77+) and Node 20+.
+
+### Ubuntu 22.04 / 24.04
 
 ```bash
 sudo apt install \
     libwebkit2gtk-4.1-dev libssl-dev libayatana-appindicator3-dev \
     librsvg2-dev build-essential curl wget file pkg-config
-```
 
-Plus a Rust toolchain (`rustup` 1.75+) and Node 20+.
-
-```bash
 cd salmon
 npm install
 npm run tauri:build       # → src-tauri/target/release/bundle/{deb,appimage}/
 ```
 
-For development (hot-reload UI + auto-restart Tauri):
+### macOS
+
+```bash
+xcode-select --install      # if you don't have command-line tools yet
+rustup target add aarch64-apple-darwin x86_64-apple-darwin
+
+cd salmon
+npm install
+npm run tauri:build -- --target universal-apple-darwin
+# → src-tauri/target/universal-apple-darwin/release/bundle/{macos,dmg}/
+```
+
+For native-arch only (faster build, won't run on the other Mac arch):
+
+```bash
+npm run tauri:build       # → src-tauri/target/release/bundle/{macos,dmg}/
+```
+
+### Development (hot-reload UI + auto-restart Tauri, all platforms)
 
 ```bash
 npm run tauri:dev
@@ -131,6 +172,16 @@ Key choices:
 - **Per-Topic PTY** — each Topic owns one `tokio::process::Child` running `claude` (or `codex`) in JSONL streaming mode. Stream events flow through an unbounded mpsc channel and out to the UI as Tauri events.
 - **SQLite** in `~/.local/share/Salmon/salmon.db` — Topics, messages, tool calls, permission decisions, token counts. Plain text. Export / clear available from the UI.
 - **No API calls from Salmon itself** — every model interaction is a child process invocation.
+
+## v0.5.0 — macOS support (universal `.dmg`)
+
+Salmon now builds and runs on macOS in addition to Linux. Same single Tauri codebase; platform differences are handled with `cfg` blocks and a small `platform` module rather than a fork.
+
+- **Universal `.dmg` for `arm64` + `x86_64`** ships from CI alongside the existing `.deb` / `.AppImage`. Ad-hoc signed (no Apple Developer account); first launch needs `xattr -dr com.apple.quarantine /Applications/Salmon.app` or right-click → Open.
+- **GUI-PATH repair on macOS startup.** Apps launched from Finder/Dock get a stripped PATH (`/usr/bin:/bin:/usr/sbin:/sbin`), so `which::which("claude")` failed in v0.4 even when the user's terminal had `claude` working fine. `salmon-tauri/src/platform.rs` now spawns `$SHELL -ilc 'echo $PATH'` once at startup to import the user's interactive PATH, then back-fills `/opt/homebrew/bin`, `/usr/local/bin`, `~/.npm-global/bin`, `~/.bun/bin`, `~/.cargo/bin`, `~/.local/bin` as a backstop. Linux is unaffected.
+- **Office preview probes the Mac LibreOffice path.** `find_soffice()` checks `/Applications/LibreOffice.app/Contents/MacOS/soffice` (which the official installer doesn't symlink onto PATH) before falling back to `which("soffice")`. Error messages are platform-specific install hints.
+- **Tauri bundle targets switched from `["deb","appimage"]` to `"all"`** — each host produces what it can. Linux hosts still get `.deb` + `.AppImage`; Mac hosts get `.app` + `.dmg`. macOS bundle gets `signingIdentity: "-"` (ad-hoc) and `minimumSystemVersion: "10.15"`.
+- **GitHub Actions release workflow.** Push a `v*` tag → matrix builds Linux on `ubuntu-22.04` and universal Mac on `macos-latest`, attaches all artifacts to a Release.
 
 ## v0.4.2 — "同意 · 开干" auto-sends the action
 
@@ -253,7 +304,8 @@ Critical bug fix.
 
 - Single window, single profile — no multi-account
 - No cloud sync, no team workspace (out of scope per [PRD](PRD.md))
-- Linux only — macOS / Windows builds not yet wired
+- Windows build not yet wired (Tauri's Windows target works in principle but no CI step or Gatekeeper-equivalent docs yet)
+- macOS build is unsigned / unnotarized — first launch needs the `xattr` workaround above
 - Token-usage display only counts what the CLI emits in stream events; doesn't reconcile with the CLI's own usage panel
 - Office preview blocks the UI thread for ~2-3 s on the first render of a file (LibreOffice cold-start); subsequent loads hit the cache
 

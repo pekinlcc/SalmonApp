@@ -964,7 +964,10 @@ pub fn render_office_preview(path: String) -> Result<Vec<String>, String> {
         std::fs::create_dir_all(&profile_dir).map_err(map_err)?;
         let profile_url = format!("file://{}", profile_dir.display());
 
-        let soffice_out = Command::new("soffice")
+        let soffice_bin = crate::platform::find_soffice().ok_or_else(|| {
+            crate::platform::install_hint_for_office_preview().to_string()
+        })?;
+        let soffice_out = Command::new(&soffice_bin)
             .args([
                 "--headless",
                 "--norestore",
@@ -982,8 +985,10 @@ pub fn render_office_preview(path: String) -> Result<Vec<String>, String> {
             Ok(o) => o,
             Err(e) => {
                 return Err(format!(
-                    "无法运行 soffice: {}。请先安装 LibreOffice (sudo apt install libreoffice-impress)",
-                    e
+                    "无法运行 {}: {}。{}",
+                    soffice_bin.display(),
+                    e,
+                    crate::platform::install_hint_for_office_preview()
                 ));
             }
         };
