@@ -503,11 +503,17 @@ export default function App() {
 
   const onToggleDangerMode = useCallback(async (id: string, danger: boolean) => {
     try {
+      // Backend kills the running CLI session inside set_danger_mode (the
+      // --dangerously-skip-permissions flag is launch-time, can't change
+      // mid-process). Re-open immediately so the engine respawns with the
+      // new flag — Claude Code / Codex resume by --resume <session_id>, so
+      // the conversation context is preserved.
       await api.setDangerMode(id, danger);
-      // Bypass is read by the engine driver when a session spawns, so the
-      // already-running session keeps its old setting. The hint tells the
-      // user the toggle took effect server-side but won't change behaviour
-      // until the next message starts a fresh engine call.
+      try {
+        await api.openTopic(id);
+      } catch (e: any) {
+        api.debugLog(`re-open after danger toggle failed for ${id}: ${e}`);
+      }
       setTopics((cur) =>
         cur.map((t) => (t.id === id ? { ...t, dangerMode: danger } : t))
       );

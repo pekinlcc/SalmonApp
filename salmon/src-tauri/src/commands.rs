@@ -1475,7 +1475,14 @@ pub fn set_danger_mode(
     id: String,
     danger: bool,
 ) -> Result<(), String> {
-    state.db.lock().set_danger_mode(&id, danger).map_err(map_err)
+    state.db.lock().set_danger_mode(&id, danger).map_err(map_err)?;
+    // The CLI subprocess can't change its --dangerously-skip-permissions
+    // flag after launch, and engine.spawn is idempotent, so the running
+    // session would otherwise keep the old setting forever. Kill it; the
+    // frontend immediately calls open_topic which respawns from current
+    // DB state (with --resume <session_id> preserving conversation).
+    state.engine.close(&id);
+    Ok(())
 }
 
 #[tauri::command]
