@@ -9,8 +9,9 @@ interface Props {
 export function ToolCallCard({ tool, onSelect }: Props) {
   const [open, setOpen] = useState(false);
   const summary = summarize(tool);
+  const running = tool.state === "running";
   return (
-    <div className={`tool ${open ? "open" : ""}`}>
+    <div className={`tool ${open ? "open" : ""} ${running ? "tool-running" : ""}`}>
       <div
         className="tool-head"
         onClick={() => {
@@ -18,7 +19,9 @@ export function ToolCallCard({ tool, onSelect }: Props) {
           onSelect?.(tool);
         }}
       >
-        <span className="tool-icon">{abbreviate(tool.name)}</span>
+        <span className={`tool-icon ${running ? "tool-icon-running" : ""}`}>
+          {running ? <span className="tool-spinner" /> : abbreviate(tool.name)}
+        </span>
         <span className="tool-name">{tool.name}</span>
         <span className="tool-summary">{summary}</span>
         <span className={`tool-state ${tool.state}`}>{tool.state}</span>

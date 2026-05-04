@@ -258,6 +258,49 @@ button { font-family: inherit; }
 
 .interrupted-tag { display: inline-block; font-size: 10.5px; padding: 1px 6px; border-radius: 3px; font-weight: 600; background: #FFE4E1; color: #B7493D; margin-left: 6px; }
 
+/* ── Typing indicator (Level A) ─────────────────────────────────────── */
+.typing-msg { animation: typing-fade-in .18s ease-out; }
+@keyframes typing-fade-in {
+  from { opacity: 0; transform: translateY(2px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.typing-bubble {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 10px 14px;
+  background: var(--ink-50);
+  border: 1px solid var(--ink-100);
+  border-radius: 14px;
+  margin-top: 2px;
+}
+.typing-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--salmon-500);
+  opacity: 0.35;
+  animation: typing-bounce 1.2s infinite ease-in-out;
+}
+.typing-dot:nth-child(2) { animation-delay: 0.18s; }
+.typing-dot:nth-child(3) { animation-delay: 0.36s; }
+@keyframes typing-bounce {
+  0%, 60%, 100% { opacity: 0.35; transform: translateY(0); }
+  30%           { opacity: 1;    transform: translateY(-3px); }
+}
+
+/* ── Tool card running spinner ──────────────────────────────────────── */
+.tool-icon-running {
+  background: #FFF1B8 !important;
+  color: #8A6700 !important;
+}
+.tool-spinner {
+  width: 10px; height: 10px;
+  border: 2px solid #F4BF4F44;
+  border-top-color: #8A6700;
+  border-radius: 50%;
+  animation: tool-spin .8s linear infinite;
+  display: inline-block;
+}
+@keyframes tool-spin { to { transform: rotate(360deg); } }
+.tool.tool-running { box-shadow: 0 0 0 2px #FFF1B855; }
+
 /* Layout B — collapsible thinking group + emphasized final answer */
 .think-group { border: 1px solid var(--ink-100); background: #FCFCFB; border-radius: var(--radius-sm); margin: 4px 0 12px; overflow: hidden; }
 .think-group > summary { list-style: none; }

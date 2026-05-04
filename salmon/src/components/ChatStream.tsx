@@ -12,6 +12,7 @@ interface Props {
   pendingPermission: { id: string; tool: string; input: any; command: string | null } | null;
   errorBanner: string | null;
   chatLayout: ChatLayout;
+  busy?: boolean;
   workdirMissing?: boolean;
   onArchive?: () => void;
   onDelete?: () => void;
@@ -20,12 +21,27 @@ interface Props {
 }
 
 export function ChatStream(props: Props) {
-  const { topic, messages, pendingPermission, errorBanner, chatLayout, workdirMissing } = props;
+  const { topic, messages, pendingPermission, errorBanner, chatLayout, busy, workdirMissing } = props;
   const endRef = useRef<HTMLDivElement>(null);
+
+  // Typing-indicator visibility: show when the engine is busy and the
+  // currently-pending assistant turn has not produced any block yet — i.e.,
+  // the gap between sending and the first stream event arriving.
+  const showTyping = (() => {
+    if (!busy) return false;
+    if (pendingPermission) return false;
+    const last = messages[messages.length - 1];
+    if (!last) return true;                                  // user just sent, nothing back yet
+    if (last.role === "user") return true;                   // last entry is user → assistant bubble pending
+    // Last entry is an assistant message; only hide if it has actual content/blocks already.
+    const blocks = last.blocks?.length || 0;
+    const hasContent = blocks > 0 || (last.content && last.content.length > 0);
+    return last.pending && !hasContent;
+  })();
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [messages.length, pendingPermission]);
+  }, [messages.length, pendingPermission, showTyping]);
 
   const time = (ts: number) => new Date(ts).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" });
 
@@ -90,6 +106,23 @@ export function ChatStream(props: Props) {
               workdir={topic.workdir}
               onApprove={(a) => props.onApprovePermission(pendingPermission.id, a)}
             />
+          </div>
+        </div>
+      )}
+
+      {showTyping && (
+        <div className="msg typing-msg">
+          <div className="avatar ai">S</div>
+          <div className="msg-body">
+            <div className="msg-name">
+              Salmon · {topic.engine === "claude" ? "Claude Code" : "Codex"}
+              <span className="ts">正在思考…</span>
+            </div>
+            <div className="typing-bubble" aria-label="助手正在响应">
+              <span className="typing-dot"></span>
+              <span className="typing-dot"></span>
+              <span className="typing-dot"></span>
+            </div>
           </div>
         </div>
       )}

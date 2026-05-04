@@ -737,6 +737,7 @@ export default function App() {
               pendingPermission={pendingPermByTopic[selectedTopic.id] || null}
               errorBanner={errorByTopic[selectedTopic.id] || null}
               chatLayout={chatLayout}
+              busy={!!busyByTopic[selectedTopic.id]}
               workdirMissing={workdirOkByTopic[selectedTopic.id] === false}
               onArchive={() => onArchive(selectedTopic.id, true)}
               onDelete={() => {
