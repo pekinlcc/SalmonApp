@@ -44,6 +44,10 @@ export default function App() {
   const [recsError, setRecsError] = useState<string | null>(null);
   const lastRecsRunRef = useRef<number>(0);
 
+  // Topic id whose danger toggle was just flipped — drives the transient
+  // "下次发送起生效" hint next to the button. Cleared by setTimeout.
+  const [dangerHintTopicId, setDangerHintTopicId] = useState<string | null>(null);
+
   const refreshRecsList = useCallback(async () => {
     try {
       const list = await api.listPendingRecommendations();
@@ -427,6 +431,25 @@ export default function App() {
     }
   }, []);
 
+  const onToggleDangerMode = useCallback(async (id: string, danger: boolean) => {
+    try {
+      await api.setDangerMode(id, danger);
+      // Bypass is read by the engine driver when a session spawns, so the
+      // already-running session keeps its old setting. The hint tells the
+      // user the toggle took effect server-side but won't change behaviour
+      // until the next message starts a fresh engine call.
+      setTopics((cur) =>
+        cur.map((t) => (t.id === id ? { ...t, dangerMode: danger } : t))
+      );
+      setDangerHintTopicId(id);
+      window.setTimeout(() => {
+        setDangerHintTopicId((cur) => (cur === id ? null : cur));
+      }, 4000);
+    } catch (e: any) {
+      api.debugLog(`set_danger_mode failed: ${e}`);
+    }
+  }, []);
+
   const onCreateTopic = useCallback(
     async (args: {
       title: string;
@@ -614,7 +637,19 @@ export default function App() {
                 {selectedTopic.engine === "claude" ? "Claude Code" : "Codex"}
                 {selectedTopic.model ? " · " + selectedTopic.model : ""}
               </span>
-              {selectedTopic.dangerMode && <span className="danger">危险模式</span>}
+              <button
+                type="button"
+                className={`danger-toggle ${selectedTopic.dangerMode ? "on" : "off"}`}
+                onClick={() => onToggleDangerMode(selectedTopic.id, !selectedTopic.dangerMode)}
+                title={selectedTopic.dangerMode
+                  ? "Bypass 模式开启:工具调用不再弹授权框。点击关闭。"
+                  : "默认权限:每次工具调用都会请求授权。点击开启 Bypass。"}
+              >
+                {selectedTopic.dangerMode ? "⚠ Bypass" : "默认权限"}
+              </button>
+              {dangerHintTopicId === selectedTopic.id && (
+                <span className="danger-hint">下次发送起生效</span>
+              )}
               <div className="spacer" />
               <div className="stat">
                 {(messagesByTopic[selectedTopic.id] || []).length} messages
