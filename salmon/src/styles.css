@@ -536,6 +536,14 @@ button { font-family: inherit; }
 .rec-rationale { color: var(--ink-700); font-size: 12.5px; line-height: 1.55; margin-bottom: 6px; }
 .rec-meta { color: var(--ink-500); font-size: 11.5px; line-height: 1.55; margin-bottom: 8px; display: flex; flex-wrap: wrap; gap: 12px; }
 .rec-topic { color: var(--salmon-700); }
+.rec-payoff {
+  display: flex; align-items: baseline; gap: 8px;
+  margin-bottom: 10px; padding: 6px 10px;
+  background: var(--ink-50); border-left: 2px solid var(--salmon-300); border-radius: 4px;
+  font-size: 12.5px; line-height: 1.5;
+}
+.rec-payoff-label { font-size: 10.5px; font-weight: 600; color: var(--salmon-700); letter-spacing: 0.04em; flex-shrink: 0; }
+.rec-payoff-text { color: var(--ink-800); }
 .rec-actions { display: flex; gap: 8px; }
 .rec-actions .btn { font-size: 12px; padding: 4px 12px; }
 

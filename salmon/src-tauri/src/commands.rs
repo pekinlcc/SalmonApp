@@ -510,8 +510,8 @@ fn build_review_prompt(candidates: &[&Recommendation], feedback_block: &str) -> 
     let mut list = String::new();
     for c in candidates {
         list.push_str(&format!(
-            "- id: {}\n  title: {}\n  rationale: {}\n  action: {}\n  source: {}\n  self_rated: {}\n",
-            c.id, c.title, c.rationale, c.action_hint, c.source_engine,
+            "- id: {}\n  title: {}\n  rationale: {}\n  action: {}\n  payoff: {}\n  source: {}\n  self_rated: {}\n",
+            c.id, c.title, c.rationale, c.action_hint, c.payoff, c.source_engine,
             c.self_value.as_deref().unwrap_or("?"),
         ));
     }
@@ -715,11 +715,23 @@ fn build_recommendation_prompt(topics_block: &str, feedback_block: &str) -> Stri
             - high: \"用户读完立刻会点同意\"——只要他可能犹豫一秒就降 medium。\n\
             - medium: 有道理但不紧迫,或方向对但建议过虚。\n\
             - low: 边角发散——这种本来就别提交。\n\n\
+         【payoff 字段 - 这是最容易写废的字段,认真写】\n\
+         payoff = \"用户点同意之后立刻会感到的具体改变\"。\n\
+         - 必须指向**具体摩擦消失 / 具体时刻**,不是抽象形容词。\n\
+         - **禁用开头**:\"让你...\"、\"提升...\"、\"优化...\"、\"提高...质量\"、\
+         \"改善...体验\"——这些都是废话,看到自己写出来就重写。\n\
+         - 写不出具体 payoff 的条目,直接丢掉,**不要硬编一个**。\n\
+         - 示例:\n\
+            ✅ \"仓库 branches 列表干净,下次发版走标准流程不用再绕\"\n\
+            ✅ \"这周 pending 推荐数量直接砍 2/3\"\n\
+            ✅ \"下次调阈值时不用靠肉眼读 retain 闭包验证\"\n\
+            ❌ \"让代码库更整洁\" / \"提升使用体验\" / \"提高代码质量\"\n\n\
          【输出格式 - 严格 JSON,无其他文字,不要 markdown 代码块】\n\
          {{\n  \"recommendations\": [\n    {{\n      \"title\": \"≤16 个汉字的标题\",\n\
          \"rationale\": \"≤80 字的具体理由,引用对话里的具体事实\",\n\
          \"topic_id\": \"<对应 Topic 的 id,跨 Topic 时填 null>\",\n\
          \"action_hint\": \"≤40 字的下一步具体操作\",\n\
+         \"payoff\": \"≤40 字,同意后用户立刻感到的具体改变,禁用空话开头\",\n\
          \"self_value\": \"high|medium|low\"\n    }}\n  ]\n}}\n\n\
          【对话项目】\n{}\n\n\
          【用户过往反馈】\n{}\n",
@@ -833,6 +845,12 @@ fn parse_recommendation_json(
             .unwrap_or("")
             .trim()
             .to_string();
+        let payoff = item
+            .get("payoff")
+            .and_then(|x| x.as_str())
+            .unwrap_or("")
+            .trim()
+            .to_string();
         if title.is_empty() || rationale.is_empty() {
             continue;
         }
@@ -853,6 +871,7 @@ fn parse_recommendation_json(
             title: truncate_chars(&title, 24),
             rationale: truncate_chars(&rationale, 120),
             action_hint: truncate_chars(&action_hint, 60),
+            payoff: truncate_chars(&payoff, 60),
             status: "pending".to_string(),
             priority: "medium".to_string(),
             self_value,

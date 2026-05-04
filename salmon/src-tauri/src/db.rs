@@ -59,6 +59,10 @@ impl Db {
             "ALTER TABLE recommendations ADD COLUMN peer_value TEXT",
             [],
         );
+        let _ = conn.execute(
+            "ALTER TABLE recommendations ADD COLUMN payoff TEXT NOT NULL DEFAULT ''",
+            [],
+        );
         conn.execute_batch(
             r#"
             CREATE TABLE IF NOT EXISTS recommendations (
@@ -68,6 +72,7 @@ impl Db {
                 title           TEXT NOT NULL,
                 rationale       TEXT NOT NULL,
                 action_hint     TEXT NOT NULL,
+                payoff          TEXT NOT NULL DEFAULT '',
                 status          TEXT NOT NULL,
                 priority        TEXT NOT NULL DEFAULT 'medium',
                 self_value      TEXT,
@@ -261,13 +266,13 @@ impl Db {
     pub fn insert_recommendation(&mut self, r: &Recommendation) -> Result<()> {
         self.conn.execute(
             "INSERT INTO recommendations
-             (id,source_engine,topic_id,title,rationale,action_hint,status,
+             (id,source_engine,topic_id,title,rationale,action_hint,payoff,status,
               priority,self_value,peer_value,
               generated_at,decided_at,decision_reason)
-             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             params![
                 r.id, r.source_engine, r.topic_id, r.title, r.rationale,
-                r.action_hint, r.status,
+                r.action_hint, r.payoff, r.status,
                 r.priority, r.self_value, r.peer_value,
                 r.generated_at, r.decided_at, r.decision_reason
             ],
@@ -278,7 +283,7 @@ impl Db {
     pub fn list_recommendations(&self, status_filter: Option<&str>, limit: usize) -> Result<Vec<Recommendation>> {
         let (sql, has_filter) = if status_filter.is_some() {
             (
-                "SELECT id,source_engine,topic_id,title,rationale,action_hint,status,
+                "SELECT id,source_engine,topic_id,title,rationale,action_hint,payoff,status,
                         priority,self_value,peer_value,
                         generated_at,decided_at,decision_reason
                  FROM recommendations WHERE status=? ORDER BY generated_at DESC LIMIT ?",
@@ -286,7 +291,7 @@ impl Db {
             )
         } else {
             (
-                "SELECT id,source_engine,topic_id,title,rationale,action_hint,status,
+                "SELECT id,source_engine,topic_id,title,rationale,action_hint,payoff,status,
                         priority,self_value,peer_value,
                         generated_at,decided_at,decision_reason
                  FROM recommendations ORDER BY generated_at DESC LIMIT ?",
@@ -302,13 +307,14 @@ impl Db {
                 title: r.get(3)?,
                 rationale: r.get(4)?,
                 action_hint: r.get(5)?,
-                status: r.get(6)?,
-                priority: r.get::<_, Option<String>>(7)?.unwrap_or_else(|| "medium".to_string()),
-                self_value: r.get(8)?,
-                peer_value: r.get(9)?,
-                generated_at: r.get(10)?,
-                decided_at: r.get(11)?,
-                decision_reason: r.get(12)?,
+                payoff: r.get::<_, Option<String>>(6)?.unwrap_or_default(),
+                status: r.get(7)?,
+                priority: r.get::<_, Option<String>>(8)?.unwrap_or_else(|| "medium".to_string()),
+                self_value: r.get(9)?,
+                peer_value: r.get(10)?,
+                generated_at: r.get(11)?,
+                decided_at: r.get(12)?,
+                decision_reason: r.get(13)?,
             })
         };
         let rows: Vec<Recommendation> = if has_filter {
@@ -354,13 +360,14 @@ impl Db {
                 title: r.get(3)?,
                 rationale: r.get(4)?,
                 action_hint: r.get(5)?,
-                status: r.get(6)?,
-                priority: r.get::<_, Option<String>>(7)?.unwrap_or_else(|| "medium".to_string()),
-                self_value: r.get(8)?,
-                peer_value: r.get(9)?,
-                generated_at: r.get(10)?,
-                decided_at: r.get(11)?,
-                decision_reason: r.get(12)?,
+                payoff: r.get::<_, Option<String>>(6)?.unwrap_or_default(),
+                status: r.get(7)?,
+                priority: r.get::<_, Option<String>>(8)?.unwrap_or_else(|| "medium".to_string()),
+                self_value: r.get(9)?,
+                peer_value: r.get(10)?,
+                generated_at: r.get(11)?,
+                decided_at: r.get(12)?,
+                decision_reason: r.get(13)?,
             })
         })?;
         if let Some(r) = rows.next() {

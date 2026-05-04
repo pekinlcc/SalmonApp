@@ -57,6 +57,11 @@ pub struct Recommendation {
     pub title: String,
     pub rationale: String,
     pub action_hint: String,
+    /// Concrete payoff: what the user feels different the moment they accept.
+    /// Forward-looking complement to `rationale` (which looks back at why this
+    /// item exists). Empty string for legacy rows.
+    #[serde(default)]
+    pub payoff: String,
     pub status: String,
     /// `high` = both engines rated high → default-shown
     /// `medium` = at least one rated medium-or-better
