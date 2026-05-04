@@ -1,7 +1,11 @@
-# Salmon App — 产品需求文档（PRD v0.4.1）
+# Salmon App — 产品需求文档（PRD v0.4.2）
 
 > 状态：**进入主动协作期**
-> 版本：v0.4.1 — 2026-05-04
+> 版本：v0.4.2 — 2026-05-04
+> v0.4.1 → v0.4.2 增量:
+> - 推荐卡 ✓ 同意按钮的语义改成"**跳转 + 自动发消息开干**":点了同意后,先跳到关联 Topic,再自动把 `action_hint`(推荐里那一行≤40 字的具体下一步)作为用户消息发给该 Topic 的 CLI,免得用户再手敲一遍。按钮文案改 *同意 · 开干*,tooltip 预览要发的内容。
+> - 实现:`App.tsx` 抽出 `sendToTopic(topicId, text)` helper(独立于 `selectedId` 闭包),新 `onAcceptRec(rec)` 顺序调 `onDecideRec` → `await onSelect(rec.topicId)`(等 engine.spawn 把 Session 注册进 registry)→ `await sendToTopic(rec.topicId, rec.action_hint || rec.title)`。
+>
 > v0.4.0 → v0.4.1 关键 hotfix:`render_topic_block` 用 `String::truncate(byte_index)` 截断 Topic 摘要,中文 CJK 是 3 字节字符,字节切到中间 → `assertion failed: self.is_char_boundary(new_len)` panic → tokio worker 线程 SIGABRT → 应用闪崩。第一次 HH:00 触发 `generate_recommendations` 就会复现。修法:`while !is_char_boundary(cap) { cap -= 1 }` 先 snap 到最近 UTF-8 边界再 truncate。
 >
 > v0.3.4 → v0.4.0 大版本要点(均已实现):

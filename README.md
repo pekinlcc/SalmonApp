@@ -2,7 +2,7 @@
 
 > A three-pane desktop client for the **Claude Code CLI** and **Codex CLI** — Ubuntu / Linux first.
 >
-> Status: **v0.4.1** — Welcome Back home page with sessions overview + a peer-validated recommendations agent: every hour mark (only if there's been new chat activity since last run) Salmon asks Claude Code and Codex independently for "what's worth doing next", then has each engine cross-rate the other's candidates; only items both engines independently rated *high* show up by default. End-to-end against a locally-logged-in `claude` or `codex`. The panel reuses your existing CLI credentials so there's no second account to manage.
+> Status: **v0.4.2** — Welcome Back home page with sessions overview + a peer-validated recommendations agent: every hour mark (only if there's been new chat activity since last run) Salmon asks Claude Code and Codex independently for "what's worth doing next", then has each engine cross-rate the other's candidates; only items both engines independently rated *high* show up by default. End-to-end against a locally-logged-in `claude` or `codex`. The panel reuses your existing CLI credentials so there's no second account to manage.
 
 <p align="center">
   <img src="salmon/src-tauri/icons/icon.png" alt="Salmon icon" width="128" />
@@ -131,6 +131,18 @@ Key choices:
 - **Per-Topic PTY** — each Topic owns one `tokio::process::Child` running `claude` (or `codex`) in JSONL streaming mode. Stream events flow through an unbounded mpsc channel and out to the UI as Tauri events.
 - **SQLite** in `~/.local/share/Salmon/salmon.db` — Topics, messages, tool calls, permission decisions, token counts. Plain text. Export / clear available from the UI.
 - **No API calls from Salmon itself** — every model interaction is a child process invocation.
+
+## v0.4.2 — "同意 · 开干" auto-sends the action
+
+When you click *同意* on a recommendation, Salmon now jumps to the linked Topic **and immediately sends the recommendation's `action_hint` as a user message**, so the assistant starts on the work without you having to retype anything.
+
+Before v0.4.2, *同意* only navigated to the Topic and marked the recommendation as accepted in DB. The user had to type "go" themselves — surprising silence after a click that visually moved them somewhere new.
+
+Implementation:
+- Extracted `sendToTopic(topicId, text)` from `onSend` so we can post into a Topic without depending on `selectedId`'s captured render scope.
+- New `onAcceptRec(rec)` callback: marks decision → `await onSelect(rec.topicId)` (this awaits `engine.spawn` registering the Session) → `await sendToTopic(rec.topicId, rec.action_hint || rec.title)`.
+- Button label changed *同意 → 同意 · 开干*; tooltip previews the exact message that will be sent.
+- *× 忽略* unchanged — just dismisses, no message.
 
 ## v0.4.1 — UTF-8 hotfix for the recommendation agent
 

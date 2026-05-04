@@ -440,12 +440,10 @@ export default function App() {
     [onSelect]
   );
 
-  const onSend = useCallback(
-    async (text: string) => {
-      if (!selectedId) return;
-      // optimistic user message
+  const sendToTopic = useCallback(
+    async (topicId: string, text: string) => {
       setMessagesByTopic((m) => {
-        const list = [...(m[selectedId] || [])];
+        const list = [...(m[topicId] || [])];
         const now = Date.now();
         list.push({
           id: cryptoId(),
@@ -455,18 +453,40 @@ export default function App() {
           tools: [],
           createdAt: now,
         });
-        return { ...m, [selectedId]: list };
+        return { ...m, [topicId]: list };
       });
-      setBusyByTopic((b) => ({ ...b, [selectedId]: true }));
-      setErrorByTopic((er) => ({ ...er, [selectedId]: null }));
+      setBusyByTopic((b) => ({ ...b, [topicId]: true }));
+      setErrorByTopic((er) => ({ ...er, [topicId]: null }));
       try {
-        await api.sendMessage(selectedId, text);
+        await api.sendMessage(topicId, text);
       } catch (e: any) {
-        setErrorByTopic((er) => ({ ...er, [selectedId]: String(e) }));
-        setBusyByTopic((b) => ({ ...b, [selectedId]: false }));
+        setErrorByTopic((er) => ({ ...er, [topicId]: String(e) }));
+        setBusyByTopic((b) => ({ ...b, [topicId]: false }));
       }
     },
-    [selectedId]
+    []
+  );
+
+  const onSend = useCallback(
+    async (text: string) => {
+      if (!selectedId) return;
+      await sendToTopic(selectedId, text);
+    },
+    [selectedId, sendToTopic]
+  );
+
+  // Click "同意" on a recommendation → jump to its Topic AND auto-send the
+  // action_hint as a user message, so the assistant actually starts on it.
+  const onAcceptRec = useCallback(
+    async (rec: Recommendation) => {
+      onDecideRec(rec.id, "accepted");
+      if (!rec.topicId) return;
+      const text = rec.actionHint?.trim() || rec.title;
+      if (!text) return;
+      await onSelect(rec.topicId);
+      await sendToTopic(rec.topicId, text);
+    },
+    [onDecideRec, onSelect, sendToTopic]
   );
 
   const onInterrupt = useCallback(async () => {
@@ -556,6 +576,7 @@ export default function App() {
               recsError={recsError}
               onRefreshRecs={generateRecs}
               onDecideRec={onDecideRec}
+              onAcceptRec={onAcceptRec}
               onSelect={onSelect}
               onNewTopic={() => setShowNew(true)}
             />

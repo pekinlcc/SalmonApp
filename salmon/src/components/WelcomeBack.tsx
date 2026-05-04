@@ -20,6 +20,7 @@ interface Props {
   recsError: string | null;
   onRefreshRecs: () => void;
   onDecideRec: (id: string, decision: "accepted" | "ignored") => void;
+  onAcceptRec: (rec: Recommendation) => void;
   onSelect: (id: string) => void;
   onNewTopic: () => void;
 }
@@ -43,6 +44,7 @@ export function WelcomeBack({
   recsError,
   onRefreshRecs,
   onDecideRec,
+  onAcceptRec,
   onSelect,
   onNewTopic,
 }: Props) {
@@ -116,10 +118,7 @@ export function WelcomeBack({
           <RecommendationsList
             recs={recommendations}
             topics={topics}
-            onAccept={(r) => {
-              if (r.topicId) onSelect(r.topicId);
-              onDecideRec(r.id, "accepted");
-            }}
+            onAccept={(r) => onAcceptRec(r)}
             onIgnore={(r) => onDecideRec(r.id, "ignored")}
           />
         </section>
@@ -261,8 +260,14 @@ function RecommendationCard({
         <span className="rec-action">下一步: {rec.actionHint}</span>
       </div>
       <div className="rec-actions">
-        <button className="btn primary" onClick={onAccept}>✓ 同意</button>
-        <button className="btn" onClick={onIgnore}>× 忽略</button>
+        <button
+          className="btn primary"
+          onClick={onAccept}
+          title={rec.topicId ? `跳到该 Topic 并自动发送:"${rec.actionHint}"` : "标记同意"}
+        >
+          ✓ 同意 · 开干
+        </button>
+        <button className="btn" onClick={onIgnore} title="标记忽略,不发消息">× 忽略</button>
       </div>
     </div>
   );
