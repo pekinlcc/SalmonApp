@@ -241,6 +241,7 @@ export default function App() {
         if (selectedIdRef.current === e.topicId) {
           markRead(e.topicId);
         }
+        const now = Date.now();
         setMessagesByTopic((m) => {
           const list = [...(m[e.topicId] || [])];
           let cur = list[list.length - 1];
@@ -250,11 +251,14 @@ export default function App() {
           }
           cur.blocks = [
             ...cur.blocks,
-            { kind: "text", content: e.content, createdAt: Date.now() },
+            { kind: "text", content: e.content, createdAt: now },
           ];
           cur.content = (cur.content ? cur.content + "\n\n" : "") + e.content;
           return { ...m, [e.topicId]: list };
         });
+        // Mirror backend's touch_topic on assistant reply so the welcome
+        // screen sees the latest activity timestamp.
+        setTopics((cur) => cur.map((t) => (t.id === e.topicId ? { ...t, updatedAt: now } : t)));
         setBusyByTopic((b) => ({ ...b, [e.topicId]: true }));
         break;
       }
@@ -442,9 +446,9 @@ export default function App() {
 
   const sendToTopic = useCallback(
     async (topicId: string, text: string) => {
+      const now = Date.now();
       setMessagesByTopic((m) => {
         const list = [...(m[topicId] || [])];
-        const now = Date.now();
         list.push({
           id: cryptoId(),
           role: "user",
@@ -455,6 +459,10 @@ export default function App() {
         });
         return { ...m, [topicId]: list };
       });
+      // Mirror backend's touch_topic so the welcome screen reorders this topic
+      // to the top right away — without this, the user-visible list keeps the
+      // ordering from app launch until a full topic refetch.
+      setTopics((cur) => cur.map((t) => (t.id === topicId ? { ...t, updatedAt: now } : t)));
       setBusyByTopic((b) => ({ ...b, [topicId]: true }));
       setErrorByTopic((er) => ({ ...er, [topicId]: null }));
       try {
