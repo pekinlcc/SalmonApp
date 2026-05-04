@@ -637,3 +637,41 @@ button { font-family: inherit; }
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-thumb { background: #00000018; border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: #00000028; }
+
+/* In-app toasts (fallback when window is focused; system banners would be
+   noisy in that case). Stacked bottom-right. */
+.toasts {
+  position: fixed; bottom: 16px; right: 16px;
+  display: flex; flex-direction: column; gap: 8px;
+  z-index: 9999; max-width: 360px; pointer-events: none;
+}
+.toast {
+  pointer-events: auto;
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 10px 12px; border-radius: 6px;
+  background: #fff; border: 1px solid var(--ink-100);
+  box-shadow: 0 6px 18px rgba(0,0,0,.12), 0 1px 2px rgba(0,0,0,.06);
+  font-size: 12.5px; line-height: 1.45;
+  animation: toast-in .18s ease-out;
+}
+.toast.toast-clickable { cursor: pointer; }
+.toast.toast-clickable:hover { border-color: var(--ink-300); }
+.toast-icon { font-size: 16px; line-height: 1; flex-shrink: 0; margin-top: 1px; }
+.toast-text { flex: 1; min-width: 0; }
+.toast-title { font-weight: 600; color: var(--ink-900); }
+.toast-body { color: var(--ink-700); margin-top: 2px; word-break: break-word; }
+.toast-close {
+  background: transparent; border: none; cursor: pointer;
+  font-size: 16px; line-height: 1; color: var(--ink-500);
+  padding: 0 2px; flex-shrink: 0;
+}
+.toast-close:hover { color: var(--ink-900); }
+.toast.toast-permission { border-left: 3px solid #B7493D; }
+.toast.toast-error,
+.toast.toast-crash { border-left: 3px solid #B7493D; background: #FFF7F5; }
+.toast.toast-done { border-left: 3px solid #5AA76C; }
+.toast.toast-recs { border-left: 3px solid var(--salmon-300); }
+@keyframes toast-in {
+  from { transform: translateY(8px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
