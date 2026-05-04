@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { CliInfo, FileEntry, Message, Topic, WorkdirCheck } from "./types";
+import type { CliInfo, FileEntry, Message, Recommendation, Topic, WorkdirCheck } from "./types";
 
 export const api = {
   detectClis: () => invoke<{ clis: CliInfo[] }>("detect_clis"),
@@ -40,6 +40,14 @@ export const api = {
     invoke<void>("set_archived", { id, archived }),
   checkWorkdir: (path: string) =>
     invoke<WorkdirCheck>("check_workdir", { path }),
+  generateRecommendations: () =>
+    invoke<Recommendation[]>("generate_recommendations"),
+  listPendingRecommendations: () =>
+    invoke<Recommendation[]>("list_pending_recommendations"),
+  listRecentRecommendations: (limit: number) =>
+    invoke<Recommendation[]>("list_recent_recommendations", { limit }),
+  decideRecommendation: (id: string, decision: "accepted" | "ignored") =>
+    invoke<void>("decide_recommendation", { id, decision }),
   setDangerMode: (id: string, danger: boolean) =>
     invoke<void>("set_danger_mode", { id, danger }),
   runningTopics: () => invoke<string[]>("running_topics"),

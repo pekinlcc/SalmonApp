@@ -1,6 +1,17 @@
-# Salmon App — 产品需求文档（PRD v0.3.4）
+# Salmon App — 产品需求文档（PRD v0.4.0）
 
-> 状态：**MVP 已落地,进入完善阶段**
+> 状态：**进入主动协作期**
+> 版本：v0.4.0 — 2026-05-04
+> v0.3.4 → v0.4.0 大版本要点(均已实现):
+> - **Welcome Back 首页** — 没选中 Topic 时(或点左侧 ✦ 首页)中栏显示"需要授权 / 工作目录失效 / 未读"分类,参考 claude.ai/code 风格;每条点击进 Topic 后自动 markRead,基于 `localStorage["salmon.lastReadAt"]` 持久化
+> - **推荐 agent** — 双 round 互评流程
+>   - Round 1:把所有非归档、近 14 天有活动的 Topic 摘要(首条用户消息 + 末 3 轮、每 Topic ≤ 1500 字、总 ≤ 18K 字)+ 用户最近 30 条接受/忽略反馈一起发给 `claude -p` 和 `codex exec --json`,各生成 3-5 条带 `self_value: high/medium/low` 自评的候选
+>   - Round 2:Claude 评 Codex 的候选 + Codex 评 Claude 的候选,合并 `peer_value`
+>   - **过滤规则**(用户要求):双方都 high → `priority='high'` 默认展开,**只有一方 high** → `medium` 折叠在"其他建议"下,**双方都不是 high** → 直接丢弃不入库
+> - **触发规则** — 启动时若 `Date.now() - lastRun > 1h && maxTopicUpdated > lastRun` 立即跑一次;运行中按 30s 间隔 tick 检查,只在 `HH:00 准点 + 有新活动` 时跑;`↻ 刷新` 按钮无视所有限制立即跑
+> - **决策反馈** — 点 ✓ 同意/× 忽略 → DB 标记 + 后台异步调一次 `claude -p` 推测原因(≤40 字),存到 `decision_reason`,下一轮 prompt 会作为反馈历史参考
+> - **新表** — `recommendations(id, source_engine, topic_id, title, rationale, action_hint, status, priority, self_value, peer_value, generated_at, decided_at, decision_reason)`,自动 ALTER TABLE 迁移
+>
 > 版本：v0.3.4 — 2026-05-03
 > v0.3.3 → v0.3.4 关键修复:
 > - **助手回复终于真的入库了** — 此前 `db.append_message` 只在 `send_message` 里被调用,把用户消息存了;助手回复只走 `StreamEvent::AssistantDone` 实时通道,**从未落盘**。重开应用时 `hydrate(listMessages)` 回放出来的就是"半截对话":只有用户问号,没有助手答案。

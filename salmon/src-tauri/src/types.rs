@@ -49,6 +49,32 @@ pub struct ToolCall {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Recommendation {
+    pub id: String,
+    pub source_engine: String,
+    pub topic_id: Option<String>,
+    pub title: String,
+    pub rationale: String,
+    pub action_hint: String,
+    pub status: String,
+    /// `high` = both engines rated high → default-shown
+    /// `medium` = at least one rated medium-or-better
+    /// `low` = either engine rated low → folded
+    #[serde(default)]
+    pub priority: String,
+    /// Originating engine's own self-rating: 'high'|'medium'|'low'
+    #[serde(default)]
+    pub self_value: Option<String>,
+    /// The OTHER engine's rating of this candidate: 'high'|'medium'|'low'
+    #[serde(default)]
+    pub peer_value: Option<String>,
+    pub generated_at: i64,
+    pub decided_at: Option<i64>,
+    pub decision_reason: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", rename_all_fields = "camelCase", tag = "kind")]
 pub enum StreamEvent {
     Started { topic_id: String, session_id: Option<String> },

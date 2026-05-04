@@ -3,7 +3,7 @@ use chrono::Utc;
 use rusqlite::{params, Connection};
 use std::path::Path;
 
-use crate::types::{Message, Topic};
+use crate::types::{Message, Recommendation, Topic};
 
 pub struct Db {
     conn: Connection,
@@ -47,6 +47,39 @@ impl Db {
             "ALTER TABLE topics ADD COLUMN archived INTEGER NOT NULL DEFAULT 0",
             [],
         );
+        let _ = conn.execute(
+            "ALTER TABLE recommendations ADD COLUMN priority TEXT NOT NULL DEFAULT 'medium'",
+            [],
+        );
+        let _ = conn.execute(
+            "ALTER TABLE recommendations ADD COLUMN self_value TEXT",
+            [],
+        );
+        let _ = conn.execute(
+            "ALTER TABLE recommendations ADD COLUMN peer_value TEXT",
+            [],
+        );
+        conn.execute_batch(
+            r#"
+            CREATE TABLE IF NOT EXISTS recommendations (
+                id              TEXT PRIMARY KEY,
+                source_engine   TEXT NOT NULL,
+                topic_id        TEXT,
+                title           TEXT NOT NULL,
+                rationale       TEXT NOT NULL,
+                action_hint     TEXT NOT NULL,
+                status          TEXT NOT NULL,
+                priority        TEXT NOT NULL DEFAULT 'medium',
+                self_value      TEXT,
+                peer_value      TEXT,
+                generated_at    INTEGER NOT NULL,
+                decided_at      INTEGER,
+                decision_reason TEXT
+            );
+            CREATE INDEX IF NOT EXISTS idx_rec_status
+                ON recommendations(status, generated_at DESC);
+            "#,
+        )?;
         Ok(Self { conn })
     }
 
@@ -223,6 +256,126 @@ impl Db {
             tool_calls: tool_calls.cloned(),
             created_at: now,
         })
+    }
+
+    pub fn insert_recommendation(&mut self, r: &Recommendation) -> Result<()> {
+        self.conn.execute(
+            "INSERT INTO recommendations
+             (id,source_engine,topic_id,title,rationale,action_hint,status,
+              priority,self_value,peer_value,
+              generated_at,decided_at,decision_reason)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            params![
+                r.id, r.source_engine, r.topic_id, r.title, r.rationale,
+                r.action_hint, r.status,
+                r.priority, r.self_value, r.peer_value,
+                r.generated_at, r.decided_at, r.decision_reason
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub fn list_recommendations(&self, status_filter: Option<&str>, limit: usize) -> Result<Vec<Recommendation>> {
+        let (sql, has_filter) = if status_filter.is_some() {
+            (
+                "SELECT id,source_engine,topic_id,title,rationale,action_hint,status,
+                        priority,self_value,peer_value,
+                        generated_at,decided_at,decision_reason
+                 FROM recommendations WHERE status=? ORDER BY generated_at DESC LIMIT ?",
+                true,
+            )
+        } else {
+            (
+                "SELECT id,source_engine,topic_id,title,rationale,action_hint,status,
+                        priority,self_value,peer_value,
+                        generated_at,decided_at,decision_reason
+                 FROM recommendations ORDER BY generated_at DESC LIMIT ?",
+                false,
+            )
+        };
+        let mut stmt = self.conn.prepare(sql)?;
+        let map_row = |r: &rusqlite::Row| -> rusqlite::Result<Recommendation> {
+            Ok(Recommendation {
+                id: r.get(0)?,
+                source_engine: r.get(1)?,
+                topic_id: r.get(2)?,
+                title: r.get(3)?,
+                rationale: r.get(4)?,
+                action_hint: r.get(5)?,
+                status: r.get(6)?,
+                priority: r.get::<_, Option<String>>(7)?.unwrap_or_else(|| "medium".to_string()),
+                self_value: r.get(8)?,
+                peer_value: r.get(9)?,
+                generated_at: r.get(10)?,
+                decided_at: r.get(11)?,
+                decision_reason: r.get(12)?,
+            })
+        };
+        let rows: Vec<Recommendation> = if has_filter {
+            let s = status_filter.unwrap();
+            stmt.query_map(params![s, limit as i64], map_row)?
+                .collect::<rusqlite::Result<_>>()?
+        } else {
+            stmt.query_map(params![limit as i64], map_row)?
+                .collect::<rusqlite::Result<_>>()?
+        };
+        Ok(rows)
+    }
+
+    pub fn update_recommendation_status(&mut self, id: &str, status: &str) -> Result<()> {
+        let now = Utc::now().timestamp_millis();
+        self.conn.execute(
+            "UPDATE recommendations SET status=?, decided_at=? WHERE id=?",
+            params![status, now, id],
+        )?;
+        Ok(())
+    }
+
+    pub fn update_recommendation_reason(&mut self, id: &str, reason: &str) -> Result<()> {
+        self.conn.execute(
+            "UPDATE recommendations SET decision_reason=? WHERE id=?",
+            params![reason, id],
+        )?;
+        Ok(())
+    }
+
+    pub fn get_recommendation(&self, id: &str) -> Result<Option<Recommendation>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id,source_engine,topic_id,title,rationale,action_hint,status,
+                    priority,self_value,peer_value,
+                    generated_at,decided_at,decision_reason
+             FROM recommendations WHERE id=?",
+        )?;
+        let mut rows = stmt.query_map(params![id], |r| {
+            Ok(Recommendation {
+                id: r.get(0)?,
+                source_engine: r.get(1)?,
+                topic_id: r.get(2)?,
+                title: r.get(3)?,
+                rationale: r.get(4)?,
+                action_hint: r.get(5)?,
+                status: r.get(6)?,
+                priority: r.get::<_, Option<String>>(7)?.unwrap_or_else(|| "medium".to_string()),
+                self_value: r.get(8)?,
+                peer_value: r.get(9)?,
+                generated_at: r.get(10)?,
+                decided_at: r.get(11)?,
+                decision_reason: r.get(12)?,
+            })
+        })?;
+        if let Some(r) = rows.next() {
+            return Ok(Some(r?));
+        }
+        Ok(None)
+    }
+
+    pub fn expire_pending_recommendations(&mut self, older_than_ms: i64) -> Result<()> {
+        self.conn.execute(
+            "UPDATE recommendations SET status='expired'
+             WHERE status='pending' AND generated_at < ?",
+            params![older_than_ms],
+        )?;
+        Ok(())
     }
 
     pub fn list_messages(&self, topic_id: &str) -> Result<Vec<Message>> {

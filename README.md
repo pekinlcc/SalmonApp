@@ -2,7 +2,7 @@
 
 > A three-pane desktop client for the **Claude Code CLI** and **Codex CLI** — Ubuntu / Linux first.
 >
-> Status: **v0.3.4** — assistant replies are now actually persisted to SQLite, so chat history survives across restarts. End-to-end against a locally-logged-in `claude` or `codex`. The panel reuses your existing CLI credentials so there's no second account to manage.
+> Status: **v0.4.0** — Welcome Back home page with sessions overview + a peer-validated recommendations agent: every hour mark (only if there's been new chat activity since last run) Salmon asks Claude Code and Codex independently for "what's worth doing next", then has each engine cross-rate the other's candidates; only items both engines independently rated *high* show up by default. End-to-end against a locally-logged-in `claude` or `codex`. The panel reuses your existing CLI credentials so there's no second account to manage.
 
 <p align="center">
   <img src="salmon/src-tauri/icons/icon.png" alt="Salmon icon" width="128" />
@@ -131,6 +131,35 @@ Key choices:
 - **Per-Topic PTY** — each Topic owns one `tokio::process::Child` running `claude` (or `codex`) in JSONL streaming mode. Stream events flow through an unbounded mpsc channel and out to the UI as Tauri events.
 - **SQLite** in `~/.local/share/Salmon/salmon.db` — Topics, messages, tool calls, permission decisions, token counts. Plain text. Export / clear available from the UI.
 - **No API calls from Salmon itself** — every model interaction is a child process invocation.
+
+## v0.4.0 — Welcome Back home page + peer-validated recommendation agent
+
+Big update — the app stops being just a "wrapper around your CLIs" and starts proactively surfacing what to work on next.
+
+Two new pieces.
+
+### Welcome Back home
+
+When no Topic is selected (or you click the new **首页** entry in the sidebar), the middle pane shows a Welcome Back overview, modeled on claude.ai/code:
+
+- **Sessions** — Topics needing your attention, badged by status: 🟠 *需要授权* (pending permission request) / 🔴 *工作目录失效* (workdir gone) / 🔵 *未读* (assistant replies you haven't seen since last visit).
+- **Recent** — already-read Topics, sorted by last activity.
+- Click any row to open that Topic; the badge clears as you visit it.
+- *Last-read* timestamps live in `localStorage`; messages arriving while you're already viewing the Topic don't re-mark it as unread.
+
+### Recommendations (peer-validated, two-round agent loop)
+
+A new **推荐** section on the Welcome page asks both CLIs what you should do next, runs cross-validation between them, and only surfaces items both engines independently agree are worth your time.
+
+**Two-round flow:**
+
+1. **Round 1 — parallel candidate generation.** A compact summary of every active Topic (first user message + last 3 turns, capped per Topic + total budget ≤ 18K chars) plus the user's accept/ignore history is sent to **both** `claude -p` and `codex exec --json` in parallel. Each engine returns 3-5 candidates with a self-rated value (`high` / `medium` / `low`).
+2. **Round 2 — cross-validation.** Each engine reviews the *other's* candidates and rates each one independently. The combined `priority` is conservative: only items both engines independently rated `high` get the **★ 高价值** badge and show up by default. Items where exactly one engine called it high get folded under **▸ 其他建议**. Items neither engine called high are dropped entirely.
+3. **Click feedback.** Clicking *✓ 同意* opens the linked Topic and marks `accepted`; *× 忽略* dismisses. Behind the scenes a one-shot `claude -p` then guesses *why* you accepted/ignored (≤40 chars Chinese) and stores it as `decision_reason` so the next round's prompt can reference your real preferences.
+
+**Trigger rule:** runs at the next hour boundary (HH:00) iff there's been new activity (any topic's `updated_at` > last run). On launch, if it's been ≥1 hour since the last run AND there's new activity, fires immediately so the home page isn't stale. **↻ 刷新** button bypasses both gates.
+
+**Persistence.** New tables `recommendations` (priority / self_value / peer_value / status) and `settings.last_recommendation_run` are auto-migrated.
 
 ## v0.3.4 — Persist assistant replies (history actually survives restart)
 

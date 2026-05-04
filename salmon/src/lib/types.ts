@@ -81,3 +81,19 @@ export interface UiMessage {
 }
 
 export type ChatLayout = "inline" | "thinking";
+
+export interface Recommendation {
+  id: string;
+  sourceEngine: string;
+  topicId: string | null;
+  title: string;
+  rationale: string;
+  actionHint: string;
+  status: "pending" | "accepted" | "ignored" | "expired";
+  priority: "high" | "medium" | "low";
+  selfValue: "high" | "medium" | "low" | null;
+  peerValue: "high" | "medium" | "low" | null;
+  generatedAt: number;
+  decidedAt: number | null;
+  decisionReason: string | null;
+}

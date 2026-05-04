@@ -9,6 +9,7 @@ interface Props {
   spawningId: string | null;
   cliStatus: CliInfo[];
   onSelect: (id: string) => void;
+  onHome: () => void;
   onNewTopic: () => void;
   onOpenSettings: () => void;
   onDeleteTopic: (id: string) => void;
@@ -37,9 +38,9 @@ export function LeftSidebar(props: Props) {
   return (
     <aside className="left">
       <div className="left-head">
-        <div className="logo">S</div>
-        <div className="name">Salmon</div>
-        <div className="ver">v0.3.4</div>
+        <div className="logo" onClick={props.onHome} title="返回首页" style={{ cursor: "pointer" }}>S</div>
+        <div className="name" onClick={props.onHome} style={{ cursor: "pointer" }}>Salmon</div>
+        <div className="ver">v0.4.0</div>
         <button
           className="settings-btn"
           title="设置"
@@ -48,6 +49,15 @@ export function LeftSidebar(props: Props) {
           ⚙
         </button>
       </div>
+
+      <button
+        className={`home-btn ${selectedId === null ? "active" : ""}`}
+        onClick={props.onHome}
+      >
+        <span className="home-icon">✦</span>
+        <span>首页</span>
+        <span className="home-sub">总览 / 未读</span>
+      </button>
 
       <button className="new-btn" onClick={props.onNewTopic}>
         <span className="plus">＋</span> 新建 Topic

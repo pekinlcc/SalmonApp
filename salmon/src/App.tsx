@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { sendNotification, isPermissionGranted, requestPermission } from "@tauri-apps/plugin-notification";
 import { ask } from "@tauri-apps/plugin-dialog";
-import type { Block, ChatLayout, CliInfo, Message, StreamEvent, ToolCall, Topic, UiMessage } from "./lib/types";
+import type { Block, ChatLayout, CliInfo, Message, Recommendation, StreamEvent, ToolCall, Topic, UiMessage } from "./lib/types";
 import { api } from "./lib/api";
 import { LeftSidebar } from "./components/LeftSidebar";
 import { ChatStream } from "./components/ChatStream";
@@ -11,6 +11,7 @@ import { RightPane } from "./components/RightPane";
 import { NewTopicDialog } from "./components/NewTopicDialog";
 import { Onboarding } from "./components/Onboarding";
 import { SettingsDialog } from "./components/SettingsDialog";
+import { WelcomeBack } from "./components/WelcomeBack";
 
 interface PendingPerm {
   id: string;
@@ -27,6 +28,92 @@ export default function App() {
   const [chatLayout, setChatLayout] = useState<ChatLayout>("thinking");
   const [showSettings, setShowSettings] = useState(false);
   const [workdirOkByTopic, setWorkdirOkByTopic] = useState<Record<string, boolean>>({});
+  const [lastReadAt, setLastReadAt] = useState<Record<string, number>>(() => {
+    try { return JSON.parse(localStorage.getItem("salmon.lastReadAt") || "{}"); } catch { return {}; }
+  });
+  const markRead = useCallback((id: string) => {
+    setLastReadAt((m) => {
+      const next = { ...m, [id]: Date.now() };
+      try { localStorage.setItem("salmon.lastReadAt", JSON.stringify(next)); } catch {}
+      return next;
+    });
+  }, []);
+
+  const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
+  const [recsLoading, setRecsLoading] = useState(false);
+  const [recsError, setRecsError] = useState<string | null>(null);
+  const lastRecsRunRef = useRef<number>(0);
+
+  const refreshRecsList = useCallback(async () => {
+    try {
+      const list = await api.listPendingRecommendations();
+      setRecommendations(list);
+    } catch (e: any) {
+      api.debugLog(`list recommendations failed: ${e}`);
+    }
+  }, []);
+
+  const generateRecs = useCallback(async () => {
+    if (recsLoading) return;
+    setRecsLoading(true);
+    setRecsError(null);
+    lastRecsRunRef.current = Date.now();
+    try {
+      await api.generateRecommendations();
+      await refreshRecsList();
+    } catch (e: any) {
+      setRecsError(String(e));
+    } finally {
+      setRecsLoading(false);
+    }
+  }, [recsLoading, refreshRecsList]);
+
+  const onDecideRec = useCallback(async (id: string, decision: "accepted" | "ignored") => {
+    setRecommendations((cur) => cur.filter((r) => r.id !== id));
+    try {
+      await api.decideRecommendation(id, decision);
+    } catch (e: any) {
+      api.debugLog(`decide failed: ${e}`);
+      await refreshRecsList();
+    }
+  }, [refreshRecsList]);
+
+  // Trigger rule: only when there's been new topic activity since last run,
+  // AND fire on the next hour boundary (HH:00). On launch, if it's been ≥1h
+  // since last run AND there's new activity, fire immediately so the home
+  // page isn't stale; otherwise wait for the next hour mark.
+  const topicsRef = useRef(topics);
+  topicsRef.current = topics;
+  useEffect(() => {
+    refreshRecsList();
+    const HOUR = 60 * 60 * 1000;
+    const maxTopicUpdated = () =>
+      topicsRef.current.reduce((m, t) => Math.max(m, t.updatedAt), 0);
+    const readLast = () =>
+      parseInt(localStorage.getItem("salmon.lastRecsRun") || "0", 10);
+    const writeLast = () => {
+      try { localStorage.setItem("salmon.lastRecsRun", String(Date.now())); } catch {}
+    };
+
+    const lastRun = readLast();
+    if (Date.now() - lastRun > HOUR && maxTopicUpdated() > lastRun) {
+      generateRecs().then(writeLast);
+    }
+
+    let lastFiredHour = -1;
+    const tick = () => {
+      const now = new Date();
+      if (now.getMinutes() !== 0) return;            // only on HH:00
+      if (now.getHours() === lastFiredHour) return;  // de-dupe within the minute
+      const last = readLast();
+      if (maxTopicUpdated() <= last) return;          // no new activity
+      lastFiredHour = now.getHours();
+      generateRecs().then(writeLast);
+    };
+    const timer = setInterval(tick, 30 * 1000);
+    return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [rightCollapsed, setRightCollapsed] = useState<boolean>(() => {
     try { return localStorage.getItem("salmon.rightCollapsed") === "1"; } catch { return false; }
   });
@@ -151,6 +238,9 @@ export default function App() {
         }
         break;
       case "assistantDone": {
+        if (selectedIdRef.current === e.topicId) {
+          markRead(e.topicId);
+        }
         setMessagesByTopic((m) => {
           const list = [...(m[e.topicId] || [])];
           let cur = list[list.length - 1];
@@ -288,6 +378,7 @@ export default function App() {
     async (id: string) => {
       setSelectedId(id);
       setSelectedTool(null);
+      markRead(id);
       // Check workdir up front so we can show a proper banner instead of
       // letting the CLI fail with a cryptic exit code on first send.
       const t = topics.find((x) => x.id === id);
@@ -443,6 +534,7 @@ export default function App() {
         spawningId={spawningId}
         cliStatus={cliStatus}
         onSelect={onSelect}
+        onHome={() => { setSelectedId(null); setSelectedTool(null); }}
         onNewTopic={() => setShowNew(true)}
         onOpenSettings={() => setShowSettings(true)}
         onDeleteTopic={onDelete}
@@ -453,12 +545,20 @@ export default function App() {
       {!selectedTopic ? (
         <>
           <section className="middle">
-            <div className="empty">
-              选择一个 Topic 开始对话，或者
-              <button className="btn primary" style={{ marginLeft: 10 }} onClick={() => setShowNew(true)}>
-                新建一个
-              </button>
-            </div>
+            <WelcomeBack
+              topics={topics}
+              lastReadAt={lastReadAt}
+              pendingPermByTopic={pendingPermByTopic}
+              errorByTopic={errorByTopic}
+              workdirOkByTopic={workdirOkByTopic}
+              recommendations={recommendations}
+              recsLoading={recsLoading}
+              recsError={recsError}
+              onRefreshRecs={generateRecs}
+              onDecideRec={onDecideRec}
+              onSelect={onSelect}
+              onNewTopic={() => setShowNew(true)}
+            />
           </section>
           {rightCollapsed ? (
             <RightRail onExpand={toggleRight} />

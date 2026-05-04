@@ -1,4 +1,4 @@
-use crate::types::{CliInfo, Message, Topic};
+use crate::types::{CliInfo, Message, Recommendation, Topic};
 use crate::AppState;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -258,6 +258,556 @@ pub fn set_chat_layout(state: State<'_, AppState>, layout: String) -> Result<(),
         .lock()
         .set_setting("chat_layout", &v)
         .map_err(map_err)
+}
+
+// ─── Recommendations ────────────────────────────────────────────────────────
+
+const REC_PROMPT_BUDGET_CHARS: usize = 18_000;
+const REC_PER_TOPIC_BUDGET: usize = 1_500;
+const REC_RECENT_TURNS: usize = 3;
+const REC_LOOKBACK_DAYS: i64 = 14;
+const REC_EXPIRE_AFTER_HOURS: i64 = 24;
+const REC_FEEDBACK_HISTORY: usize = 30;
+
+#[tauri::command]
+pub async fn generate_recommendations(
+    state: State<'_, AppState>,
+) -> Result<Vec<Recommendation>, String> {
+    let now_ms = chrono::Utc::now().timestamp_millis();
+    let lookback_ms = now_ms - REC_LOOKBACK_DAYS * 24 * 60 * 60 * 1000;
+    let expire_ms = now_ms - REC_EXPIRE_AFTER_HOURS * 60 * 60 * 1000;
+
+    let (topics_block, feedback_block, valid_ids, fallback_workdir) = {
+        let mut db = state.db.lock();
+        let _ = db.expire_pending_recommendations(expire_ms);
+        let all_topics = db.list_topics().map_err(map_err)?;
+        let active: Vec<Topic> = all_topics
+            .into_iter()
+            .filter(|t| !t.archived && t.updated_at >= lookback_ms)
+            .collect();
+        if active.is_empty() {
+            return Err("没有符合条件的 Topic(全是归档,或都 14 天没动过)".to_string());
+        }
+        let mut valid_ids: std::collections::HashSet<String> = std::collections::HashSet::new();
+        let mut topic_blocks: Vec<String> = Vec::new();
+        let mut total_chars = 0usize;
+        let mut overflow = 0usize;
+        for t in &active {
+            valid_ids.insert(t.id.clone());
+            let msgs = db.list_messages(&t.id).map_err(map_err)?;
+            let block = render_topic_block(t, &msgs, REC_PER_TOPIC_BUDGET);
+            if total_chars + block.len() > REC_PROMPT_BUDGET_CHARS {
+                overflow += 1;
+                continue;
+            }
+            total_chars += block.len();
+            topic_blocks.push(block);
+        }
+        if overflow > 0 {
+            topic_blocks.push(format!(
+                "─── 还有 {} 个 Topic 因 token 预算未列出 ───\n",
+                overflow
+            ));
+        }
+        let topics_block = topic_blocks.join("\n");
+        let feedback_block = render_feedback_block(
+            &db.list_recommendations(None, REC_FEEDBACK_HISTORY)
+                .map_err(map_err)?,
+        );
+        let fallback_workdir = active
+            .iter()
+            .find(|t| std::path::Path::new(&t.workdir).is_dir())
+            .map(|t| t.workdir.clone())
+            .unwrap_or_else(|| std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string()));
+        (topics_block, feedback_block, valid_ids, fallback_workdir)
+    };
+
+    // ─── Round 1: parallel candidate generation with self-rated value ───
+    let gen_prompt = build_recommendation_prompt(&topics_block, &feedback_block);
+    eprintln!("[salmon] rec round1 prompt: {} chars", gen_prompt.len());
+    let (claude_res, codex_res) = tokio::join!(
+        run_engine(&fallback_workdir, gen_prompt.clone(), "claude"),
+        run_engine(&fallback_workdir, gen_prompt.clone(), "codex"),
+    );
+    let mut all: Vec<Recommendation> = Vec::new();
+    for (engine, res) in [("claude", claude_res), ("codex", codex_res)] {
+        match res {
+            Ok(out) => match parse_recommendation_json(&out, &valid_ids, engine, now_ms) {
+                Ok(mut rs) => all.append(&mut rs),
+                Err(e) => eprintln!("[salmon] {} round1 parse: {}", engine, e),
+            },
+            Err(e) => eprintln!("[salmon] {} round1 spawn: {}", engine, e),
+        }
+    }
+    if all.is_empty() {
+        return Err("两个引擎都没生成可解析的候选".to_string());
+    }
+
+    // ─── Round 2: each engine cross-rates the OTHER engine's candidates ───
+    let claude_candidates: Vec<&Recommendation> =
+        all.iter().filter(|r| r.source_engine == "claude").collect();
+    let codex_candidates: Vec<&Recommendation> =
+        all.iter().filter(|r| r.source_engine == "codex").collect();
+    let claude_review_prompt = build_review_prompt(&codex_candidates, &feedback_block);
+    let codex_review_prompt = build_review_prompt(&claude_candidates, &feedback_block);
+    eprintln!(
+        "[salmon] rec round2: claude reviewing {} codex candidates ({} chars), codex reviewing {} claude candidates ({} chars)",
+        codex_candidates.len(), claude_review_prompt.len(),
+        claude_candidates.len(), codex_review_prompt.len(),
+    );
+
+    let claude_review_fut = async {
+        if codex_candidates.is_empty() { Err("nothing to review".to_string()) }
+        else { run_engine(&fallback_workdir, claude_review_prompt, "claude").await }
+    };
+    let codex_review_fut = async {
+        if claude_candidates.is_empty() { Err("nothing to review".to_string()) }
+        else { run_engine(&fallback_workdir, codex_review_prompt, "codex").await }
+    };
+    let (claude_review_res, codex_review_res) = tokio::join!(claude_review_fut, codex_review_fut);
+
+    let claude_ratings = claude_review_res
+        .ok()
+        .and_then(|s| parse_ratings(&s).ok())
+        .unwrap_or_default();
+    let codex_ratings = codex_review_res
+        .ok()
+        .and_then(|s| parse_ratings(&s).ok())
+        .unwrap_or_default();
+
+    // Apply peer ratings + compute final priority.
+    for r in all.iter_mut() {
+        let peer = if r.source_engine == "claude" {
+            codex_ratings.get(&r.id).cloned()
+        } else {
+            claude_ratings.get(&r.id).cloned()
+        };
+        r.peer_value = peer.clone();
+        r.priority = combine_priority(r.self_value.as_deref(), peer.as_deref());
+    }
+
+    // Drop anything neither engine rated as high — those are noise we
+    // don't even want folded.
+    let before = all.len();
+    all.retain(|r| {
+        r.self_value.as_deref() == Some("high") || r.peer_value.as_deref() == Some("high")
+    });
+    eprintln!(
+        "[salmon] rec filter: kept {} / {} (dropped items that neither engine called 'high')",
+        all.len(),
+        before
+    );
+
+    // Persist + return.
+    {
+        let mut db = state.db.lock();
+        for r in &all {
+            let _ = db.insert_recommendation(r);
+        }
+        let _ = db.set_setting("last_recommendation_run", &now_ms.to_string());
+    }
+    Ok(all)
+}
+
+/// Final priority bucketing:
+/// - "high"  → both engines independently rated it high → shown by default
+/// - "medium" → exactly one engine rated high → folded under "其他建议"
+/// Items where neither rated high never reach this function (filtered above).
+fn combine_priority(self_v: Option<&str>, peer_v: Option<&str>) -> String {
+    if self_v == Some("high") && peer_v == Some("high") {
+        "high".to_string()
+    } else {
+        "medium".to_string()
+    }
+}
+
+async fn run_engine(
+    workdir: &str,
+    prompt: String,
+    engine: &str,
+) -> Result<String, String> {
+    let bin = which::which(engine).map_err(|e| format!("{}: {}", engine, e))?;
+    run_cli_for_recommendations(bin, workdir.to_string(), prompt, engine == "codex").await
+}
+
+fn build_review_prompt(candidates: &[&Recommendation], feedback_block: &str) -> String {
+    let mut list = String::new();
+    for c in candidates {
+        list.push_str(&format!(
+            "- id: {}\n  title: {}\n  rationale: {}\n  action: {}\n  source: {}\n  self_rated: {}\n",
+            c.id, c.title, c.rationale, c.action_hint, c.source_engine,
+            c.self_value.as_deref().unwrap_or("?"),
+        ));
+    }
+    format!(
+        "你正在帮用户筛选另一个 AI 给出的推荐。请对每条候选客观评分:\
+         **这条推荐对用户当前的工作有多大价值?**\n\n\
+         【硬性要求】\n\
+         1. 客观评分,不要因为是另一个 AI 提的就抬高或压低。\n\
+         2. 用户最近的反馈历史告诉你他更倾向什么——参考但不照抄。\n\
+         3. 评分粒度只有 high/medium/low,不要造新词。\n\n\
+         【评分标准】\n\
+         - high: 你独立看也会推荐,用户值得立刻处理\n\
+         - medium: 有道理但不紧迫,或方向对但建议过虚\n\
+         - low: 价值不明显或重复,默认折叠\n\n\
+         【候选列表】\n{}\n\
+         【用户过往反馈】\n{}\n\n\
+         【输出格式 - 严格 JSON,无其他文字,不要 markdown 代码块】\n\
+         {{\"ratings\": [{{\"id\": \"<候选 id>\", \"value\": \"high|medium|low\"}}]}}\n",
+        list, feedback_block,
+    )
+}
+
+fn parse_ratings(raw: &str) -> Result<std::collections::HashMap<String, String>, String> {
+    let body = extract_json_object(raw).ok_or("无 JSON")?;
+    let v: serde_json::Value =
+        serde_json::from_str(&body).map_err(|e| format!("rating JSON: {}", e))?;
+    let arr = v
+        .get("ratings")
+        .and_then(|x| x.as_array())
+        .ok_or("缺 ratings 数组")?;
+    let mut out = std::collections::HashMap::new();
+    for item in arr {
+        let id = item.get("id").and_then(|x| x.as_str()).unwrap_or("");
+        let val = item.get("value").and_then(|x| x.as_str()).unwrap_or("");
+        if id.is_empty() {
+            continue;
+        }
+        let v = match val {
+            "high" | "medium" | "low" => val.to_string(),
+            _ => continue,
+        };
+        out.insert(id.to_string(), v);
+    }
+    Ok(out)
+}
+
+#[tauri::command]
+pub fn list_pending_recommendations(
+    state: State<'_, AppState>,
+) -> Result<Vec<Recommendation>, String> {
+    state
+        .db
+        .lock()
+        .list_recommendations(Some("pending"), 50)
+        .map_err(map_err)
+}
+
+#[tauri::command]
+pub fn list_recent_recommendations(
+    state: State<'_, AppState>,
+    limit: usize,
+) -> Result<Vec<Recommendation>, String> {
+    state
+        .db
+        .lock()
+        .list_recommendations(None, limit.min(200))
+        .map_err(map_err)
+}
+
+#[tauri::command]
+pub async fn decide_recommendation(
+    state: State<'_, AppState>,
+    id: String,
+    decision: String,
+) -> Result<(), String> {
+    if decision != "accepted" && decision != "ignored" {
+        return Err(format!("invalid decision: {}", decision));
+    }
+    state
+        .db
+        .lock()
+        .update_recommendation_status(&id, &decision)
+        .map_err(map_err)?;
+
+    // Async: try to guess why. Don't block the UI on this.
+    let db_handle = Arc::clone(&state.db);
+    let id_clone = id.clone();
+    let decision_clone = decision.clone();
+    tauri::async_runtime::spawn(async move {
+        if let Err(e) = guess_decision_reason(db_handle, id_clone, decision_clone).await {
+            eprintln!("[salmon] guess_decision_reason failed: {}", e);
+        }
+    });
+    Ok(())
+}
+
+async fn guess_decision_reason(
+    db_handle: Arc<parking_lot::Mutex<crate::db::Db>>,
+    rec_id: String,
+    decision: String,
+) -> Result<(), String> {
+    let (rec, history_block, fallback_workdir) = {
+        let db = db_handle.lock();
+        let r = db
+            .get_recommendation(&rec_id)
+            .map_err(map_err)?
+            .ok_or("recommendation not found")?;
+        let recents = db
+            .list_recommendations(None, 5)
+            .map_err(map_err)?;
+        let block = render_feedback_block(&recents);
+        let wd = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+        (r, block, wd)
+    };
+    let prompt = format!(
+        "用户刚刚【{}】了下面这条推荐。在 ≤40 个汉字内,推测一个最具体的原因——\
+         避免\"用户觉得有用/没用\"这种废话,要写出\"为什么\"。\n\n\
+         【这条推荐】\n- 标题: {}\n- 理由: {}\n- 操作: {}\n- 来源: {}\n\n\
+         【最近 5 条用户反馈,供参考】\n{}\n\n\
+         只输出推测原因文本,无前缀。",
+        decision_label(&decision),
+        rec.title, rec.rationale, rec.action_hint, rec.source_engine,
+        history_block,
+    );
+    let bin = which::which("claude").map_err(map_err)?;
+    let raw = run_cli_for_recommendations(bin, fallback_workdir, prompt, false).await?;
+    let reason = clean_title(&raw);
+    if !reason.is_empty() {
+        db_handle
+            .lock()
+            .update_recommendation_reason(&rec_id, &reason)
+            .map_err(map_err)?;
+    }
+    Ok(())
+}
+
+fn decision_label(d: &str) -> &'static str {
+    match d {
+        "accepted" => "同意",
+        "ignored" => "忽略",
+        _ => "?",
+    }
+}
+
+async fn run_cli_for_recommendations(
+    bin: PathBuf,
+    workdir: String,
+    prompt: String,
+    is_codex: bool,
+) -> Result<String, String> {
+    tokio::task::spawn_blocking(move || -> Result<String, String> {
+        let mut cmd = Command::new(&bin);
+        cmd.current_dir(&workdir)
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped());
+        if is_codex {
+            cmd.arg("exec").arg("--skip-git-repo-check").arg(&prompt);
+        } else {
+            cmd.arg("-p").arg(&prompt);
+        }
+        let out = cmd
+            .output()
+            .map_err(|e| format!("{}: {}", bin.display(), e))?;
+        if !out.status.success() {
+            return Err(format!(
+                "{} 退出 {:?}: {}",
+                bin.display(),
+                out.status.code(),
+                String::from_utf8_lossy(&out.stderr).trim()
+            ));
+        }
+        Ok(String::from_utf8_lossy(&out.stdout).to_string())
+    })
+    .await
+    .map_err(|e| format!("join: {}", e))?
+}
+
+fn build_recommendation_prompt(topics_block: &str, feedback_block: &str) -> String {
+    format!(
+        "你是用户的工作助手。下面给你他最近的对话项目(Topic)摘要,以及他过往\
+         对推荐的反馈历史。请基于这些,生成 3-5 条**具体、可执行**的建议——\
+         \"接下来他可以让你帮他做的事\"。\n\n\
+         【硬性要求】\n\
+         1. 每条建议必须能落到某个具体的 Topic(或明确说明跨 Topic),不要\
+         说\"建议你重构整个项目\"这种空话。\n\
+         2. 不要重复用户最近 5 次明确忽略过的方向。\n\
+         3. 优先选\"已经在聊但没收尾\"的事——open loop 比新坑更有价值。\n\
+         4. 不要建议你自己已经做完的事;不要建议纯粹的休息/放松。\n\
+         5. 用中文。\n\
+         6. 给每条打分 self_value: high/medium/low。high 留给\"用户大概率\
+         立刻动手\"的事,medium 是\"有道理但不紧迫\",low 是\"边角发散\"。\n\n\
+         【输出格式 - 严格 JSON,无其他文字,不要 markdown 代码块】\n\
+         {{\n  \"recommendations\": [\n    {{\n      \"title\": \"≤16 个汉字的标题\",\n\
+         \"rationale\": \"≤80 字的具体理由,引用对话里的具体事实\",\n\
+         \"topic_id\": \"<对应 Topic 的 id,跨 Topic 时填 null>\",\n\
+         \"action_hint\": \"≤40 字的下一步具体操作\",\n\
+         \"self_value\": \"high|medium|low\"\n    }}\n  ]\n}}\n\n\
+         【对话项目】\n{}\n\n\
+         【用户过往反馈】\n{}\n",
+        topics_block, feedback_block,
+    )
+}
+
+fn render_topic_block(t: &Topic, msgs: &[Message], char_budget: usize) -> String {
+    let header = format!(
+        "─── Topic id={} · 标题={} · workdir={} · 引擎={} ───\n",
+        t.id, t.title, t.workdir, t.engine
+    );
+    if msgs.is_empty() {
+        return format!("{}(尚无消息)\n", header);
+    }
+    let first = msgs.first().unwrap();
+    let last_n = msgs.len().min(REC_RECENT_TURNS * 2);
+    let tail = &msgs[msgs.len() - last_n..];
+    let mut body = String::new();
+    body.push_str(&format!(
+        "[首条({})]: {}\n",
+        first.role,
+        truncate_chars(&first.content, 200)
+    ));
+    if msgs.len() > last_n + 1 {
+        body.push_str(&format!(
+            "...(中间 {} 轮省略)...\n",
+            msgs.len() - last_n - 1
+        ));
+    }
+    for m in tail {
+        if m.id == first.id {
+            continue;
+        }
+        body.push_str(&format!(
+            "[{}]: {}\n",
+            m.role,
+            truncate_chars(&m.content, 220)
+        ));
+    }
+    let mut out = header + &body;
+    if out.len() > char_budget {
+        let cap = char_budget.saturating_sub(20);
+        out.truncate(cap);
+        out.push_str("…(截断)\n");
+    }
+    out
+}
+
+fn render_feedback_block(fb: &[Recommendation]) -> String {
+    let decided: Vec<&Recommendation> = fb
+        .iter()
+        .filter(|r| r.status == "accepted" || r.status == "ignored")
+        .collect();
+    if decided.is_empty() {
+        return "(用户暂无反馈历史)\n".to_string();
+    }
+    let mut out = String::new();
+    for r in decided.iter().take(REC_FEEDBACK_HISTORY) {
+        out.push_str(&format!(
+            "- [{}] {} ({}): {}{}\n",
+            decision_label(&r.status),
+            r.title,
+            r.source_engine,
+            truncate_chars(&r.rationale, 60),
+            r.decision_reason
+                .as_deref()
+                .map(|s| format!(" · 推测原因: {}", s))
+                .unwrap_or_default(),
+        ));
+    }
+    out
+}
+
+fn parse_recommendation_json(
+    raw: &str,
+    valid_ids: &std::collections::HashSet<String>,
+    engine: &str,
+    now_ms: i64,
+) -> Result<Vec<Recommendation>, String> {
+    let body = extract_json_object(raw).ok_or("无法在输出中定位 JSON")?;
+    let v: serde_json::Value =
+        serde_json::from_str(&body).map_err(|e| format!("JSON parse: {}", e))?;
+    let arr = v
+        .get("recommendations")
+        .and_then(|x| x.as_array())
+        .ok_or("缺 recommendations 数组")?;
+    let mut out = Vec::new();
+    for (i, item) in arr.iter().enumerate() {
+        let title = item
+            .get("title")
+            .and_then(|x| x.as_str())
+            .unwrap_or("")
+            .trim()
+            .to_string();
+        let rationale = item
+            .get("rationale")
+            .and_then(|x| x.as_str())
+            .unwrap_or("")
+            .trim()
+            .to_string();
+        let action_hint = item
+            .get("action_hint")
+            .and_then(|x| x.as_str())
+            .unwrap_or("")
+            .trim()
+            .to_string();
+        if title.is_empty() || rationale.is_empty() {
+            continue;
+        }
+        let topic_id = item
+            .get("topic_id")
+            .and_then(|x| x.as_str())
+            .map(|s| s.to_string())
+            .filter(|s| valid_ids.contains(s));
+        let self_value = item
+            .get("self_value")
+            .and_then(|x| x.as_str())
+            .map(|s| s.to_string())
+            .filter(|s| s == "high" || s == "medium" || s == "low");
+        out.push(Recommendation {
+            id: uuid::Uuid::new_v4().to_string(),
+            source_engine: engine.to_string(),
+            topic_id,
+            title: truncate_chars(&title, 24),
+            rationale: truncate_chars(&rationale, 120),
+            action_hint: truncate_chars(&action_hint, 60),
+            status: "pending".to_string(),
+            priority: "medium".to_string(),
+            self_value,
+            peer_value: None,
+            generated_at: now_ms + i as i64,
+            decided_at: None,
+            decision_reason: None,
+        });
+    }
+    if out.is_empty() {
+        return Err("解析后无有效推荐".to_string());
+    }
+    Ok(out)
+}
+
+/// Pull the first balanced JSON object out of the LLM's free-form output.
+fn extract_json_object(raw: &str) -> Option<String> {
+    let start = raw.find('{')?;
+    let bytes = raw.as_bytes();
+    let mut depth: i32 = 0;
+    let mut in_str = false;
+    let mut esc = false;
+    for (i, &b) in bytes.iter().enumerate().skip(start) {
+        if esc {
+            esc = false;
+            continue;
+        }
+        if in_str {
+            if b == b'\\' {
+                esc = true;
+            } else if b == b'"' {
+                in_str = false;
+            }
+            continue;
+        }
+        match b {
+            b'"' => in_str = true,
+            b'{' => depth += 1,
+            b'}' => {
+                depth -= 1;
+                if depth == 0 {
+                    return Some(raw[start..=i].to_string());
+                }
+            }
+            _ => {}
+        }
+    }
+    None
 }
 
 #[tauri::command]
