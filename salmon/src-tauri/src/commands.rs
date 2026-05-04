@@ -464,6 +464,19 @@ pub async fn generate_recommendations(
     // Persist + return.
     {
         let mut db = state.db.lock();
+        if !all.is_empty() {
+            // Refresh = clean snapshot. Wipe ALL still-pending recs from prior
+            // runs so the user only sees the current best set, not yesterday's
+            // backlog stacked on top. Decided rows (accepted/ignored/expired)
+            // are untouched, so the feedback history fed back into the prompt
+            // survives. Gated on a non-empty result so a generation that
+            // produces nothing doesn't blank out previously-shown items.
+            //
+            // Safe vs. the inserts below: new rows have generated_at = now_ms
+            // + i (line ~872 in parse_recommendation_json), and the SQL filter
+            // is `generated_at < now_ms`, so the fresh batch is excluded.
+            let _ = db.expire_pending_recommendations(now_ms);
+        }
         for r in &all {
             let _ = db.insert_recommendation(r);
         }
