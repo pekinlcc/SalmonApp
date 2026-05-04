@@ -1,0 +1,511 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Salmon — desktop client for Claude Code & Codex CLI</title>
+<meta name="description" content="A three-pane Linux + macOS desktop client wrapping the Claude Code CLI and Codex CLI. Reuses your CLI login — no API key, no second account." />
+<meta property="og:title" content="Salmon — desktop client for Claude Code & Codex CLI" />
+<meta property="og:description" content="Linux + macOS desktop client wrapping `claude` / `codex`. Three-pane UI, peer-validated recommendations agent, your CLI login." />
+<meta property="og:image" content="https://pekinlcc.github.io/SalmonApp/icon.png" />
+<link rel="icon" href="icon.svg" type="image/svg+xml" />
+<link rel="alternate icon" href="icon.png" type="image/png" />
+<style>
+  :root {
+    --salmon-50:  #FFF1ED;
+    --salmon-100: #FFD9CD;
+    --salmon-300: #FFA68A;
+    --salmon-500: #FA8072;
+    --salmon-600: #E5685A;
+    --salmon-700: #B7493D;
+    --ink-900: #1B1F23;
+    --ink-700: #3A4047;
+    --ink-500: #6B7280;
+    --ink-300: #B7BDC4;
+    --ink-100: #E6E8EB;
+    --ink-50:  #F5F6F7;
+    --bg:      #FAFAF9;
+    --panel:   #FFFFFF;
+    --shadow:  0 1px 0 rgba(16,18,20,0.04), 0 4px 24px rgba(16,18,20,0.06);
+    --mono: ui-monospace, "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Inter", "PingFang SC", "Microsoft YaHei", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font-family: var(--sans);
+    color: var(--ink-900);
+    background: var(--bg);
+    font-size: 15px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--salmon-700); text-decoration: none; border-bottom: 1px solid transparent; transition: border-color .12s; }
+  a:hover { border-bottom-color: var(--salmon-500); }
+  code { font-family: var(--mono); font-size: 0.92em; background: var(--ink-50); border: 1px solid var(--ink-100); padding: 1px 6px; border-radius: 4px; }
+  pre { font-family: var(--mono); font-size: 13px; background: #1B1F23; color: #E6E8EB; padding: 14px 16px; border-radius: 8px; overflow-x: auto; line-height: 1.55; margin: 12px 0; }
+  pre code { background: transparent; border: 0; padding: 0; color: inherit; font-size: inherit; }
+
+  /* ── Top nav ─────────────────────────────────────────────────────── */
+  .topbar { position: sticky; top: 0; background: rgba(250,250,249,.92); backdrop-filter: blur(8px); border-bottom: 1px solid var(--ink-100); z-index: 50; }
+  .topbar-inner { max-width: 1100px; margin: 0 auto; padding: 12px 24px; display: flex; align-items: center; gap: 18px; }
+  .topbar .brand { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 15px; color: var(--ink-900); border: 0; }
+  .topbar .brand img { width: 22px; height: 22px; border-radius: 5px; }
+  .topbar nav { margin-left: auto; display: flex; gap: 22px; font-size: 14px; }
+  .topbar nav a { color: var(--ink-700); border: 0; }
+  .topbar nav a:hover { color: var(--salmon-700); }
+  .topbar .gh-btn { background: var(--ink-900); color: white; padding: 6px 14px; border-radius: 6px; font-size: 13px; font-weight: 500; }
+  .topbar .gh-btn:hover { background: var(--salmon-700); }
+
+  section { padding: 80px 24px; }
+  .container { max-width: 1100px; margin: 0 auto; }
+
+  /* ── Hero ────────────────────────────────────────────────────────── */
+  .hero { background: linear-gradient(180deg, #FFF7F2, var(--bg) 60%); padding: 100px 24px 80px; text-align: center; }
+  .hero img.logo { width: 128px; height: 128px; margin-bottom: 28px; filter: drop-shadow(0 6px 20px rgba(229,104,90,.18)); }
+  .hero h1 { font-size: 44px; line-height: 1.15; margin: 0 0 16px; letter-spacing: -0.02em; }
+  .hero h1 .accent { color: var(--salmon-700); }
+  .hero .lead { font-size: 18px; color: var(--ink-700); max-width: 720px; margin: 0 auto 32px; }
+  .hero .cta { display: inline-flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+  .btn { padding: 12px 22px; border-radius: 8px; font-weight: 600; font-size: 14px; border: 0; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; transition: transform .04s, box-shadow .12s; }
+  .btn:active { transform: translateY(1px); }
+  .btn-primary { background: var(--salmon-500); color: white; box-shadow: 0 4px 14px rgba(250,128,114,.32); }
+  .btn-primary:hover { background: var(--salmon-600); border: 0; }
+  .btn-secondary { background: var(--panel); color: var(--ink-900); border: 1px solid var(--ink-100); }
+  .btn-secondary:hover { border-color: var(--salmon-300); color: var(--salmon-700); }
+
+  .hero .badges { display: flex; justify-content: center; gap: 12px; margin-top: 28px; font-size: 12px; color: var(--ink-500); flex-wrap: wrap; }
+  .hero .badges span { background: var(--panel); border: 1px solid var(--ink-100); padding: 4px 10px; border-radius: 12px; }
+
+  /* ── Three-pane illustration ─────────────────────────────────────── */
+  .three-pane { background: var(--panel); border-bottom: 1px solid var(--ink-100); border-top: 1px solid var(--ink-100); padding: 60px 24px; }
+  .pane-grid { display: grid; grid-template-columns: 240px 1fr 320px; gap: 1px; background: var(--ink-100); border: 1px solid var(--ink-100); border-radius: 12px; overflow: hidden; max-width: 980px; margin: 0 auto; min-height: 320px; box-shadow: var(--shadow); }
+  .pane { background: var(--panel); padding: 18px 20px; display: flex; flex-direction: column; gap: 12px; }
+  .pane-left { background: #F7F5F3; }
+  .pane-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--ink-500); font-weight: 700; }
+  .pane h3 { font-size: 15px; margin: 0; }
+  .pane p { font-size: 13px; color: var(--ink-700); line-height: 1.55; margin: 0; }
+  .pane ul { list-style: none; padding: 0; margin: 0; font-size: 12.5px; color: var(--ink-700); display: flex; flex-direction: column; gap: 6px; }
+  .pane ul li { display: flex; align-items: center; gap: 8px; padding: 5px 0; }
+  .pill { font-size: 9.5px; padding: 1px 6px; border-radius: 3px; font-weight: 700; }
+  .pill-cc { background: #FFE4DA; color: #B7493D; }
+  .pill-cx { background: #E6F0FF; color: #2F5BB7; }
+  .pane-mid { background: linear-gradient(180deg, #FFFCFB, white); }
+  .chat-row { display: flex; gap: 10px; }
+  .chat-row .av { width: 24px; height: 24px; border-radius: 6px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; font-size: 11px; }
+  .chat-row .av.me { background: #4B5563; }
+  .chat-row .av.ai { background: linear-gradient(135deg, var(--salmon-500), var(--salmon-700)); }
+  .chat-row .body { font-size: 12.5px; color: var(--ink-700); line-height: 1.5; }
+  .chat-row .body code { font-size: 11.5px; }
+  .tool-mini { font-family: var(--mono); font-size: 11px; background: #FCFCFB; border: 1px solid var(--ink-100); border-radius: 4px; padding: 4px 8px; color: var(--ink-700); display: inline-flex; align-items: center; gap: 6px; }
+  .tool-mini::before { content: ""; width: 14px; height: 14px; background: var(--salmon-50); border-radius: 3px; flex-shrink: 0; display: inline-block; }
+  .pane-right .tab-row { display: flex; gap: 4px; font-size: 11.5px; color: var(--ink-500); border-bottom: 1px solid var(--ink-100); padding-bottom: 8px; margin-bottom: 4px; }
+  .pane-right .tab-row .active { color: var(--salmon-700); font-weight: 600; }
+  .file-row { font-family: var(--mono); font-size: 11.5px; color: var(--ink-700); padding: 3px 0; display: flex; gap: 6px; }
+  .file-row.dim { color: var(--ink-300); }
+
+  /* ── Features grid ───────────────────────────────────────────────── */
+  .features { background: var(--bg); }
+  .features h2, .install h2, .why h2, .compare h2 { font-size: 28px; margin: 0 0 14px; letter-spacing: -0.01em; }
+  .features .sub, .install .sub, .why .sub, .compare .sub { color: var(--ink-500); margin: 0 0 36px; font-size: 15px; }
+  .feature-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .feature-card { background: var(--panel); border: 1px solid var(--ink-100); border-radius: 10px; padding: 22px 22px 20px; }
+  .feature-card .ic { width: 36px; height: 36px; border-radius: 9px; background: linear-gradient(135deg, var(--salmon-100), var(--salmon-300)); color: var(--salmon-700); display: flex; align-items: center; justify-content: center; font-weight: 800; margin-bottom: 14px; font-size: 17px; }
+  .feature-card h3 { font-size: 15.5px; margin: 0 0 8px; }
+  .feature-card p { font-size: 13.5px; color: var(--ink-700); margin: 0; line-height: 1.6; }
+
+  /* ── Install ─────────────────────────────────────────────────────── */
+  .install { background: var(--panel); border-top: 1px solid var(--ink-100); border-bottom: 1px solid var(--ink-100); }
+  .install-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .install-card { background: var(--bg); border: 1px solid var(--ink-100); border-radius: 10px; padding: 22px; }
+  .install-card h3 { margin: 0 0 14px; display: flex; align-items: center; gap: 10px; font-size: 16px; }
+  .install-card pre { margin-top: 0; }
+  .install-card .note { font-size: 12.5px; color: var(--ink-500); margin-top: 10px; line-height: 1.55; }
+  .os-icon { width: 22px; height: 22px; border-radius: 5px; background: var(--ink-900); color: white; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
+
+  /* ── Why ─────────────────────────────────────────────────────────── */
+  .why { background: var(--bg); }
+  .why-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+  .why-card { background: var(--panel); border: 1px solid var(--ink-100); border-radius: 10px; padding: 20px 22px; }
+  .why-card .pain { color: var(--salmon-700); font-weight: 600; font-size: 14px; margin-bottom: 8px; }
+  .why-card .fix { color: var(--ink-700); font-size: 13.5px; line-height: 1.6; }
+
+  /* ── Compare ─────────────────────────────────────────────────────── */
+  .compare { background: var(--panel); border-top: 1px solid var(--ink-100); }
+  .compare table { width: 100%; border-collapse: collapse; background: var(--bg); border: 1px solid var(--ink-100); border-radius: 8px; overflow: hidden; font-size: 13.5px; }
+  .compare th { background: var(--ink-50); text-align: left; padding: 12px 14px; font-weight: 600; border-bottom: 1px solid var(--ink-100); }
+  .compare td { padding: 12px 14px; border-bottom: 1px solid var(--ink-100); vertical-align: top; }
+  .compare tr:last-child td { border-bottom: 0; }
+  .compare .yes { color: #2F7D1F; font-weight: 600; }
+  .compare .no { color: #B7493D; font-weight: 600; }
+  .compare .meh { color: var(--ink-500); }
+
+  /* ── Footer ──────────────────────────────────────────────────────── */
+  footer { background: var(--ink-900); color: #B7BDC4; padding: 44px 24px 28px; }
+  footer .container { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 32px; }
+  footer h4 { color: white; font-size: 13.5px; margin: 0 0 14px; }
+  footer a { color: #D7DCE0; border: 0; font-size: 13.5px; display: block; padding: 4px 0; }
+  footer a:hover { color: var(--salmon-300); }
+  footer .copy { margin-top: 28px; padding-top: 24px; border-top: 1px solid #2A2F35; font-size: 12.5px; color: var(--ink-500); display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+  footer .copy code { background: #2A2F35; border-color: #3A4047; color: #D7DCE0; }
+
+  /* ── Responsive ──────────────────────────────────────────────────── */
+  @media (max-width: 880px) {
+    section { padding: 56px 20px; }
+    .hero { padding: 64px 20px 56px; }
+    .hero h1 { font-size: 32px; }
+    .hero .lead { font-size: 16px; }
+    .pane-grid { grid-template-columns: 1fr; }
+    .feature-grid { grid-template-columns: 1fr; }
+    .install-grid, .why-grid { grid-template-columns: 1fr; }
+    footer .container { grid-template-columns: 1fr; }
+    .topbar nav { gap: 12px; }
+    .topbar nav .hide-sm { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <a href="#" class="brand"><img src="icon.svg" alt="" /> Salmon</a>
+    <nav>
+      <a href="#features" class="hide-sm">特性</a>
+      <a href="#install">下载</a>
+      <a href="#compare" class="hide-sm">为何</a>
+      <a class="gh-btn" href="https://github.com/pekinlcc/SalmonApp">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<!-- ── HERO ───────────────────────────────────────────────────────────── -->
+<section class="hero">
+  <img class="logo" src="icon.svg" alt="Salmon icon" />
+  <h1>给已经在用 CLI 的你<br/>一个<span class="accent">三栏式可视化</span>窗口</h1>
+  <p class="lead">
+    Salmon 包装你本机已登录好的 <code>claude</code> 或 <code>codex</code> CLI,把命令行 AI 体验图形化。
+    不接 API,不存 Key,凭证完全留在 CLI。Linux + macOS。
+  </p>
+  <div class="cta">
+    <a class="btn btn-primary" href="https://github.com/pekinlcc/SalmonApp/releases/latest">
+      ⬇ 下载最新版
+    </a>
+    <a class="btn btn-secondary" href="https://github.com/pekinlcc/SalmonApp">
+      在 GitHub 上看代码
+    </a>
+  </div>
+  <div class="badges">
+    <span>✓ 完全本机运行</span>
+    <span>✓ 复用 CLI 登录</span>
+    <span>✓ 双引擎(Claude Code + Codex)</span>
+    <span>✓ 开源 / 三方非官方</span>
+  </div>
+</section>
+
+<!-- ── THREE-PANE ILLUSTRATION ────────────────────────────────────────── -->
+<section class="three-pane">
+  <div class="container">
+    <h2 style="text-align:center;margin:0 0 8px;font-size:24px;">三栏布局,一眼看清正在发生什么</h2>
+    <p style="text-align:center;color:var(--ink-500);margin:0 0 36px;font-size:14.5px;">左:Topic 列表 · 中:对话 · 右:文件 / Diff / 预览 / 日志</p>
+    <div class="pane-grid">
+      <div class="pane pane-left">
+        <div class="pane-label">Topics</div>
+        <ul>
+          <li><span class="pill pill-cc">CC</span> Spitch · 刚刚</li>
+          <li><span class="pill pill-cx">CX</span> 中文输入法 · 1h</li>
+          <li><span class="pill pill-cc">CC</span> Tauri 跨平台编译 · 8h</li>
+          <li><span class="pill pill-cx">CX</span> 香港办卡推荐 · 8h</li>
+          <li><span class="pill pill-cc">CC</span> PC 操作系统份额 · 8h</li>
+        </ul>
+      </div>
+      <div class="pane pane-mid">
+        <div class="pane-label">Chat</div>
+        <div class="chat-row">
+          <div class="av me">我</div>
+          <div class="body">把 <code>extract_full_text</code> 提到 stream 里复用</div>
+        </div>
+        <div class="chat-row">
+          <div class="av ai">S</div>
+          <div class="body">
+            先看一眼调用链 ——
+            <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;">
+              <span class="tool-mini">Bash <code>grep</code></span>
+              <span class="tool-mini">Read <code>doubao.py</code></span>
+              <span class="tool-mini">Edit <code>controller.py</code></span>
+            </div>
+            找到 3 处重复,合并到 <code>voice/__init__.py</code> 导出。
+          </div>
+        </div>
+      </div>
+      <div class="pane pane-right">
+        <div class="pane-label">Right pane</div>
+        <div class="tab-row">
+          <span class="active">Files</span>
+          <span>Diff</span>
+          <span>Preview</span>
+          <span>Logs</span>
+        </div>
+        <div class="file-row">📁 src/</div>
+        <div class="file-row" style="padding-left:14px;">📁 spitch/voice/</div>
+        <div class="file-row" style="padding-left:28px;color:var(--salmon-700);">📄 __init__.py  M</div>
+        <div class="file-row" style="padding-left:28px;color:var(--salmon-700);">📄 controller.py  M</div>
+        <div class="file-row" style="padding-left:28px;">📄 doubao.py</div>
+        <div class="file-row dim" style="padding-left:14px;">📁 tests/</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── FEATURES ───────────────────────────────────────────────────────── -->
+<section class="features" id="features">
+  <div class="container">
+    <h2>为啥要用 Salmon</h2>
+    <p class="sub">不是要替代 CLI ——而是把已有 CLI 的能力变得能扫一眼就懂。</p>
+    <div class="feature-grid">
+
+      <div class="feature-card">
+        <div class="ic">⌘</div>
+        <h3>不接 API,不存 Key</h3>
+        <p>Salmon 自己不调任何 LLM。每条消息都是 spawn 你本机的 <code>claude</code> 或 <code>codex</code> 子进程,凭证完全归 CLI 管。</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="ic">▤</div>
+        <h3>Topic = Terminal Tab</h3>
+        <p>每个 Topic 绑定一个工作目录 + 一个常驻 CLI session;关掉 Salmon 也不丢,下次 <code>--resume</code> 接回原来的会话。</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="ic">≡</div>
+        <h3>权限审批 UI</h3>
+        <p>CLI 想跑 <code>rm -rf</code> 之类需要确认时,中栏弹审批卡片,你能看清完整命令再点 Allow / Deny。</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="ic">📄</div>
+        <h3>真的预览文件</h3>
+        <p>右栏的 Preview 直接渲染 Markdown / HTML,以及 .pptx / .docx / .xlsx ——后台调 LibreOffice 转 PDF 切页,缓存到本地。</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="ic">✦</div>
+        <h3>欢迎页 · 推荐 agent</h3>
+        <p>主页汇总待审批 / 未读 Topic;另起 agent loop 把 Claude 和 Codex 的建议互相评分,**双方都认为高价值的**才默认展开。</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="ic">⛶</div>
+        <h3>对话布局两种风格</h3>
+        <p>"折叠思考"风(突出最终答案)或"内联交错"风(完整时序)。设置里随时切。</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="ic">↻</div>
+        <h3>Topic 自动归档</h3>
+        <p>工作目录被删除/移走时,Salmon 立刻识别,弹 banner 让你归档或删除,不会傻乎乎反复让 CLI 跑挂。</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="ic">💬</div>
+        <h3>实时反馈</h3>
+        <p>消息发出后立刻显示头像 + 三个跳点,工具调用进行中带 spinner,流式块逐段渲染。</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="ic">∅</div>
+        <h3>零网络</h3>
+        <p>App 自身一行 fetch 都没有(除了你看的这个 GitHub Pages)。所有 LLM 流量都走 CLI。</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ── INSTALL ────────────────────────────────────────────────────────── -->
+<section class="install" id="install">
+  <div class="container">
+    <h2>装上 Salmon</h2>
+    <p class="sub">前提:本机至少有一个 <code>claude</code> 或 <code>codex</code> CLI 已经登录。</p>
+    <div class="install-grid">
+
+      <div class="install-card">
+        <h3><span class="os-icon">U</span> Ubuntu / Debian</h3>
+<pre><code>curl -L -o salmon.deb \
+  https://github.com/pekinlcc/SalmonApp/releases/latest/download/Salmon_amd64.deb
+sudo apt install ./salmon.deb</code></pre>
+        <div class="note">从应用程序网格搜 "Salmon" 就能找到,Dock 上是一个折纸鲑鱼图标。</div>
+      </div>
+
+      <div class="install-card">
+        <h3><span class="os-icon">A</span> 任何发行版 (AppImage)</h3>
+<pre><code>curl -L -o Salmon.AppImage \
+  https://github.com/pekinlcc/SalmonApp/releases/latest/download/Salmon_amd64.AppImage
+chmod +x Salmon.AppImage && ./Salmon.AppImage</code></pre>
+        <div class="note">免装,自带 GTK / WebKit2GTK 运行时,但体积大些(~75 MB)。</div>
+      </div>
+
+      <div class="install-card">
+        <h3><span class="os-icon" style="background:#000">🍎</span> macOS (universal)</h3>
+<pre><code># 下载 Salmon_universal.dmg,把 .app 拖到 /Applications,
+# 然后清掉 Gatekeeper quarantine:
+xattr -dr com.apple.quarantine /Applications/Salmon.app
+open /Applications/Salmon.app</code></pre>
+        <div class="note">未公证(没有 Apple Developer 账号),ad-hoc 签名;首次启动需要上面的 <code>xattr</code>。</div>
+      </div>
+
+      <div class="install-card">
+        <h3><span class="os-icon" style="background:#1d4ed8">F</span> Fedora / openSUSE / RHEL</h3>
+<pre><code>curl -L -o salmon.rpm \
+  https://github.com/pekinlcc/SalmonApp/releases/latest/download/Salmon_x86_64.rpm
+sudo dnf install ./salmon.rpm</code></pre>
+        <div class="note">每个 release 也都同时打了 .rpm。</div>
+      </div>
+
+    </div>
+
+    <div style="margin-top:32px;background:var(--bg);border:1px solid var(--ink-100);border-radius:10px;padding:18px 22px;">
+      <strong>可选 — Office 文件预览(只在第一次需要):</strong>
+      <pre style="margin:10px 0 0;"><code># Linux
+sudo apt install libreoffice-impress libreoffice-writer libreoffice-calc poppler-utils
+
+# macOS
+brew install --cask libreoffice && brew install poppler</code></pre>
+    </div>
+  </div>
+</section>
+
+<!-- ── WHY ────────────────────────────────────────────────────────────── -->
+<section class="why" id="why">
+  <div class="container">
+    <h2>设计动机</h2>
+    <p class="sub">如果你已经在 Terminal 里用 <code>claude</code> 或 <code>codex</code>,大概都遇到过:</p>
+    <div class="why-grid">
+      <div class="why-card">
+        <div class="pain">长对话历史在 scroll-back 里像噩梦</div>
+        <div class="fix">中栏 Markdown 完整渲染:代码块、表格、引用 / 折叠思考、最终答案高亮分开。</div>
+      </div>
+      <div class="why-card">
+        <div class="pain">多个项目共用一个 shell history,串了</div>
+        <div class="fix">Topic 是一等公民,每个 Topic 自己绑工作目录、绑 CLI session,一目了然。</div>
+      </div>
+      <div class="why-card">
+        <div class="pain">Edit 改了文件还得切窗 <code>cat</code> / <code>diff</code></div>
+        <div class="fix">右栏 Files 实时高亮 A / M;选中工具调用直接看 Diff;Preview 给你 Markdown / HTML / Office。</div>
+      </div>
+      <div class="why-card">
+        <div class="pain">同时用 Claude Code 和 Codex 要切终端</div>
+        <div class="fix">每个 Topic 自己选引擎;首页推荐区把双方意见都展示,互评筛选噪声。</div>
+      </div>
+      <div class="why-card">
+        <div class="pain">第三方 GUI 总要再开账号、再付一次费</div>
+        <div class="fix">Salmon 不接管凭证、不读 <code>~/.claude</code>、零网络调用。CLI 怎么登的就怎么用。</div>
+      </div>
+      <div class="why-card">
+        <div class="pain">权限弹窗在终端容易点错</div>
+        <div class="fix">PreToolUse hook 把权限请求接到 UI,把整条命令完整摆出来再点 Allow / Deny。</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── COMPARE ────────────────────────────────────────────────────────── -->
+<section class="compare" id="compare">
+  <div class="container">
+    <h2>跟其它方案的差别</h2>
+    <p class="sub">不是替代品 ——定位是 "已经在用 <code>claude</code> / <code>codex</code> 的人想要更好的视图"。</p>
+    <table>
+      <thead>
+        <tr>
+          <th></th>
+          <th>Salmon</th>
+          <th>原生 CLI 终端</th>
+          <th>Cursor / Cherry Studio 等</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>复用现有 CLI 登录</td>
+          <td class="yes">✓</td>
+          <td class="yes">✓</td>
+          <td class="no">✗(自己再登一次)</td>
+        </tr>
+        <tr>
+          <td>不存 API Key</td>
+          <td class="yes">✓</td>
+          <td class="yes">✓</td>
+          <td class="no">✗</td>
+        </tr>
+        <tr>
+          <td>富文本对话渲染</td>
+          <td class="yes">✓</td>
+          <td class="no">✗</td>
+          <td class="yes">✓</td>
+        </tr>
+        <tr>
+          <td>实时文件预览 / Diff</td>
+          <td class="yes">✓</td>
+          <td class="meh">需 cat / diff</td>
+          <td class="yes">✓</td>
+        </tr>
+        <tr>
+          <td>Topic 隔离 + session 复活</td>
+          <td class="yes">✓</td>
+          <td class="meh">tmux / shell tab</td>
+          <td class="meh">部分</td>
+        </tr>
+        <tr>
+          <td>同时开 Claude Code + Codex</td>
+          <td class="yes">✓</td>
+          <td class="meh">两个终端</td>
+          <td class="no">✗</td>
+        </tr>
+        <tr>
+          <td>权限请求 UI</td>
+          <td class="yes">✓ PreToolUse</td>
+          <td class="yes">CLI 自带</td>
+          <td class="meh">不一致</td>
+        </tr>
+        <tr>
+          <td>零网络</td>
+          <td class="yes">✓</td>
+          <td class="yes">✓(CLI)</td>
+          <td class="no">✗</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ── FOOTER ─────────────────────────────────────────────────────────── -->
+<footer>
+  <div class="container">
+    <div>
+      <h4>Salmon</h4>
+      <p style="color:var(--ink-300);font-size:13.5px;line-height:1.65;margin:0;">
+        Unofficial Linux + macOS desktop client wrapping the Claude Code CLI and Codex CLI.<br/>
+        三方非官方 — 跟 Anthropic 和 OpenAI 都没关系。
+      </p>
+    </div>
+    <div>
+      <h4>项目</h4>
+      <a href="https://github.com/pekinlcc/SalmonApp">源码</a>
+      <a href="https://github.com/pekinlcc/SalmonApp/releases">所有版本</a>
+      <a href="https://github.com/pekinlcc/SalmonApp/blob/main/PRD.md">中文 PRD</a>
+      <a href="https://github.com/pekinlcc/SalmonApp/issues">提 issue</a>
+    </div>
+    <div>
+      <h4>相关 CLI</h4>
+      <a href="https://docs.anthropic.com/en/docs/claude-code">Claude Code 文档</a>
+      <a href="https://github.com/openai/codex">Codex CLI</a>
+      <a href="https://tauri.app/">Tauri 2(本项目用的框架)</a>
+    </div>
+    <div class="copy" style="grid-column: 1 / -1;">
+      <span>© 2026 Salmon · MIT</span>
+      <span><code>~/.local/share/Salmon/salmon.db</code> · 本机 SQLite</span>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
