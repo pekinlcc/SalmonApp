@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import type { CliInfo, Topic } from "../lib/types";
 import { relativeTime } from "../lib/format";
+import pkg from "../../package.json";
 
 interface Props {
   topics: Topic[];
@@ -40,7 +41,7 @@ export function LeftSidebar(props: Props) {
       <div className="left-head">
         <div className="logo" onClick={props.onHome} title="返回首页" style={{ cursor: "pointer" }}>S</div>
         <div className="name" onClick={props.onHome} style={{ cursor: "pointer" }}>Salmon</div>
-        <div className="ver">v0.4.2</div>
+        <div className="ver">v{pkg.version}</div>
         <button
           className="settings-btn"
           title="设置"

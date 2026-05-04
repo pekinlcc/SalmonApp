@@ -1,31 +1,39 @@
-//! Local HTTP bridge that fields PermissionRequest hook callbacks from
-//! `claude` and surfaces them as Tauri events for the React UI to render
-//! as PermissionCards. The user's click is then routed back through the
+//! Local HTTP bridge that fields PreToolUse hook callbacks from `claude`
+//! and surfaces them as Tauri events for the React UI to render as
+//! PermissionCards. The user's click is then routed back through the
 //! still-open HTTP connection so Claude can proceed with its tool call.
 //!
-//! Design notes
-//! ------------
-//! `claude --print --output-format stream-json …` runs non-interactively
-//! and has no terminal to prompt on, so anything not pre-allowlisted just
-//! gets denied silently — that's the gap this module closes. We mirror
-//! the long-poll-style HTTP hook pattern that's already established by
-//! existing tools (e.g. hermitflow's `http://127.0.0.1:46821/permission/…`):
+//! Why PreToolUse and not PermissionRequest
+//! ----------------------------------------
+//! v0.5.1 originally hooked `PermissionRequest`, which sounded right by
+//! name but doesn't fire in `-p` non-interactive mode — its semantic is
+//! "before the permission prompt is shown to the user", and there is
+//! no prompt to be before when there's no TTY. `PreToolUse` is the one
+//! that actually fires for every tool invocation regardless of mode and
+//! that accepts a `permissionDecision` response shape. Confirmed by
+//! probe-server experiment in May 2026:
 //!
-//!   1. Salmon starts and binds an `axum` router on `127.0.0.1:<random>`.
-//!   2. When the engine spawns a `claude` child for a topic, it injects
-//!      `--settings '{"hooks":{"PermissionRequest":[…]}}'` pointing at
-//!      `http://127.0.0.1:<port>/permission/<topic_id>`. This rides
-//!      ALONGSIDE whatever the user has in `~/.claude/settings.json` —
-//!      `--settings` ADDS rather than replaces.
-//!   3. Claude needs to use a non-allowlisted tool → POSTs the standard
-//!      hook input JSON to that URL, blocking until the response.
-//!   4. Our handler stores a oneshot, emits `salmon-permission-request`
-//!      on the AppHandle. The frontend already listens for this and
-//!      renders `<PermissionCard>` with Allow/Deny buttons.
-//!   5. The user clicks → Tauri command `approve_permission` calls
-//!      `bridge.answer(request_id, allow)`, which sends through the
-//!      oneshot. The HTTP handler's `await` resolves and we reply with
-//!      the documented `permissionDecision` JSON.
+//!     PreToolUse hook called for tool=WebFetch → return "allow" →
+//!     fetch goes through, no permission_denial recorded.
+//!
+//! Matcher
+//! -------
+//! PreToolUse fires for *every* tool, including `Read`/`Glob`/`Grep`
+//! that don't normally need permission. Showing a card for those would
+//! be noise. We constrain via `matcher` regex to the set Claude Code
+//! itself prompts for in interactive mode:
+//!
+//!     ^(Bash|Edit|Write|MultiEdit|NotebookEdit|
+//!       WebFetch|WebSearch|Task|mcp__.+)$
+//!
+//! Allowlist short-circuit
+//! -----------------------
+//! Even with the matcher, naive UI-on-everything would re-prompt for
+//! tools the user has already added to `~/.claude/settings.json`'s
+//! `permissions.allow`. Before emitting UI we read that file and check
+//! whether the bare tool name is allowlisted. Constrained rules
+//! (`"Bash(npm *)"`) we don't try to evaluate — those still pop a card,
+//! one extra click but functionally correct.
 //!
 //! Lifecycle
 //! ---------
@@ -34,7 +42,8 @@
 //! delete) just leak a oneshot until either (a) the user later clicks
 //! the now-stale card, or (b) the app exits. Both are bounded.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use axum::{
@@ -105,14 +114,18 @@ impl PermissionBridge {
     }
 
     /// Build the inline JSON to pass to `claude --settings <…>` so the
-    /// spawned child routes its PermissionRequest events at us. Per-topic
-    /// URL lets us scope the eventual UI emission to the right Topic
-    /// (which can otherwise have several spawns in flight).
+    /// spawned child routes its PreToolUse events at us. Per-topic URL
+    /// lets us scope the eventual UI emission to the right Topic (which
+    /// can otherwise have several spawns in flight).
     pub fn settings_json_for_topic(&self, topic_id: &str) -> String {
         json!({
             "hooks": {
-                "PermissionRequest": [{
-                    "matcher": "",
+                "PreToolUse": [{
+                    // Anchored regex covering the tools Claude Code itself
+                    // would prompt for in interactive mode. Read/Glob/Grep
+                    // and other no-permission-needed tools don't match,
+                    // so they don't fire our hook at all.
+                    "matcher": "^(Bash|Edit|Write|MultiEdit|NotebookEdit|WebFetch|WebSearch|Task|mcp__.+)$",
                     "hooks": [{
                         "type": "http",
                         "url": format!("http://127.0.0.1:{}/permission/{}", self.port, topic_id),
@@ -123,6 +136,39 @@ impl PermissionBridge {
         })
         .to_string()
     }
+}
+
+/// Read the user's `~/.claude/settings.json` and return the set of bare
+/// tool names that are unconditionally allowlisted (e.g. `"WebSearch"`).
+/// Constrained rules like `"Bash(npm *)"` are skipped — we don't
+/// duplicate Claude's pattern matcher; those flow through the UI path.
+fn read_allowlisted_tools() -> HashSet<String> {
+    let home = match std::env::var_os("HOME").map(PathBuf::from) {
+        Some(h) => h,
+        None => return HashSet::new(),
+    };
+    let path = home.join(".claude").join("settings.json");
+    let content = match std::fs::read_to_string(&path) {
+        Ok(s) => s,
+        Err(_) => return HashSet::new(),
+    };
+    let v: serde_json::Value = match serde_json::from_str(&content) {
+        Ok(v) => v,
+        Err(_) => return HashSet::new(),
+    };
+    let arr = match v
+        .get("permissions")
+        .and_then(|p| p.get("allow"))
+        .and_then(|a| a.as_array())
+    {
+        Some(a) => a,
+        None => return HashSet::new(),
+    };
+    arr.iter()
+        .filter_map(|x| x.as_str())
+        .filter(|s| !s.contains('('))
+        .map(|s| s.to_string())
+        .collect()
 }
 
 async fn handle_permission(
@@ -144,12 +190,26 @@ async fn handle_permission(
         .and_then(|c| c.as_str())
         .map(|s| s.to_string());
 
+    // Allowlist short-circuit: if the user has already added this exact
+    // tool name to ~/.claude/settings.json, auto-allow without bothering
+    // the UI. Re-read on every request so edits to settings.json apply
+    // without restart.
+    if read_allowlisted_tools().contains(&tool_name) {
+        eprintln!(
+            "[salmon] PreToolUse topic={topic_id} tool={tool_name} → auto-allow (in ~/.claude/settings.json)"
+        );
+        return (
+            StatusCode::OK,
+            Json(allow_response("user settings.json allowlist")),
+        );
+    }
+
     let request_id = uuid::Uuid::new_v4().to_string();
     let (tx, rx) = oneshot::channel::<bool>();
     bridge.pending.lock().insert(request_id.clone(), tx);
 
     eprintln!(
-        "[salmon] PermissionRequest topic={topic_id} tool={tool_name} request_id={request_id}"
+        "[salmon] PreToolUse topic={topic_id} tool={tool_name} request_id={request_id} → ask user"
     );
 
     // The frontend listens on this Tauri event and stuffs it into
@@ -174,21 +234,30 @@ async fn handle_permission(
     // be discarded by Drop).
     let allow = rx.await.unwrap_or(false);
 
-    // The PermissionRequest hook spec accepts `permissionDecision` of
-    // "allow" | "deny" inside `hookSpecificOutput`. Echo back the request
-    // id for our own debugging via stderr.
     eprintln!(
         "[salmon] permission resolved request_id={request_id} decision={}",
         if allow { "allow" } else { "deny" }
     );
-    (
-        StatusCode::OK,
-        Json(json!({
+    let resp = if allow {
+        allow_response("Salmon UI")
+    } else {
+        json!({
             "hookSpecificOutput": {
-                "hookEventName": "PermissionRequest",
-                "permissionDecision": if allow { "allow" } else { "deny" },
+                "hookEventName": "PreToolUse",
+                "permissionDecision": "deny",
                 "permissionDecisionReason": "Salmon UI",
             }
-        })),
-    )
+        })
+    };
+    (StatusCode::OK, Json(resp))
+}
+
+fn allow_response(reason: &str) -> Value {
+    json!({
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": "allow",
+            "permissionDecisionReason": reason,
+        }
+    })
 }
