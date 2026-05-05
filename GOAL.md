@@ -1,1 +1,0 @@
-请你帮我查看 这个文件夹内 PRD以及mockup的文件，然后帮我检查是否按照PRD已经实现、编译出一个ubuntu版本的这个app,并可以运行，无bug,以及是一个有图标的ubuntu app
