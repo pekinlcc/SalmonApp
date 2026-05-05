@@ -52,4 +52,5 @@ export const api = {
     invoke<void>("set_danger_mode", { id, danger }),
   runningTopics: () => invoke<string[]>("running_topics"),
   debugLog: (message: string) => invoke<void>("debug_log", { message }),
+  getHomeDir: () => invoke<string>("get_home_dir"),
 };

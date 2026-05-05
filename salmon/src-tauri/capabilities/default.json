@@ -9,6 +9,7 @@
     "dialog:allow-message",
     "dialog:allow-confirm",
     "notification:default",
-    "clipboard-manager:allow-read-image"
+    "clipboard-manager:allow-read-image",
+    "clipboard-manager:allow-read-text"
   ]
 }

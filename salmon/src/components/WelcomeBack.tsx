@@ -31,7 +31,10 @@ interface Row {
   badgeText: string | null;
 }
 
-const HOME = (typeof window !== "undefined" && (window as any).__SALMON_HOME__) || "";
+function currentHome(): string {
+  if (typeof window === "undefined") return "";
+  return (window as any).__SALMON_HOME__ || "";
+}
 
 export function WelcomeBack({
   topics,
@@ -291,8 +294,9 @@ function statusRank(s: Row["status"]): number {
 }
 
 function shortPath(p: string): string {
+  const home = currentHome();
   let q = p;
-  if (HOME && p.startsWith(HOME)) q = "~" + p.slice(HOME.length);
+  if (home && p.startsWith(home)) q = "~" + p.slice(home.length);
   if (q.length <= 36) return q;
   const parts = q.split("/").filter(Boolean);
   if (parts.length <= 2) return q;

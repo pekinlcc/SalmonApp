@@ -89,6 +89,7 @@ pub fn run() {
             commands::set_danger_mode,
             commands::running_topics,
             commands::debug_log,
+            commands::get_home_dir,
             commands::save_pasted_image,
         ])
         .run(tauri::generate_context!())

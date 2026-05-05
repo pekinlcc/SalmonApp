@@ -25,7 +25,6 @@ export function PermissionCard({ tool, command, input, workdir, onApprove }: Pro
       </div>
       <div className="perm-actions">
         <button className="perm-btn primary" onClick={() => onApprove(true)}>允许一次</button>
-        <button className="perm-btn" onClick={() => onApprove(true)}>允许此会话</button>
         <button className="perm-btn deny" onClick={() => onApprove(false)}>拒绝</button>
       </div>
     </div>

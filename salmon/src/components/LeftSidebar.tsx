@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ask } from "@tauri-apps/plugin-dialog";
 import type { CliInfo, Topic } from "../lib/types";
 import { relativeTime } from "../lib/format";
 import pkg from "../../package.json";
@@ -14,7 +15,7 @@ interface Props {
   onNewTopic: () => void;
   onOpenSettings: () => void;
   onDeleteTopic: (id: string) => void;
-  onRenameTopic: (id: string, title: string) => void;
+  onRequestRenameTopic: (id: string) => void;
   onArchiveTopic: (id: string, archived: boolean) => void;
 }
 
@@ -22,8 +23,23 @@ export function LeftSidebar(props: Props) {
   const { topics, selectedId, runningIds, spawningId, cliStatus } = props;
   const [query, setQuery] = useState("");
   const [menuFor, setMenuFor] = useState<string | null>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
   const [showArchived, setShowArchived] = useState(false);
+
+  // Close the per-topic context menu when the user clicks anywhere outside
+  // the topic list. Without this it would only collapse on a menu action or
+  // on right-clicking the same topic again.
+  useEffect(() => {
+    if (!menuFor) return;
+    const onDown = (e: MouseEvent) => {
+      const root = listRef.current;
+      if (root && e.target instanceof Node && root.contains(e.target)) return;
+      setMenuFor(null);
+    };
+    window.addEventListener("mousedown", onDown);
+    return () => window.removeEventListener("mousedown", onDown);
+  }, [menuFor]);
 
   const { active, archived } = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -72,7 +88,7 @@ export function LeftSidebar(props: Props) {
         />
       </div>
 
-      <div className="topic-list">
+      <div className="topic-list" ref={listRef}>
         {grouped.map(([label, items]) => (
           <div key={label}>
             <div className="group-label">{label}</div>
@@ -114,8 +130,7 @@ export function LeftSidebar(props: Props) {
                       style={{ padding: "3px 8px", fontSize: 11 }}
                       onClick={(e) => {
                         e.stopPropagation();
-                        const t2 = window.prompt("重命名 Topic", t.title);
-                        if (t2 && t2 !== t.title) props.onRenameTopic(t.id, t2);
+                        props.onRequestRenameTopic(t.id);
                         setMenuFor(null);
                       }}
                     >
@@ -135,12 +150,14 @@ export function LeftSidebar(props: Props) {
                     <button
                       className="btn"
                       style={{ padding: "3px 8px", fontSize: 11, color: "#B7493D" }}
-                      onClick={(e) => {
+                      onClick={async (e) => {
                         e.stopPropagation();
-                        if (confirm(`确认删除 Topic "${t.title}"？\n（仅删除 SalmonApp 内的对话记录，不会动你的工作目录文件）`)) {
-                          props.onDeleteTopic(t.id);
-                        }
                         setMenuFor(null);
+                        const ok = await ask(
+                          `确认删除 Topic "${t.title}"？\n（仅删除 SalmonApp 内的对话记录，不会动你的工作目录文件）`,
+                          { title: "删除 Topic", kind: "warning" },
+                        );
+                        if (ok) props.onDeleteTopic(t.id);
                       }}
                     >
                       删除
@@ -207,12 +224,14 @@ export function LeftSidebar(props: Props) {
                     <button
                       className="btn"
                       style={{ padding: "3px 8px", fontSize: 11, color: "#B7493D" }}
-                      onClick={(e) => {
+                      onClick={async (e) => {
                         e.stopPropagation();
-                        if (confirm(`确认永久删除 Topic "${t.title}"?`)) {
-                          props.onDeleteTopic(t.id);
-                        }
                         setMenuFor(null);
+                        const ok = await ask(
+                          `确认永久删除 Topic "${t.title}"?`,
+                          { title: "永久删除 Topic", kind: "warning" },
+                        );
+                        if (ok) props.onDeleteTopic(t.id);
                       }}
                     >
                       永久删除

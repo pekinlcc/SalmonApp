@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import type { NotifyKind, ToastEvent } from "../lib/notify";
 
 interface Props {
@@ -24,14 +24,35 @@ const ICON_BY_KIND: Record<NotifyKind, string> = {
 };
 
 export function Toasts({ toasts, onDismiss, onClick }: Props) {
+  // Per-toast timer registry. Without this, re-rendering on every toast
+  // arrival would clear and restart timers for ALL toasts, so older toasts
+  // never auto-dismiss while new ones keep coming in.
+  const timersRef = useRef<Map<string, number>>(new Map());
   useEffect(() => {
-    const timers = toasts.map((t) =>
-      window.setTimeout(() => onDismiss(t.id), TIMEOUT_BY_KIND[t.kind] ?? 5000)
-    );
-    return () => {
-      timers.forEach((id) => window.clearTimeout(id));
-    };
+    const live = new Set(toasts.map((t) => t.id));
+    for (const [id, handle] of timersRef.current) {
+      if (!live.has(id)) {
+        window.clearTimeout(handle);
+        timersRef.current.delete(id);
+      }
+    }
+    for (const t of toasts) {
+      if (timersRef.current.has(t.id)) continue;
+      const handle = window.setTimeout(
+        () => onDismiss(t.id),
+        TIMEOUT_BY_KIND[t.kind] ?? 5000,
+      );
+      timersRef.current.set(t.id, handle);
+    }
   }, [toasts, onDismiss]);
+
+  useEffect(() => {
+    const timers = timersRef.current;
+    return () => {
+      for (const handle of timers.values()) window.clearTimeout(handle);
+      timers.clear();
+    };
+  }, []);
 
   if (toasts.length === 0) return null;
 

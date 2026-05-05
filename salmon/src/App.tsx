@@ -10,6 +10,7 @@ import { Composer } from "./components/Composer";
 import { RightPane } from "./components/RightPane";
 import { NewTopicDialog } from "./components/NewTopicDialog";
 import { Onboarding } from "./components/Onboarding";
+import { PromptDialog } from "./components/PromptDialog";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { WelcomeBack } from "./components/WelcomeBack";
 import { Toasts } from "./components/Toasts";
@@ -176,6 +177,7 @@ export default function App() {
   }, [toggleRight]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showNew, setShowNew] = useState(false);
+  const [renamingTopicId, setRenamingTopicId] = useState<string | null>(null);
 
   const [messagesByTopic, setMessagesByTopic] = useState<Record<string, UiMessage[]>>({});
   const [logsByTopic, setLogsByTopic] = useState<Record<string, string[]>>({});
@@ -243,8 +245,14 @@ export default function App() {
         setShowOnboarding(true);
       }
     });
-    // expose home for path shortening
-    (window as any).__SALMON_HOME__ = "";
+    // expose home for path shortening (~/foo display)
+    api.getHomeDir()
+      .then((h) => {
+        (window as any).__SALMON_HOME__ = h || "";
+      })
+      .catch(() => {
+        (window as any).__SALMON_HOME__ = "";
+      });
   }, [refresh]);
 
   // Subscribe to stream events
@@ -732,7 +740,7 @@ export default function App() {
         onNewTopic={() => setShowNew(true)}
         onOpenSettings={() => setShowSettings(true)}
         onDeleteTopic={onDelete}
-        onRenameTopic={onRename}
+        onRequestRenameTopic={(id) => setRenamingTopicId(id)}
         onArchiveTopic={onArchive}
       />
 
@@ -769,10 +777,7 @@ export default function App() {
         <>
           <section className="middle">
             <div className="mid-head">
-              <div className="title" onDoubleClick={() => {
-                const t2 = window.prompt("重命名", selectedTopic.title);
-                if (t2 && t2 !== selectedTopic.title) onRename(selectedTopic.id, t2);
-              }}>
+              <div className="title" onDoubleClick={() => setRenamingTopicId(selectedTopic.id)}>
                 {selectedTopic.title}
               </div>
               <div className="path">{selectedTopic.workdir}</div>
@@ -807,10 +812,12 @@ export default function App() {
               busy={!!busyByTopic[selectedTopic.id]}
               workdirMissing={workdirOkByTopic[selectedTopic.id] === false}
               onArchive={() => onArchive(selectedTopic.id, true)}
-              onDelete={() => {
-                if (window.confirm(`确认删除 Topic "${selectedTopic.title}"?\n（仅删除 SalmonApp 内的对话记录）`)) {
-                  onDelete(selectedTopic.id);
-                }
+              onDelete={async () => {
+                const ok = await ask(
+                  `确认删除 Topic "${selectedTopic.title}"?\n（仅删除 SalmonApp 内的对话记录）`,
+                  { title: "删除 Topic", kind: "warning" },
+                );
+                if (ok) onDelete(selectedTopic.id);
               }}
               onApprovePermission={onApprove}
               onSelectTool={setSelectedTool}
@@ -857,6 +864,23 @@ export default function App() {
           onClose={() => setShowSettings(false)}
         />
       )}
+
+      {renamingTopicId && (() => {
+        const t = topics.find((x) => x.id === renamingTopicId);
+        if (!t) return null;
+        return (
+          <PromptDialog
+            title="重命名 Topic"
+            initialValue={t.title}
+            confirmLabel="保存"
+            onCancel={() => setRenamingTopicId(null)}
+            onConfirm={(v) => {
+              if (v !== t.title) onRename(t.id, v);
+              setRenamingTopicId(null);
+            }}
+          />
+        );
+      })()}
 
       <Toasts toasts={toasts} onDismiss={dismissToast} onClick={onToastClick} />
     </div>

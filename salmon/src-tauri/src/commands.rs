@@ -1495,6 +1495,11 @@ pub fn debug_log(message: String) {
     eprintln!("[fe] {message}");
 }
 
+#[tauri::command]
+pub fn get_home_dir() -> String {
+    std::env::var("HOME").unwrap_or_default()
+}
+
 /// Persist a clipboard image so the CLI can pick it up via `@<path>`.
 /// Both `claude -p` and `codex exec` resolve `@<absolute-path>` to image
 /// content, so the prompt path is the same for both engines.
