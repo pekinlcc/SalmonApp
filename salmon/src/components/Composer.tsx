@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { readImage, readText } from "@tauri-apps/plugin-clipboard-manager";
 
 interface Props {
   topicId: string;
@@ -25,8 +26,6 @@ export function Composer({ topicId, busy, disabled, onSend, onInterrupt }: Props
     if (!busy && !disabled) ref.current?.focus();
   }, [busy, disabled]);
 
-  // Reset attachments when switching Topics so a paste from one Topic
-  // doesn't leak into another.
   useEffect(() => {
     setAttachments([]);
   }, [topicId]);
@@ -42,36 +41,60 @@ export function Composer({ topicId, busy, disabled, onSend, onInterrupt }: Props
     setAttachments([]);
   };
 
-  const onPaste = async (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
-    const items = e.clipboardData?.items;
-    if (!items) return;
-    const imageItems = Array.from(items).filter(
-      (it) => it.kind === "file" && it.type.startsWith("image/")
-    );
-    if (imageItems.length === 0) return; // text paste — let the textarea handle it
-    e.preventDefault();
+  // WebKit2GTK on Wayland tends to drop image clipboard data from the
+  // browser's `paste` event, so we intercept Ctrl/Cmd+V at the keydown
+  // layer and pull the image out via the Tauri clipboard plugin instead.
+  // Text falls back to readText so manual cursor-insert preserves
+  // selection-replace semantics.
+  const handlePasteShortcut = async () => {
     setPasting(true);
+    let handled = false;
     try {
-      for (const it of imageItems) {
-        const blob = it.getAsFile();
-        if (!blob) continue;
-        const ext = (it.type.split("/")[1] || "png").replace("jpeg", "jpg");
-        const base64 = await blobToBase64(blob);
-        const dataUrl = `data:${it.type};base64,${base64}`;
-        const path = await invoke<string>("save_pasted_image", {
-          topicId,
-          base64Data: base64,
-          ext,
-        });
-        const name = path.split("/").pop() || `paste.${ext}`;
-        setAttachments((prev) => [...prev, { path, preview: dataUrl, name }]);
-      }
+      const img = await readImage();
+      const rgba = await img.rgba();
+      const size = await img.size();
+      const base64 = await rgbaToPngBase64(rgba, size.width, size.height);
+      const path = await invoke<string>("save_pasted_image", {
+        topicId,
+        base64Data: base64,
+        ext: "png",
+      });
+      const name = path.split("/").pop() || "paste.png";
+      const dataUrl = `data:image/png;base64,${base64}`;
+      setAttachments((prev) => [...prev, { path, preview: dataUrl, name }]);
+      handled = true;
+      void invoke("debug_log", { message: `Composer paste: image saved to ${path}` });
     } catch (err) {
-      console.error("save_pasted_image failed:", err);
-      alert(`图片粘贴失败: ${err}`);
+      // Not an image (or read failed). Fall back to text paste below.
+      void invoke("debug_log", { message: `Composer paste: readImage failed (${err}), trying text` });
     } finally {
       setPasting(false);
     }
+    if (handled) return;
+
+    try {
+      const txt = await readText();
+      if (txt) insertAtCursor(txt);
+    } catch (err) {
+      void invoke("debug_log", { message: `Composer paste: readText failed (${err})` });
+    }
+  };
+
+  const insertAtCursor = (insert: string) => {
+    const el = ref.current;
+    if (!el) {
+      setText((t) => t + insert);
+      return;
+    }
+    const start = el.selectionStart ?? text.length;
+    const end = el.selectionEnd ?? text.length;
+    const next = text.slice(0, start) + insert + text.slice(end);
+    setText(next);
+    requestAnimationFrame(() => {
+      el.focus();
+      const pos = start + insert.length;
+      el.setSelectionRange(pos, pos);
+    });
   };
 
   const removeAttachment = (path: string) => {
@@ -91,11 +114,16 @@ export function Composer({ topicId, busy, disabled, onSend, onInterrupt }: Props
           value={text}
           disabled={disabled}
           onChange={(e) => setText(e.target.value)}
-          onPaste={onPaste}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
               submit();
+              return;
+            }
+            const isPaste = (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "v" && !e.shiftKey && !e.altKey;
+            if (isPaste) {
+              e.preventDefault();
+              void handlePasteShortcut();
             }
           }}
         />
@@ -139,15 +167,16 @@ export function Composer({ topicId, busy, disabled, onSend, onInterrupt }: Props
   );
 }
 
-function blobToBase64(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string; // data:<mime>;base64,<payload>
-      const comma = result.indexOf(",");
-      resolve(comma >= 0 ? result.slice(comma + 1) : result);
-    };
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(blob);
-  });
+async function rgbaToPngBase64(rgba: Uint8Array | number[], width: number, height: number): Promise<string> {
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("canvas 2d context unavailable");
+  const imageData = ctx.createImageData(width, height);
+  const buf = rgba instanceof Uint8Array ? rgba : new Uint8Array(rgba);
+  imageData.data.set(buf);
+  ctx.putImageData(imageData, 0, 0);
+  const dataUrl = canvas.toDataURL("image/png");
+  return dataUrl.split(",")[1] || "";
 }

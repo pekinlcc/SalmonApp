@@ -8,6 +8,7 @@
     "dialog:allow-open",
     "dialog:allow-message",
     "dialog:allow-confirm",
-    "notification:default"
+    "notification:default",
+    "clipboard-manager:allow-read-image"
   ]
 }
