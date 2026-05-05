@@ -411,7 +411,7 @@ button { font-family: inherit; }
 .composer { padding: 10px 16px 14px; border-top: 1px solid var(--ink-100); background: var(--panel); }
 .composer-box { border: 1px solid var(--ink-100); border-radius: var(--radius); padding: 10px 12px 8px; background: var(--panel); box-shadow: var(--shadow); }
 .composer-box:focus-within { border-color: var(--salmon-300); box-shadow: 0 0 0 3px var(--salmon-50); }
-.composer-box textarea { width: 100%; border: 0; outline: 0; resize: none; font-family: inherit; font-size: 13px; line-height: 1.5; background: transparent; min-height: 44px; }
+.composer-box textarea { width: 100%; border: 0; outline: 0; resize: none; font-family: inherit; font-size: 13px; line-height: 1.5; background: transparent; min-height: 44px; max-height: 240px; overflow-y: auto; }
 .composer-toolbar { display: flex; align-items: center; gap: 8px; margin-top: 4px; color: var(--ink-500); font-size: 11.5px; }
 .send-btn { margin-left: auto; background: var(--salmon-500); color: white; border: 0; padding: 6px 14px; border-radius: var(--radius-sm); font-weight: 600; font-size: 12px; cursor: pointer; }
 .send-btn:hover { background: var(--salmon-600); }

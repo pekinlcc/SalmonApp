@@ -6,6 +6,9 @@ const IS_MAC =
   typeof navigator !== "undefined" && /mac|iphone|ipad|ipod/i.test(navigator.platform);
 const SEND_SHORTCUT_LABEL = IS_MAC ? "⌘+Enter" : "Ctrl+Enter";
 
+const TEXTAREA_MIN_HEIGHT = 44;
+const TEXTAREA_MAX_HEIGHT = 240;
+
 interface Props {
   topicId: string;
   busy: boolean;
@@ -20,19 +23,47 @@ interface Attachment {
   name: string;
 }
 
+interface Draft {
+  text: string;
+  attachments: Attachment[];
+}
+
 export function Composer({ topicId, busy, disabled, onSend, onInterrupt }: Props) {
-  const [text, setText] = useState("");
+  // Drafts live per-topic so switching A → B doesn't leak A's text into
+  // B's composer. Kept in a ref Map (not React state) because we want to
+  // mutate on every keystroke without causing a sibling re-render — only
+  // the *active* topic's draft drives rendering, via `text` / `attachments`.
+  const draftsRef = useRef<Map<string, Draft>>(new Map());
+  const lastTopicRef = useRef<string>(topicId);
+  const [text, setText] = useState<string>("");
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [pasting, setPasting] = useState(false);
   const ref = useRef<HTMLTextAreaElement>(null);
+
+  // Topic switch: snapshot the outgoing draft, load the incoming one.
+  // Doing this during render (vs. useEffect) keeps the new topic from
+  // briefly flashing the old topic's text on the first paint.
+  if (lastTopicRef.current !== topicId) {
+    draftsRef.current.set(lastTopicRef.current, { text, attachments });
+    const incoming = draftsRef.current.get(topicId);
+    lastTopicRef.current = topicId;
+    setText(incoming?.text ?? "");
+    setAttachments(incoming?.attachments ?? []);
+  }
 
   useEffect(() => {
     if (!busy && !disabled) ref.current?.focus();
   }, [busy, disabled]);
 
+  // Auto-grow the textarea up to TEXTAREA_MAX_HEIGHT, then scroll. Reset
+  // to "auto" first so shrinking back works (scrollHeight only grows).
   useEffect(() => {
-    setAttachments([]);
-  }, [topicId]);
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = "auto";
+    const next = Math.min(Math.max(el.scrollHeight, TEXTAREA_MIN_HEIGHT), TEXTAREA_MAX_HEIGHT);
+    el.style.height = `${next}px`;
+  }, [text, topicId]);
 
   const submit = () => {
     if (disabled) return;
@@ -43,13 +74,10 @@ export function Composer({ topicId, busy, disabled, onSend, onInterrupt }: Props
     onSend(finalText);
     setText("");
     setAttachments([]);
+    // Clear this topic's stored draft too — submit consumed it.
+    draftsRef.current.delete(topicId);
   };
 
-  // WebKit2GTK on Wayland tends to drop image clipboard data from the
-  // browser's `paste` event, so we intercept Ctrl/Cmd+V at the keydown
-  // layer and pull the image out via the Tauri clipboard plugin instead.
-  // Text falls back to readText so manual cursor-insert preserves
-  // selection-replace semantics.
   const handlePasteShortcut = async () => {
     setPasting(true);
     let handled = false;
@@ -69,7 +97,6 @@ export function Composer({ topicId, busy, disabled, onSend, onInterrupt }: Props
       handled = true;
       void invoke("debug_log", { message: `Composer paste: image saved to ${path}` });
     } catch (err) {
-      // Not an image (or read failed). Fall back to text paste below.
       void invoke("debug_log", { message: `Composer paste: readImage failed (${err}), trying text` });
     } finally {
       setPasting(false);
@@ -119,9 +146,6 @@ export function Composer({ topicId, busy, disabled, onSend, onInterrupt }: Props
           disabled={disabled}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
-            // Send only on Mod+Enter (Cmd on macOS, Ctrl on Linux/Win).
-            // Plain Enter inserts a newline so a draft can't be fired off
-            // by accident — especially important in danger / Bypass mode.
             if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey) {
               e.preventDefault();
               submit();
