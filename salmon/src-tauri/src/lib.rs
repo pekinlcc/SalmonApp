@@ -88,6 +88,7 @@ pub fn run() {
             commands::set_danger_mode,
             commands::running_topics,
             commands::debug_log,
+            commands::save_pasted_image,
         ])
         .run(tauri::generate_context!())
         .expect("error while running SalmonApp");

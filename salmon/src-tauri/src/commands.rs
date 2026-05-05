@@ -1494,3 +1494,48 @@ pub fn running_topics(state: State<'_, AppState>) -> Result<Vec<String>, String>
 pub fn debug_log(message: String) {
     eprintln!("[fe] {message}");
 }
+
+/// Persist a clipboard image so the CLI can pick it up via `@<path>`.
+/// Both `claude -p` and `codex exec` resolve `@<absolute-path>` to image
+/// content, so the prompt path is the same for both engines.
+#[tauri::command]
+pub fn save_pasted_image(
+    topic_id: String,
+    base64_data: String,
+    ext: String,
+) -> Result<String, String> {
+    use base64::{engine::general_purpose, Engine as _};
+
+    let ext = ext.trim().trim_start_matches('.').to_ascii_lowercase();
+    let allowed = ["png", "jpg", "jpeg", "gif", "webp", "bmp"];
+    if !allowed.contains(&ext.as_str()) {
+        return Err(format!("不支持的图片格式: {ext}"));
+    }
+    if topic_id.is_empty() || topic_id.contains(['/', '\\', '\0']) {
+        return Err("topic_id 非法".into());
+    }
+
+    let cache_root = if let Ok(x) = std::env::var("XDG_CACHE_HOME") {
+        PathBuf::from(x)
+    } else if let Ok(home) = std::env::var("HOME") {
+        PathBuf::from(home).join(".cache")
+    } else {
+        std::env::temp_dir()
+    }
+    .join("salmonapp")
+    .join("pastes")
+    .join(&topic_id);
+    std::fs::create_dir_all(&cache_root).map_err(map_err)?;
+
+    let bytes = general_purpose::STANDARD
+        .decode(base64_data.trim())
+        .map_err(|e| format!("base64 解码失败: {e}"))?;
+    if bytes.len() > 20 * 1024 * 1024 {
+        return Err(format!("图片过大: {} 字节 (上限 20MB)", bytes.len()));
+    }
+
+    let filename = format!("{}.{}", uuid::Uuid::new_v4(), ext);
+    let path = cache_root.join(&filename);
+    std::fs::write(&path, &bytes).map_err(map_err)?;
+    Ok(path.to_string_lossy().into_owned())
+}

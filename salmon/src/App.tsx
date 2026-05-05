@@ -749,6 +749,7 @@ export default function App() {
               onSelectTool={setSelectedTool}
             />
             <Composer
+              topicId={selectedTopic.id}
               busy={!!busyByTopic[selectedTopic.id]}
               disabled={workdirOkByTopic[selectedTopic.id] === false}
               onSend={onSend}
