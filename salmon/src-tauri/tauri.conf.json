@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Salmon",
+  "productName": "Salmon App",
   "version": "0.5.10",
   "identifier": "app.salmon.desktop",
   "build": {
