@@ -79,7 +79,7 @@ export function ChatStream(props: Props) {
           </div>
           <div className="msg-body">
             <div className="msg-name">
-              {m.role === "user" ? "你" : "Salmon · " + (topic.engine === "claude" ? "Claude Code" : "Codex")}
+              {m.role === "user" ? "你" : "SalmonApp · " + (topic.engine === "claude" ? "Claude Code" : "Codex")}
               <span className="ts">{time(m.createdAt)}</span>
               {m.interrupted && <span className="interrupted-tag">已中断</span>}
             </div>
@@ -115,7 +115,7 @@ export function ChatStream(props: Props) {
           <div className="avatar ai">S</div>
           <div className="msg-body">
             <div className="msg-name">
-              Salmon · {topic.engine === "claude" ? "Claude Code" : "Codex"}
+              SalmonApp · {topic.engine === "claude" ? "Claude Code" : "Codex"}
               <span className="ts">正在思考…</span>
             </div>
             <div className="typing-bubble" aria-label="助手正在响应">

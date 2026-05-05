@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Salmon App",
-  "version": "0.5.10",
-  "identifier": "app.salmon.desktop",
+  "productName": "SalmonApp",
+  "version": "0.6.0",
+  "identifier": "app.salmonapp.desktop",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Salmon",
+        "title": "SalmonApp",
         "width": 1280,
         "height": 820,
         "minWidth": 960,
@@ -29,8 +29,8 @@
     "active": true,
     "targets": "all",
     "category": "DeveloperTool",
-    "shortDescription": "Salmon — desktop client for Claude Code / Codex CLI",
-    "longDescription": "Salmon is a desktop client that drives your locally-logged-in Claude Code or Codex CLI in a three-pane GUI: topic list, chat, and live file/diff preview. It does not store API keys — credentials stay with the CLI. Linux (deb / AppImage) and macOS (dmg).",
+    "shortDescription": "SalmonApp — desktop client for Claude Code / Codex CLI",
+    "longDescription": "SalmonApp is a desktop client that drives your locally-logged-in Claude Code or Codex CLI in a three-pane GUI: topic list, chat, and live file/diff preview. It does not store API keys — credentials stay with the CLI. Linux (deb / AppImage) and macOS (dmg).",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

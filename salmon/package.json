@@ -1,6 +1,6 @@
 {
-  "name": "salmon",
-  "version": "0.5.10",
+  "name": "salmonapp",
+  "version": "0.6.0",
   "type": "module",
   "private": true,
   "scripts": {

@@ -239,13 +239,13 @@ async fn handle_permission(
         if allow { "allow" } else { "deny" }
     );
     let resp = if allow {
-        allow_response("Salmon UI")
+        allow_response("SalmonApp UI")
     } else {
         json!({
             "hookSpecificOutput": {
                 "hookEventName": "PreToolUse",
                 "permissionDecision": "deny",
-                "permissionDecisionReason": "Salmon UI",
+                "permissionDecisionReason": "SalmonApp UI",
             }
         })
     };

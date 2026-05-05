@@ -1,11 +1,13 @@
-# Salmon App
+# SalmonApp
 
 > A three-pane desktop client for the **Claude Code CLI** and **Codex CLI** — Linux + macOS.
 >
-> Salmon wraps a locally-logged-in `claude` or `codex` and reuses its credentials — no second account to manage. See [Releases](https://github.com/pekinlcc/SalmonApp/releases) for the changelog.
+> SalmonApp wraps a locally-logged-in `claude` or `codex` and reuses its credentials — no second account to manage. See [Releases](https://github.com/pekinlcc/SalmonApp/releases) for the changelog.
+>
+> Note: deliberately named **SalmonApp** (one word) to avoid colliding with the bioinformatics `salmon` package on Linux distros.
 
 <p align="center">
-  <img src="salmon/src-tauri/icons/icon.png" alt="Salmon icon" width="128" />
+  <img src="salmon/src-tauri/icons/icon.png" alt="SalmonApp icon" width="128" />
 </p>
 
 [中文 PRD](PRD.md) · [Mockup](mockup.html) · [Icon candidates](icon-candidates.html)
@@ -21,7 +23,7 @@ If you already use `claude` (Claude Code) or `codex` (OpenAI Codex CLI) in a ter
 - Tool-call diffs need a second `cat`/`ls` to inspect
 - Switching between Claude and Codex means switching terminals
 
-Salmon wraps the CLI you're already running and gives it a chat UI:
+SalmonApp wraps the CLI you're already running and gives it a chat UI:
 
 | Pane | What it shows |
 |---|---|
@@ -31,7 +33,7 @@ Salmon wraps the CLI you're already running and gives it a chat UI:
 
 A **Topic** is mentally a *terminal tab pinned to a workdir* — open many at once, each with its own engine + persistent CLI session. Closing a Topic SIGTERMs its child PTY but keeps the CLI's transcript in `~/.claude/...` or `~/.codex/...` exactly as the CLI itself stores it. Re-opening lazily re-spawns via `claude --resume <session-id>` (or the Codex equivalent). Detach / attach, basically.
 
-Salmon **does not** speak to Anthropic or OpenAI directly. It owns no API key. Credentials and session storage live entirely with the CLI.
+SalmonApp **does not** speak to Anthropic or OpenAI directly. It owns no API key. Credentials and session storage live entirely with the CLI.
 
 ## Install
 
@@ -40,34 +42,34 @@ Grab the latest from [Releases](https://github.com/pekinlcc/SalmonApp/releases/l
 ### Ubuntu / Debian
 
 ```bash
-# .deb — installs to /usr/bin/Salmon and adds an application entry
-sudo apt install ./Salmon_*.deb
+# .deb — installs to /usr/bin/salmonapp and adds an application entry
+sudo apt install ./SalmonApp_*.deb
 
 # OR AppImage — no install, double-click or chmod +x then run
-chmod +x Salmon_*.AppImage
-./Salmon_*.AppImage
+chmod +x SalmonApp_*.AppImage
+./SalmonApp_*.AppImage
 ```
 
 The `.deb` declares its WebKit / GTK runtime deps; `apt` resolves them. The AppImage bundles them.
 
 ### macOS (Apple Silicon + Intel, universal `.dmg`)
 
-> ⚠ The Mac build is **not notarized** — this project has no Apple Developer account. The `.dmg` is signed ad-hoc, which is enough to launch but not enough to satisfy Gatekeeper out of the box. You'll see "Apple could not verify Salmon is free of malware" on first launch.
+> ⚠ The Mac build is **not notarized** — this project has no Apple Developer account. The `.dmg` is signed ad-hoc, which is enough to launch but not enough to satisfy Gatekeeper out of the box. You'll see "Apple could not verify SalmonApp is free of malware" on first launch.
 
 ```bash
-# 1. Open the .dmg, drag Salmon.app into /Applications
+# 1. Open the .dmg, drag SalmonApp.app into /Applications
 # 2. Tell Gatekeeper to trust it. EITHER:
 
-# (a) Right-click Salmon.app → Open → click "Open" in the dialog. macOS
+# (a) Right-click SalmonApp.app → Open → click "Open" in the dialog. macOS
 #     remembers the choice; subsequent launches are normal.
 
 # OR (b) clear the quarantine bit from a terminal:
-xattr -dr com.apple.quarantine /Applications/Salmon.app
+xattr -dr com.apple.quarantine /Applications/SalmonApp.app
 ```
 
 `(b)` is the smoother path if you trust this repo's release pipeline. The `.dmg` is universal (`arm64` + `x86_64`), so the same file works on M-series and Intel Macs.
 
-Salmon needs `claude` or `codex` discoverable on PATH. On macOS, GUI apps don't inherit your shell's PATH — Salmon walks `$SHELL -ilc 'echo $PATH'` at startup to import it, plus probes `/opt/homebrew/bin`, `/usr/local/bin`, `~/.npm-global/bin`, `~/.bun/bin`, etc. If `npm i -g @anthropic-ai/claude-code` worked in your terminal, it'll be found.
+SalmonApp needs `claude` or `codex` discoverable on PATH. On macOS, GUI apps don't inherit your shell's PATH — SalmonApp walks `$SHELL -ilc 'echo $PATH'` at startup to import it, plus probes `/opt/homebrew/bin`, `/usr/local/bin`, `~/.npm-global/bin`, `~/.bun/bin`, etc. If `npm i -g @anthropic-ai/claude-code` worked in your terminal, it'll be found.
 
 ### Prerequisites
 
@@ -83,7 +85,7 @@ npm i -g @openai/codex-cli
 codex    # auth flow
 ```
 
-Salmon detects whichever is on `PATH` and offers to use them per-Topic.
+SalmonApp detects whichever is on `PATH` and offers to use them per-Topic.
 
 ### Optional: Office document preview
 
@@ -95,7 +97,7 @@ sudo apt install libreoffice-impress libreoffice-writer libreoffice-calc poppler
 
 # macOS (either of these)
 brew install --cask libreoffice && brew install poppler
-# or download LibreOffice.app from libreoffice.org/download/ — Salmon
+# or download LibreOffice.app from libreoffice.org/download/ — SalmonApp
 # probes /Applications/LibreOffice.app/Contents/MacOS/soffice automatically.
 ```
 
@@ -170,8 +172,8 @@ Key choices:
 
 - **Tauri 2** — native window, system WebKit, ~3 MB app vs. an Electron equivalent
 - **Per-Topic PTY** — each Topic owns one `tokio::process::Child` running `claude` (or `codex`) in JSONL streaming mode. Stream events flow through an unbounded mpsc channel and out to the UI as Tauri events.
-- **SQLite** in `~/.local/share/Salmon/salmon.db` — Topics, messages, tool calls, permission decisions, token counts. Plain text. Export / clear available from the UI.
-- **No API calls from Salmon itself** — every model interaction is a child process invocation.
+- **SQLite** in `~/.local/share/app.salmonapp.desktop/salmon.db` — Topics, messages, tool calls, permission decisions, token counts. Plain text. Export / clear available from the UI.
+- **No API calls from SalmonApp itself** — every model interaction is a child process invocation.
 
 ## Limitations
 

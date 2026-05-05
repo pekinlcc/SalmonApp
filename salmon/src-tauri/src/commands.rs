@@ -1068,7 +1068,7 @@ pub fn render_office_preview(path: String) -> Result<Vec<String>, String> {
     } else {
         std::env::temp_dir()
     }
-    .join("salmon")
+    .join("salmonapp")
     .join("preview");
     let dir = cache_root.join(&key);
 
@@ -1431,7 +1431,7 @@ fn binary_placeholder(path: &str, bytes: &[u8], size: u64) -> String {
         head_hex.push_str(&format!("{:02X} ", b));
     }
     format!(
-        "[无法以文本预览]\n\n类型: {}\n后缀: .{}\n大小: {}\n开头字节: {}\n\n（这是二进制文件,Salmon 暂不支持渲染。要查看内容请用对应应用打开。）",
+        "[无法以文本预览]\n\n类型: {}\n后缀: .{}\n大小: {}\n开头字节: {}\n\n（这是二进制文件,SalmonApp 暂不支持渲染。要查看内容请用对应应用打开。）",
         kind,
         if ext.is_empty() { "(无)" } else { ext.as_str() },
         human_size(size),

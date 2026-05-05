@@ -11,9 +11,9 @@ export function Onboarding({ cliStatus, onContinue, onRefresh }: Props) {
   return (
     <div className="onb">
       <div className="onb-card">
-        <div className="onb-title">欢迎使用 Salmon</div>
+        <div className="onb-title">欢迎使用 SalmonApp</div>
         <div className="onb-sub">
-          Salmon 不存任何 API Key——它会复用你已经在终端登录好的 CLI。下面是检测结果：
+          SalmonApp 不存任何 API Key——它会复用你已经在终端登录好的 CLI。下面是检测结果：
         </div>
 
         {cliStatus.map((c) => {

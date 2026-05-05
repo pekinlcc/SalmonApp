@@ -82,14 +82,14 @@ jobs:
         with:
           projectPath: salmon
           tagName: ${{ steps.tag.outputs.tag }}
-          releaseName: 'Salmon ${{ steps.tag.outputs.tag }}'
+          releaseName: 'SalmonApp ${{ steps.tag.outputs.tag }}'
           releaseBody: |
             Linux: install the `.deb`, or `chmod +x` and run the AppImage.
 
             macOS (unsigned, ad-hoc): the `.dmg` is **not notarized** because the project has no Apple Developer account.
             On first launch macOS will refuse to open it. Either:
               - Right-click the app → *Open* → *Open* in the dialog, **or**
-              - Run `xattr -dr com.apple.quarantine /Applications/Salmon.app` after dragging it in.
+              - Run `xattr -dr com.apple.quarantine /Applications/SalmonApp.app` after dragging it in.
             The `.dmg` is universal (arm64 + x86_64).
           releaseDraft: false
           prerelease: false

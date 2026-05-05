@@ -40,7 +40,7 @@ export function LeftSidebar(props: Props) {
     <aside className="left">
       <div className="left-head">
         <div className="logo" onClick={props.onHome} title="返回首页" style={{ cursor: "pointer" }}>S</div>
-        <div className="name" onClick={props.onHome} style={{ cursor: "pointer" }}>Salmon</div>
+        <div className="name" onClick={props.onHome} style={{ cursor: "pointer" }}>SalmonApp</div>
         <div className="ver">v{pkg.version}</div>
         <button
           className="settings-btn"
@@ -137,7 +137,7 @@ export function LeftSidebar(props: Props) {
                       style={{ padding: "3px 8px", fontSize: 11, color: "#B7493D" }}
                       onClick={(e) => {
                         e.stopPropagation();
-                        if (confirm(`确认删除 Topic "${t.title}"？\n（仅删除 Salmon 内的对话记录，不会动你的工作目录文件）`)) {
+                        if (confirm(`确认删除 Topic "${t.title}"？\n（仅删除 SalmonApp 内的对话记录，不会动你的工作目录文件）`)) {
                           props.onDeleteTopic(t.id);
                         }
                         setMenuFor(null);

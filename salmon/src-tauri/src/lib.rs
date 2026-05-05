@@ -17,6 +17,13 @@ pub struct AppState {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // GNOME-launched .desktop apps drop stderr to /dev/null, so the
+    // existing eprintln! diagnostics in engine.rs / commands.rs are
+    // unrecoverable when something goes wrong (e.g. a stuck topic with
+    // no visible reply). Redirect fd 2 to a log file in the app data
+    // dir before anything else logs.
+    redirect_stderr_to_log_file();
+
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
 
     // Repair the GUI process's PATH so child CLIs (claude/codex) can be
@@ -33,6 +40,7 @@ pub fn run() {
                 .app_data_dir()
                 .expect("resolving app data dir");
             std::fs::create_dir_all(&data_dir).ok();
+            migrate_legacy_data_dir(&data_dir);
             let db_path = data_dir.join("salmon.db");
             let db = db::Db::open(&db_path).expect("open salmon.db");
 
@@ -82,5 +90,50 @@ pub fn run() {
             commands::debug_log,
         ])
         .run(tauri::generate_context!())
-        .expect("error while running Salmon");
+        .expect("error while running SalmonApp");
+}
+
+/// Open `~/.local/share/app.salmonapp.desktop/salmon.log` in append mode and
+/// `dup2` it onto fd 2. Best-effort — silently tolerates failure so a broken
+/// HOME / readonly disk never blocks startup.
+#[cfg(unix)]
+fn redirect_stderr_to_log_file() {
+    use std::io::Write;
+    use std::os::fd::AsRawFd;
+
+    let Ok(home) = std::env::var("HOME") else { return };
+    let dir = std::path::Path::new(&home).join(".local/share/app.salmonapp.desktop");
+    if std::fs::create_dir_all(&dir).is_err() { return }
+    let path = dir.join("salmon.log");
+
+    let mut f = match std::fs::OpenOptions::new().create(true).append(true).open(&path) {
+        Ok(f) => f,
+        Err(_) => return,
+    };
+    let ts = chrono::Local::now().format("%Y-%m-%d %H:%M:%S%.3f");
+    let _ = writeln!(f, "\n=== salmonapp started at {ts} (pid {}) ===", std::process::id());
+    let _ = f.flush();
+    unsafe { libc::dup2(f.as_raw_fd(), 2); }
+    // f drops here, but its underlying fd lives on at fd 2.
+}
+
+#[cfg(not(unix))]
+fn redirect_stderr_to_log_file() {}
+
+/// One-time copy of the legacy `app.salmon.desktop` data dir into the new
+/// `app.salmonapp.desktop` location. Renaming the bundle identifier moved
+/// `app_data_dir()` so existing Topics/messages would otherwise look gone.
+/// Idempotent: only runs when the new dir has no `salmon.db` yet.
+fn migrate_legacy_data_dir(new_dir: &std::path::Path) {
+    if new_dir.join("salmon.db").exists() { return }
+    let Some(parent) = new_dir.parent() else { return };
+    let old_dir = parent.join("app.salmon.desktop");
+    if !old_dir.is_dir() { return }
+    let Ok(entries) = std::fs::read_dir(&old_dir) else { return };
+    for entry in entries.flatten() {
+        let src = entry.path();
+        if src.is_file() {
+            let _ = std::fs::copy(&src, new_dir.join(entry.file_name()));
+        }
+    }
 }

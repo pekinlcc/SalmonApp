@@ -96,7 +96,7 @@ export default function App() {
         fireNotify({
           topicId: null,
           kind: "recs",
-          title: "Salmon · 新推荐",
+          title: "SalmonApp · 新推荐",
           body: `${out.length} 条新建议待查看`,
         });
       }
@@ -628,7 +628,7 @@ export default function App() {
         e.preventDefault();
         e.returnValue = "";
         const ok = await ask(`还有 ${runningIds.size} 个 Topic 在运行，确认退出？所有运行中的工具调用会被中断。`, {
-          title: "退出 Salmon",
+          title: "退出 SalmonApp",
           kind: "warning",
         });
         if (!ok) return;
@@ -741,7 +741,7 @@ export default function App() {
               workdirMissing={workdirOkByTopic[selectedTopic.id] === false}
               onArchive={() => onArchive(selectedTopic.id, true)}
               onDelete={() => {
-                if (window.confirm(`确认删除 Topic "${selectedTopic.title}"?\n（仅删除 Salmon 内的对话记录）`)) {
+                if (window.confirm(`确认删除 Topic "${selectedTopic.title}"?\n（仅删除 SalmonApp 内的对话记录）`)) {
                   onDelete(selectedTopic.id);
                 }
               }}
