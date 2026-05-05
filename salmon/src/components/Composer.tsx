@@ -2,6 +2,10 @@ import { useState, useRef, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { readImage, readText } from "@tauri-apps/plugin-clipboard-manager";
 
+const IS_MAC =
+  typeof navigator !== "undefined" && /mac|iphone|ipad|ipod/i.test(navigator.platform);
+const SEND_SHORTCUT_LABEL = IS_MAC ? "⌘+Enter" : "Ctrl+Enter";
+
 interface Props {
   topicId: string;
   busy: boolean;
@@ -109,13 +113,16 @@ export function Composer({ topicId, busy, disabled, onSend, onInterrupt }: Props
           placeholder={
             disabled
               ? "工作目录不可用,无法发送(选归档或删除该 Topic)"
-              : "问点什么…  Enter 发送 · Shift+Enter 换行 · 直接粘贴图片"
+              : `问点什么…  ${SEND_SHORTCUT_LABEL} 发送 · Enter 换行 · 直接粘贴图片`
           }
           value={text}
           disabled={disabled}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
+            // Send only on Mod+Enter (Cmd on macOS, Ctrl on Linux/Win).
+            // Plain Enter inserts a newline so a draft can't be fired off
+            // by accident — especially important in danger / Bypass mode.
+            if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey) {
               e.preventDefault();
               submit();
               return;
@@ -157,8 +164,9 @@ export function Composer({ topicId, busy, disabled, onSend, onInterrupt }: Props
             disabled={busy || disabled || (!text.trim() && attachments.length === 0)}
             onClick={submit}
             style={{ marginLeft: "auto" }}
+            title={`快捷键: ${SEND_SHORTCUT_LABEL}`}
           >
-            发送 ⏎
+            发送 {SEND_SHORTCUT_LABEL}
           </button>
         </div>
       </div>
