@@ -147,7 +147,6 @@ export function Composer({ topicId, busy, disabled, onSend, onInterrupt }: Props
           </div>
         )}
         <div className="composer-toolbar">
-          {busy && <span style={{ color: "var(--salmon-700)" }}>● 处理中</span>}
           {busy && (
             <button className="stop-btn" onClick={onInterrupt} title="发送 SIGINT 给后台 CLI">
               ■ 中断

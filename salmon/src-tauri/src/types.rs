@@ -90,5 +90,10 @@ pub enum StreamEvent {
     PermissionRequest { topic_id: String, request_id: String, tool: String, input: serde_json::Value, command: Option<String> },
     Error { topic_id: String, message: String },
     Exited { topic_id: String, code: Option<i32> },
+    /// The whole `run_session` driver task ended (panic, channel closed, etc.).
+    /// Distinct from `Exited`, which fires after every per-prompt child wait.
+    /// The frontend uses this to evict the topic from `runningIds` so a future
+    /// `onSelect` re-spawns instead of trusting a stale Sender.
+    SessionEnded { topic_id: String },
     Log { topic_id: String, line: String },
 }

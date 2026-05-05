@@ -5,6 +5,9 @@ import rehypeHighlight from "rehype-highlight";
 import type { Block, ChatLayout, Topic, ToolCall, UiMessage } from "../lib/types";
 import { ToolCallCard } from "./ToolCallCard";
 import { PermissionCard } from "./PermissionCard";
+import { CodeBlock } from "./CodeBlock";
+
+const MD_COMPONENTS = { pre: CodeBlock } as const;
 
 interface Props {
   topic: Topic;
@@ -134,7 +137,7 @@ export function ChatStream(props: Props) {
 
 function renderUserBody(m: UiMessage) {
   return m.content ? (
-    <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>
+    <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]} components={MD_COMPONENTS}>
       {m.content}
     </ReactMarkdown>
   ) : null;
@@ -150,6 +153,7 @@ function renderInline(m: UiMessage, onSelectTool: (t: ToolCall) => void) {
             key={`t${i}`}
             remarkPlugins={[remarkGfm]}
             rehypePlugins={[rehypeHighlight]}
+            components={MD_COMPONENTS}
           >
             {b.content}
           </ReactMarkdown>
@@ -188,6 +192,7 @@ function renderThinking(m: UiMessage, onSelectTool: (t: ToolCall) => void) {
                   key={`tt${i}`}
                   remarkPlugins={[remarkGfm]}
                   rehypePlugins={[rehypeHighlight]}
+                  components={MD_COMPONENTS}
                 >
                   {b.content}
                 </ReactMarkdown>
@@ -209,6 +214,7 @@ function renderThinking(m: UiMessage, onSelectTool: (t: ToolCall) => void) {
               key={`fa${i}`}
               remarkPlugins={[remarkGfm]}
               rehypePlugins={[rehypeHighlight]}
+              components={MD_COMPONENTS}
             >
               {b.content}
             </ReactMarkdown>

@@ -249,8 +249,23 @@ button { font-family: inherit; }
 .msg-name .ts { color: var(--ink-500); font-weight: 400; margin-left: 6px; font-size: 11px; }
 .msg-body p { margin: 0 0 8px; }
 .msg-body code:not(pre code) { font-family: var(--mono); font-size: 12px; background: var(--ink-50); border: 1px solid var(--ink-100); padding: 1px 5px; border-radius: 4px; }
-.msg-body pre { font-family: var(--mono); font-size: 12px; background: #1B1F23; color: #E6E8EB; padding: 12px 14px; border-radius: var(--radius-sm); overflow-x: auto; margin: 8px 0; }
+.msg-body pre { font-family: var(--mono); font-size: 12px; background: #1B1F23; color: #E6E8EB; padding: 12px 14px; border-radius: var(--radius-sm); overflow-x: auto; margin: 0; }
 .msg-body pre code { background: transparent; border: 0; padding: 0; color: inherit; }
+.codeblock { position: relative; margin: 8px 0; }
+.codeblock-copy {
+  position: absolute; top: 6px; right: 6px;
+  font-family: var(--mono); font-size: 11px;
+  padding: 3px 8px; border-radius: 4px;
+  background: rgba(255,255,255,0.08); color: #E6E8EB;
+  border: 1px solid rgba(255,255,255,0.15);
+  cursor: pointer; opacity: 0;
+  transition: opacity 0.12s, background 0.12s;
+}
+.codeblock:hover .codeblock-copy,
+.codeblock-copy:focus-visible,
+.codeblock-copy.copied { opacity: 1; }
+.codeblock-copy:hover { background: rgba(255,255,255,0.18); }
+.codeblock-copy.copied { background: #2F6F4D; border-color: #2F6F4D; color: #fff; }
 .msg-body ul, .msg-body ol { margin: 0 0 8px; padding-left: 20px; }
 .msg-body table { border-collapse: collapse; margin: 8px 0; }
 .msg-body th, .msg-body td { border: 1px solid var(--ink-100); padding: 4px 8px; }

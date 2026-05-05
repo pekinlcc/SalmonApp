@@ -377,13 +377,35 @@ export default function App() {
       }
       case "exited": {
         setBusyByTopic((b) => ({ ...b, [e.topicId]: false }));
-        // Mark current pending assistant as done
+        // Mark current pending assistant as done, AND sweep any tool calls
+        // still in `running`. The CLI subprocess can die mid tool-call (e.g.
+        // a Bash that pkill's its own parent), in which case the matching
+        // tool_result line never reaches us and the card would otherwise
+        // hang on "running" forever.
         setMessagesByTopic((m) => {
           const list = [...(m[e.topicId] || [])];
           for (const msg of list) {
             if (msg.role === "assistant" && msg.pending) {
               msg.pending = false;
             }
+            for (const t of msg.tools) {
+              if (t.state === "running") {
+                t.state = "error";
+                t.result = t.result || "engine 进程已退出，工具调用未完成";
+              }
+            }
+            msg.blocks = msg.blocks.map((b) =>
+              b.kind === "tool" && b.tool.state === "running"
+                ? {
+                    ...b,
+                    tool: {
+                      ...b.tool,
+                      state: "error",
+                      result: b.tool.result || "engine 进程已退出，工具调用未完成",
+                    },
+                  }
+                : b
+            );
           }
           return { ...m, [e.topicId]: list };
         });
@@ -403,6 +425,51 @@ export default function App() {
         maybeAutoTitle(e.topicId);
         break;
       }
+      case "sessionEnded":
+        // The whole driver task ended (channel closed, panic, shutdown).
+        // Drop the topic from `runningIds` so the next onSelect re-spawns;
+        // also clear busy in case an Exited event got swallowed.
+        setRunningIds((s) => {
+          if (!s.has(e.topicId)) return s;
+          const next = new Set(s);
+          next.delete(e.topicId);
+          return next;
+        });
+        setBusyByTopic((b) => ({ ...b, [e.topicId]: false }));
+        // Safety net: same orphan-tool-call sweep as `exited`. Normally
+        // exited fires first and clears these, but if the driver task
+        // panicked mid-prompt only sessionEnded reaches us.
+        setMessagesByTopic((m) => {
+          const list = m[e.topicId];
+          if (!list) return m;
+          let dirty = false;
+          const next = list.map((msg) => {
+            const tools = msg.tools.map((t) => {
+              if (t.state === "running") {
+                dirty = true;
+                return { ...t, state: "error" as const, result: t.result || "engine 会话已结束，工具调用未完成" };
+              }
+              return t;
+            });
+            const blocks = msg.blocks.map((b) =>
+              b.kind === "tool" && b.tool.state === "running"
+                ? {
+                    ...b,
+                    tool: {
+                      ...b.tool,
+                      state: "error" as const,
+                      result: b.tool.result || "engine 会话已结束，工具调用未完成",
+                    },
+                  }
+                : b
+            );
+            const pending = msg.role === "assistant" && msg.pending ? false : msg.pending;
+            if (pending !== msg.pending) dirty = true;
+            return { ...msg, tools, blocks, pending };
+          });
+          return dirty ? { ...m, [e.topicId]: next } : m;
+        });
+        break;
       case "log":
         setLogsByTopic((lg) => {
           const arr = [...(lg[e.topicId] || []), e.line];

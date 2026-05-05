@@ -59,6 +59,7 @@ export type StreamEvent =
   | { kind: "permissionRequest"; topicId: string; requestId: string; tool: string; input: any; command: string | null }
   | { kind: "error"; topicId: string; message: string }
   | { kind: "exited"; topicId: string; code: number | null }
+  | { kind: "sessionEnded"; topicId: string }
   | { kind: "log"; topicId: string; line: string };
 
 export type Block =

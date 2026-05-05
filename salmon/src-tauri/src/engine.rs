@@ -17,6 +17,11 @@ pub struct Session {
     pub workdir: String,
     pub engine_kind: String,
     pub stdin_tx: mpsc::UnboundedSender<EngineCmd>,
+    /// PID of the currently running CLI child, or None between prompts.
+    /// Set by the Send arm right after spawn, cleared after wait. Read by
+    /// `interrupt()` so we can SIGINT the child synchronously instead of
+    /// posting a message to the (currently-blocked) command channel.
+    pub current_pid: Arc<Mutex<Option<u32>>>,
 }
 
 pub enum EngineCmd {
@@ -70,6 +75,19 @@ impl EngineRegistry {
 
     pub fn interrupt(&self, topic_id: &str) -> Result<()> {
         if let Some(sess) = self.inner.lock().get(topic_id).cloned() {
+            // Direct SIGINT to the child CLI: the message-loop is blocked
+            // inside the Send arm waiting for child wait, so posting to
+            // stdin_tx wouldn't be observed until the child exits on its
+            // own — by which point there's nothing left to interrupt.
+            let pid = *sess.current_pid.lock();
+            if let Some(pid) = pid {
+                eprintln!("[salmon] interrupt: SIGINT → pid {} (topic={})", pid, topic_id);
+                unsafe { libc::kill(pid as libc::pid_t, libc::SIGINT) };
+            } else {
+                eprintln!("[salmon] interrupt: no child running for topic={}", topic_id);
+            }
+            // Also drain via channel so a future Send sees the cancellation
+            // semantics — harmless if the loop never reads it.
             sess.stdin_tx.send(EngineCmd::Interrupt).ok();
         }
         Ok(())
@@ -105,6 +123,8 @@ impl EngineRegistry {
         let registry = self.inner.clone();
         let bridge = self.bridge.clone();
         let (tx, mut rx) = mpsc::unbounded_channel::<EngineCmd>();
+        let current_pid: Arc<Mutex<Option<u32>>> = Arc::new(Mutex::new(None));
+        let pid_handle = current_pid.clone();
 
         let topic_id_for_task = topic_id.clone();
         let kind = engine_kind.clone();
@@ -124,6 +144,7 @@ impl EngineRegistry {
                 danger_mode,
                 bridge,
                 &mut rx,
+                pid_handle,
                 on_session_id,
                 on_assistant_message,
             )
@@ -140,9 +161,8 @@ impl EngineRegistry {
             }
             let _ = app.emit(
                 "salmon-stream",
-                StreamEvent::Exited {
+                StreamEvent::SessionEnded {
                     topic_id: topic_id_for_task.clone(),
-                    code: None,
                 },
             );
             registry.lock().remove(&topic_id_for_task);
@@ -153,6 +173,7 @@ impl EngineRegistry {
             workdir,
             engine_kind,
             stdin_tx: tx,
+            current_pid,
         };
         self.inner.lock().insert(topic_id, Arc::new(session));
         Ok(())
@@ -169,6 +190,7 @@ async fn run_session(
     danger_mode: bool,
     bridge: PermissionBridge,
     rx: &mut mpsc::UnboundedReceiver<EngineCmd>,
+    pid_handle: Arc<Mutex<Option<u32>>>,
     on_session_id: Box<dyn Fn(&str) + Send + Sync>,
     on_assistant_message: Box<dyn Fn(&str) + Send + Sync>,
 ) -> Result<()> {
@@ -307,6 +329,10 @@ async fn run_session(
                         continue;
                     }
                 };
+                // Publish the child PID so registry.interrupt() can SIGINT
+                // the in-flight process directly without going through the
+                // currently-blocked command channel.
+                *pid_handle.lock() = child.id();
 
                 let stdout = child.stdout.take().unwrap();
                 let stderr = child.stderr.take().unwrap();
@@ -352,6 +378,7 @@ async fn run_session(
 
                 let wait_fut = child.wait();
                 let (_, _, status) = tokio::join!(stdout_fut, stderr_fut, wait_fut);
+                *pid_handle.lock() = None;
                 eprintln!("[salmon] {} child wait returned: {:?}, parsed {} lines", bin_name, status, line_count);
 
                 if let Some(sid) = sid_collected {
