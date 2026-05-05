@@ -38,23 +38,6 @@ export function NewTopicDialog({ cliStatus, defaultEngine, topics, onCancel, onC
   const [engineOverride, setEngineOverride] = useState<string>(initialEngine);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // If the chosen workdir already has a Topic, that Topic's engine wins —
-  // CLI session resume is per-engine, so two Topics in the same dir can't
-  // share a transcript across engines without confusion.
-  const lockedEngine = useMemo(() => {
-    if (!workdir) return null;
-    const existing = topics
-      .filter((t) => t.workdir === workdir)
-      .sort((a, b) => b.updatedAt - a.updatedAt)[0];
-    return existing ? existing.engine : null;
-  }, [workdir, topics]);
-
-  useEffect(() => {
-    if (lockedEngine && lockedEngine !== engineOverride) {
-      setEngineOverride(lockedEngine);
-    }
-  }, [lockedEngine]);
-
   useEffect(() => {
     inputRef.current?.focus();
     inputRef.current?.select();
@@ -76,9 +59,6 @@ export function NewTopicDialog({ cliStatus, defaultEngine, topics, onCancel, onC
       dangerMode: danger,
     });
   };
-
-  const engineLabel = (b: string) =>
-    cliStatus.find((c) => c.binary === b)?.name || b;
 
   return (
     <div className="modal-bg" onClick={onCancel}>
@@ -108,33 +88,16 @@ export function NewTopicDialog({ cliStatus, defaultEngine, topics, onCancel, onC
         </label>
 
         <label>
-          <span>
-            引擎
-            {lockedEngine && (
-              <span style={{ marginLeft: 6, color: "var(--salmon-700)", fontWeight: 400, fontSize: 11 }}>
-                （此目录已有 Topic,沿用 {engineLabel(lockedEngine)}）
-              </span>
-            )}
-          </span>
+          <span>引擎</span>
           <div className="engine-row" style={{ marginTop: 2 }}>
             {cliStatus.map((c) => {
-              const unavailable = !c.installed || !c.loggedIn;
-              const lockedOut = !!lockedEngine && lockedEngine !== c.binary;
-              const disabled = unavailable || lockedOut;
+              const disabled = !c.installed || !c.loggedIn;
               const checked = engineOverride === c.binary;
               return (
                 <label
                   key={c.binary}
                   className={`engine-card ${checked ? "selected" : ""} ${disabled ? "disabled" : ""}`}
-                  title={
-                    lockedOut
-                      ? `此目录已锁定 ${engineLabel(lockedEngine!)}`
-                      : !c.installed
-                      ? "未安装"
-                      : !c.loggedIn
-                      ? "未登录"
-                      : ""
-                  }
+                  title={!c.installed ? "未安装" : !c.loggedIn ? "未登录" : ""}
                 >
                   <input
                     type="radio"
@@ -160,11 +123,6 @@ export function NewTopicDialog({ cliStatus, defaultEngine, topics, onCancel, onC
               );
             })}
           </div>
-          {lockedEngine && (
-            <div style={{ fontSize: 11, color: "var(--ink-500)", marginTop: 6, lineHeight: 1.55 }}>
-              同目录跨引擎会让 CLI 的 session resume 错乱,所以引擎被锁。要换引擎就得换目录。
-            </div>
-          )}
         </label>
 
         <div style={{ fontSize: 12, color: "var(--ink-500)", marginTop: -4, marginBottom: 10 }}>
