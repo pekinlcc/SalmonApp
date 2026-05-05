@@ -728,7 +728,7 @@ export default function App() {
   }
 
   return (
-    <div className={`app ${rightCollapsed ? "right-collapsed" : ""}`}>
+    <div className={`app ${!selectedTopic ? "no-right" : rightCollapsed ? "right-collapsed" : ""}`}>
       <LeftSidebar
         topics={topics}
         selectedId={selectedId}
@@ -763,15 +763,6 @@ export default function App() {
               onNewTopic={() => setShowNew(true)}
             />
           </section>
-          {rightCollapsed ? (
-            <RightRail onExpand={toggleRight} />
-          ) : (
-            <aside className="right">
-              <div className="empty" style={{ padding: 30, fontSize: 12 }}>
-                （未选中 Topic）
-              </div>
-            </aside>
-          )}
         </>
       ) : (
         <>
