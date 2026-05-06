@@ -696,13 +696,17 @@ export default function App() {
     [selectedId, sendToTopic]
   );
 
-  // Click "同意" on a recommendation → jump to its Topic AND auto-send the
-  // action_hint as a user message, so the assistant actually starts on it.
+  // Click "同意" on a recommendation → jump to its Topic AND auto-send a
+  // structured prompt built from the rec's title + rationale + payoff +
+  // action_hint, so the assistant gets the full brief the user just read on
+  // the card. Previously only action_hint was sent (≤60 chars after
+  // truncate_chars(60), bounded by the prompt template's ≤40 字 instruction)
+  // — the agent then had to pattern-match a one-liner with no context.
   const onAcceptRec = useCallback(
     async (rec: Recommendation) => {
       onDecideRec(rec.id, "accepted");
       if (!rec.topicId) return;
-      const text = rec.actionHint?.trim() || rec.title;
+      const text = buildAcceptPrompt(rec);
       if (!text) return;
       await onSelect(rec.topicId);
       await sendToTopic(rec.topicId, text);
@@ -927,6 +931,26 @@ function cryptoId(): string {
 function truncate(s: string, n: number): string {
   if (!s) return "";
   return s.length > n ? s.slice(0, n) + "…" : s;
+}
+
+// Compose the auto-send prompt for "同意 · 开干". Folds title + rationale +
+// payoff + action_hint into one structured brief so the assistant gets the
+// same context the user sees on the rec card. Empty fields are skipped.
+function buildAcceptPrompt(rec: Recommendation): string {
+  const title = rec.title?.trim() ?? "";
+  const rationale = rec.rationale?.trim() ?? "";
+  const payoff = rec.payoff?.trim() ?? "";
+  const action = rec.actionHint?.trim() ?? "";
+  const parts: string[] = [];
+  if (title) parts.push(title);
+  if (rationale) parts.push(`【起因】${rationale}`);
+  if (payoff) parts.push(`【期望产出】${payoff}`);
+  if (action) parts.push(`【请按这一步开始】${action}`);
+  if (parts.length === 0) return "";
+  // Single-field rec (legacy or empty) — keep it as a one-liner without the
+  // structured headers, since they'd just add noise.
+  if (parts.length === 1) return parts[0].replace(/^【[^】]+】/, "");
+  return parts.join("\n\n");
 }
 
 function RightRail({ onExpand }: { onExpand: () => void }) {
