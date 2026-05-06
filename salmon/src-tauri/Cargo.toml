@@ -1,6 +1,6 @@
 [package]
 name = "salmonapp"
-version = "0.6.9"
+version = "0.6.10"
 description = "SalmonApp — desktop client driving local Claude Code / Codex CLI (Linux + macOS)"
 authors = ["SalmonApp"]
 edition = "2021"

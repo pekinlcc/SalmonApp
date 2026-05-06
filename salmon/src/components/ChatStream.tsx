@@ -27,19 +27,19 @@ export function ChatStream(props: Props) {
   const { topic, messages, pendingPermission, errorBanner, chatLayout, busy, workdirMissing } = props;
   const endRef = useRef<HTMLDivElement>(null);
 
-  // Typing-indicator visibility: show when the engine is busy and the
-  // currently-pending assistant turn has not produced any block yet — i.e.,
-  // the gap between sending and the first stream event arriving.
+  // Typing-indicator visibility: show throughout the assistant turn while
+  // the engine is busy. Previously we hid the dots the moment any block
+  // arrived (text or tool), which on most prompts collapsed the indicator
+  // window to <1s — long enough for the user to never notice it. Now they
+  // stay until `exited` flips busy back off, so the user always has a
+  // running "still thinking" signal in addition to the per-tool spinners.
   const showTyping = (() => {
     if (!busy) return false;
     if (pendingPermission) return false;
     const last = messages[messages.length - 1];
-    if (!last) return true;                                  // user just sent, nothing back yet
-    if (last.role === "user") return true;                   // last entry is user → assistant bubble pending
-    // Last entry is an assistant message; only hide if it has actual content/blocks already.
-    const blocks = last.blocks?.length || 0;
-    const hasContent = blocks > 0 || (last.content && last.content.length > 0);
-    return last.pending && !hasContent;
+    if (!last) return true;
+    if (last.role === "user") return true;
+    return last.pending;
   })();
 
   useEffect(() => {
