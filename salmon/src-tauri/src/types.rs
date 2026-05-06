@@ -85,6 +85,10 @@ pub enum StreamEvent {
     Started { topic_id: String, session_id: Option<String> },
     AssistantText { topic_id: String, message_id: String, delta: String },
     AssistantDone { topic_id: String, message_id: String, content: String },
+    /// Extended-thinking reasoning text from Claude. Surfaced separately
+    /// from AssistantDone so the UI can fold it into the 思考过程 section
+    /// instead of the visible answer.
+    Thinking { topic_id: String, message_id: String, content: String },
     ToolCall { topic_id: String, tool: ToolCall },
     ToolResult { topic_id: String, tool_id: String, state: String, result: Option<String> },
     PermissionRequest { topic_id: String, request_id: String, tool: String, input: serde_json::Value, command: Option<String> },

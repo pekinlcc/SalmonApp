@@ -147,21 +147,34 @@ function renderInline(m: UiMessage, onSelectTool: (t: ToolCall) => void) {
   const blocks = effectiveBlocks(m);
   return (
     <>
-      {blocks.map((b, i) =>
-        b.kind === "text" ? (
-          <ReactMarkdown
-            key={`t${i}`}
-            remarkPlugins={[remarkGfm]}
-            rehypePlugins={[rehypeHighlight]}
-            components={MD_COMPONENTS}
-          >
-            {b.content}
-          </ReactMarkdown>
-        ) : (
-          <ToolCallCard key={b.tool.id || `tool${i}`} tool={b.tool} onSelect={onSelectTool} />
-        )
-      )}
+      {blocks.map((b, i) => {
+        if (b.kind === "text") {
+          return (
+            <ReactMarkdown
+              key={`t${i}`}
+              remarkPlugins={[remarkGfm]}
+              rehypePlugins={[rehypeHighlight]}
+              components={MD_COMPONENTS}
+            >
+              {b.content}
+            </ReactMarkdown>
+          );
+        }
+        if (b.kind === "thinking") {
+          return <ThinkingBlock key={`th${i}`} content={b.content} />;
+        }
+        return <ToolCallCard key={b.tool.id || `tool${i}`} tool={b.tool} onSelect={onSelectTool} />;
+      })}
     </>
+  );
+}
+
+function ThinkingBlock({ content }: { content: string }) {
+  return (
+    <div className="thinking-block">
+      <span className="thinking-label">推理</span>
+      <span className="thinking-content">{content}</span>
+    </div>
   );
 }
 
@@ -186,24 +199,30 @@ function renderThinking(m: UiMessage, onSelectTool: (t: ToolCall) => void) {
             {m.pending && <span className="think-time">进行中…</span>}
           </summary>
           <div className="think-body">
-            {split.thinking.map((b, i) =>
-              b.kind === "text" ? (
-                <ReactMarkdown
-                  key={`tt${i}`}
-                  remarkPlugins={[remarkGfm]}
-                  rehypePlugins={[rehypeHighlight]}
-                  components={MD_COMPONENTS}
-                >
-                  {b.content}
-                </ReactMarkdown>
-              ) : (
+            {split.thinking.map((b, i) => {
+              if (b.kind === "text") {
+                return (
+                  <ReactMarkdown
+                    key={`tt${i}`}
+                    remarkPlugins={[remarkGfm]}
+                    rehypePlugins={[rehypeHighlight]}
+                    components={MD_COMPONENTS}
+                  >
+                    {b.content}
+                  </ReactMarkdown>
+                );
+              }
+              if (b.kind === "thinking") {
+                return <ThinkingBlock key={`th${i}`} content={b.content} />;
+              }
+              return (
                 <ToolCallCard
                   key={b.tool.id || `tool${i}`}
                   tool={b.tool}
                   onSelect={onSelectTool}
                 />
-              )
-            )}
+              );
+            })}
           </div>
         </details>
       )}
@@ -229,37 +248,37 @@ function splitThinkingAndAnswer(blocks: Block[]): {
   thinking: Block[];
   answer: Array<Extract<Block, { kind: "text" }>>;
 } {
-  // No tools? Whole turn is the answer.
-  const hasTool = blocks.some((b) => b.kind === "tool");
-  if (!hasTool) {
+  // Pure-text turn (no tools, no extended-thinking blocks): everything is
+  // the answer.
+  const hasNonText = blocks.some((b) => b.kind !== "text");
+  if (!hasNonText) {
     return {
       thinking: [],
       answer: blocks.filter((b): b is Extract<Block, { kind: "text" }> => b.kind === "text"),
     };
   }
 
-  // Find the last tool. Anything text after it is naturally the trailing
-  // answer — the assistant produced tool calls and then concluded in prose.
-  let lastToolIdx = -1;
+  // Find the last "thinking-side" block — tool or thinking. Anything *text*
+  // after it is the trailing answer.
+  let lastNonTextIdx = -1;
   for (let i = blocks.length - 1; i >= 0; i--) {
-    if (blocks[i].kind === "tool") {
-      lastToolIdx = i;
+    const k = blocks[i].kind;
+    if (k === "tool" || k === "thinking") {
+      lastNonTextIdx = i;
       break;
     }
   }
   const after = blocks
-    .slice(lastToolIdx + 1)
+    .slice(lastNonTextIdx + 1)
     .filter((b): b is Extract<Block, { kind: "text" }> => b.kind === "text");
   if (after.length > 0) {
-    return { thinking: blocks.slice(0, lastToolIdx + 1), answer: after };
+    return { thinking: blocks.slice(0, lastNonTextIdx + 1), answer: after };
   }
 
-  // No text after the last tool. Old behavior was to leave answer empty,
-  // which buried mid-turn prose inside the "思考过程" disclosure even when
-  // it was the substantive final reply. Fall back to the last text block
-  // anywhere in the turn as the answer; the rest (in original order) goes
-  // into thinking. Slight ordering quirk if there are tools *after* that
-  // text block, but the alternative (silently folding the answer) is worse.
+  // No text after the last thinking-side block. Fall back to the last text
+  // block anywhere in the turn as the answer; the rest goes into thinking.
+  // Slight ordering quirk if there are tools *after* that text block, but
+  // burying the substantive answer is worse than the visual reorder.
   let lastTextIdx = -1;
   for (let i = blocks.length - 1; i >= 0; i--) {
     if (blocks[i].kind === "text") {

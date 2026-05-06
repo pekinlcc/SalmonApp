@@ -284,6 +284,27 @@ export default function App() {
           // could persist via topic refresh
         }
         break;
+      case "thinking": {
+        // Reasoning text from Claude's extended-thinking mode. Append as
+        // a thinking block so the typing dots are accompanied by an
+        // expanding 思考过程 section instead of going dark mid-turn.
+        const now = Date.now();
+        setMessagesByTopic((m) => {
+          const list = [...(m[e.topicId] || [])];
+          let cur = list[list.length - 1];
+          if (!cur || cur.role !== "assistant" || !cur.pending) {
+            cur = newAssistantMessage(e.messageId || cryptoId());
+            list.push(cur);
+          }
+          cur.blocks = [
+            ...cur.blocks,
+            { kind: "thinking", content: e.content, createdAt: now },
+          ];
+          return { ...m, [e.topicId]: list };
+        });
+        setBusyByTopic((b) => ({ ...b, [e.topicId]: true }));
+        break;
+      }
       case "assistantDone": {
         if (selectedIdRef.current === e.topicId) {
           markRead(e.topicId);

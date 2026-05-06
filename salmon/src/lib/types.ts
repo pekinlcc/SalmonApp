@@ -54,6 +54,7 @@ export type StreamEvent =
   | { kind: "started"; topicId: string; sessionId: string | null }
   | { kind: "assistantText"; topicId: string; messageId: string; delta: string }
   | { kind: "assistantDone"; topicId: string; messageId: string; content: string }
+  | { kind: "thinking"; topicId: string; messageId: string; content: string }
   | { kind: "toolCall"; topicId: string; tool: ToolCall }
   | { kind: "toolResult"; topicId: string; toolId: string; state: string; result: string | null }
   | { kind: "permissionRequest"; topicId: string; requestId: string; tool: string; input: any; command: string | null }
@@ -64,6 +65,7 @@ export type StreamEvent =
 
 export type Block =
   | { kind: "text"; content: string; createdAt: number }
+  | { kind: "thinking"; content: string; createdAt: number }
   | { kind: "tool"; tool: ToolCall; createdAt: number };
 
 export interface UiMessage {

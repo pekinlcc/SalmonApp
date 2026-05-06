@@ -466,6 +466,28 @@ fn handle_stream_event(
                                     on_assistant_message(text);
                                 }
                             }
+                            "thinking" => {
+                                // Extended-thinking reasoning (text the model
+                                // produces *before* committing to a final
+                                // answer or tool call). Surface so the user
+                                // can see "the model is reasoning about X"
+                                // instead of staring at typing dots.
+                                if let Some(text) = block.get("thinking").and_then(|x| x.as_str()) {
+                                    let mid = msg
+                                        .get("id")
+                                        .and_then(|x| x.as_str())
+                                        .unwrap_or("")
+                                        .to_string();
+                                    let _ = app.emit(
+                                        "salmon-stream",
+                                        StreamEvent::Thinking {
+                                            topic_id: topic_id.to_string(),
+                                            message_id: mid,
+                                            content: text.to_string(),
+                                        },
+                                    );
+                                }
+                            }
                             "tool_use" => {
                                 let id = block
                                     .get("id")
