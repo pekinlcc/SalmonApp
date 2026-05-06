@@ -289,18 +289,29 @@ export default function App() {
           markRead(e.topicId);
         }
         const now = Date.now();
+        // Immutable update: never mutate the prior UiMessage in place. The
+        // previous version of this code did `cur.blocks = ...`/`cur.content =
+        // ...` directly on the list[length-1] reference, which was also live
+        // in React's previous-state snapshot — any other code path holding
+        // that same reference would observe the mutation. Replacing the
+        // tail entry with a fresh object isolates the per-topic slot.
         setMessagesByTopic((m) => {
-          const list = [...(m[e.topicId] || [])];
-          let cur = list[list.length - 1];
-          if (!cur || cur.role !== "assistant" || !cur.pending) {
-            cur = newAssistantMessage(e.messageId || cryptoId());
-            list.push(cur);
-          }
-          cur.blocks = [
-            ...cur.blocks,
-            { kind: "text", content: e.content, createdAt: now },
-          ];
-          cur.content = (cur.content ? cur.content + "\n\n" : "") + e.content;
+          const prev = m[e.topicId] || [];
+          const last = prev[prev.length - 1];
+          const appendToPending = !!last && last.role === "assistant" && !!last.pending;
+          const newBlock: Block = { kind: "text", content: e.content, createdAt: now };
+          const cur: UiMessage = appendToPending
+            ? {
+                ...last,
+                blocks: [...last.blocks, newBlock],
+                content: (last.content ? last.content + "\n\n" : "") + e.content,
+              }
+            : {
+                ...newAssistantMessage(e.messageId || cryptoId()),
+                blocks: [newBlock],
+                content: e.content,
+              };
+          const list = appendToPending ? [...prev.slice(0, -1), cur] : [...prev, cur];
           return { ...m, [e.topicId]: list };
         });
         // Mirror backend's touch_topic on assistant reply so the welcome
@@ -311,32 +322,39 @@ export default function App() {
       }
       case "toolCall": {
         setMessagesByTopic((m) => {
-          const list = [...(m[e.topicId] || [])];
-          let cur = list[list.length - 1];
-          if (!cur || cur.role !== "assistant" || !cur.pending) {
-            cur = newAssistantMessage(cryptoId());
-            list.push(cur);
-          }
-          cur.blocks = [
-            ...cur.blocks,
-            { kind: "tool", tool: e.tool, createdAt: Date.now() },
-          ];
-          cur.tools = [...cur.tools, e.tool];
+          const prev = m[e.topicId] || [];
+          const last = prev[prev.length - 1];
+          const appendToPending = !!last && last.role === "assistant" && !!last.pending;
+          const newBlock: Block = { kind: "tool", tool: e.tool, createdAt: Date.now() };
+          const cur: UiMessage = appendToPending
+            ? {
+                ...last,
+                blocks: [...last.blocks, newBlock],
+                tools: [...last.tools, e.tool],
+              }
+            : {
+                ...newAssistantMessage(cryptoId()),
+                blocks: [newBlock],
+                tools: [e.tool],
+              };
+          const list = appendToPending ? [...prev.slice(0, -1), cur] : [...prev, cur];
           return { ...m, [e.topicId]: list };
         });
         break;
       }
       case "toolResult": {
         setMessagesByTopic((m) => {
-          const list = [...(m[e.topicId] || [])];
-          for (const msg of list) {
-            for (const t of msg.tools) {
+          const prev = m[e.topicId] || [];
+          let dirty = false;
+          const list = prev.map((msg) => {
+            const tools = msg.tools.map((t) => {
               if (t.id === e.toolId) {
-                t.state = (e.state as any) || "done";
-                t.result = e.result || null;
+                dirty = true;
+                return { ...t, state: (e.state as any) || "done", result: e.result || null };
               }
-            }
-            msg.blocks = msg.blocks.map((b) =>
+              return t;
+            });
+            const blocks = msg.blocks.map((b) =>
               b.kind === "tool" && b.tool.id === e.toolId
                 ? {
                     ...b,
@@ -348,8 +366,11 @@ export default function App() {
                   }
                 : b
             );
-          }
-          return { ...m, [e.topicId]: list };
+            return tools === msg.tools && blocks === msg.blocks
+              ? msg
+              : { ...msg, tools, blocks };
+          });
+          return dirty ? { ...m, [e.topicId]: list } : m;
         });
         setFilesRefreshKey((k) => k + 1);
         break;
@@ -391,31 +412,41 @@ export default function App() {
         // tool_result line never reaches us and the card would otherwise
         // hang on "running" forever.
         setMessagesByTopic((m) => {
-          const list = [...(m[e.topicId] || [])];
-          for (const msg of list) {
-            if (msg.role === "assistant" && msg.pending) {
-              msg.pending = false;
-            }
-            for (const t of msg.tools) {
+          const prev = m[e.topicId];
+          if (!prev) return m;
+          let dirty = false;
+          const list = prev.map((msg) => {
+            const pending =
+              msg.role === "assistant" && msg.pending ? false : msg.pending;
+            if (pending !== msg.pending) dirty = true;
+            const tools = msg.tools.map((t) => {
               if (t.state === "running") {
-                t.state = "error";
-                t.result = t.result || "engine 进程已退出，工具调用未完成";
+                dirty = true;
+                return {
+                  ...t,
+                  state: "error" as const,
+                  result: t.result || "engine 进程已退出，工具调用未完成",
+                };
               }
-            }
-            msg.blocks = msg.blocks.map((b) =>
+              return t;
+            });
+            const blocks = msg.blocks.map((b) =>
               b.kind === "tool" && b.tool.state === "running"
                 ? {
                     ...b,
                     tool: {
                       ...b.tool,
-                      state: "error",
+                      state: "error" as const,
                       result: b.tool.result || "engine 进程已退出，工具调用未完成",
                     },
                   }
                 : b
             );
-          }
-          return { ...m, [e.topicId]: list };
+            return pending === msg.pending && tools === msg.tools && blocks === msg.blocks
+              ? msg
+              : { ...msg, pending, tools, blocks };
+          });
+          return dirty ? { ...m, [e.topicId]: list } : m;
         });
         // Distinguish clean exit from crash. null/0 = success per Unix
         // convention; engine drivers signal interruption with non-zero.
@@ -611,6 +642,14 @@ export default function App() {
     }) => {
       const t = await api.createTopic(args);
       setTopics((cur) => [t, ...cur]);
+      // Pre-seed an empty message slot for the new topic. onSelect's
+      // listMessages-based load is async; without this seed the gap between
+      // "new topic created + selected" and "listMessages resolves" would let
+      // any in-flight stream event hit the `m[e.topicId] || []` fallback for
+      // the prior topic in scope and risk seeding the wrong slot. Explicit
+      // empty array also pins messagesByTopic[t.id] === [] so the
+      // "messages.length === 0" banner renders correctly on first paint.
+      setMessagesByTopic((m) => ({ ...m, [t.id]: [] }));
       setShowNew(false);
       // immediately open
       onSelect(t.id);
