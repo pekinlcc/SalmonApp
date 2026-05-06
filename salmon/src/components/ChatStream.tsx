@@ -229,6 +229,17 @@ function splitThinkingAndAnswer(blocks: Block[]): {
   thinking: Block[];
   answer: Array<Extract<Block, { kind: "text" }>>;
 } {
+  // No tools? Whole turn is the answer.
+  const hasTool = blocks.some((b) => b.kind === "tool");
+  if (!hasTool) {
+    return {
+      thinking: [],
+      answer: blocks.filter((b): b is Extract<Block, { kind: "text" }> => b.kind === "text"),
+    };
+  }
+
+  // Find the last tool. Anything text after it is naturally the trailing
+  // answer — the assistant produced tool calls and then concluded in prose.
   let lastToolIdx = -1;
   for (let i = blocks.length - 1; i >= 0; i--) {
     if (blocks[i].kind === "tool") {
@@ -236,18 +247,32 @@ function splitThinkingAndAnswer(blocks: Block[]): {
       break;
     }
   }
-  if (lastToolIdx === -1) {
-    return {
-      thinking: [],
-      answer: blocks.filter((b): b is Extract<Block, { kind: "text" }> => b.kind === "text"),
-    };
+  const after = blocks
+    .slice(lastToolIdx + 1)
+    .filter((b): b is Extract<Block, { kind: "text" }> => b.kind === "text");
+  if (after.length > 0) {
+    return { thinking: blocks.slice(0, lastToolIdx + 1), answer: after };
   }
-  return {
-    thinking: blocks.slice(0, lastToolIdx + 1),
-    answer: blocks
-      .slice(lastToolIdx + 1)
-      .filter((b): b is Extract<Block, { kind: "text" }> => b.kind === "text"),
-  };
+
+  // No text after the last tool. Old behavior was to leave answer empty,
+  // which buried mid-turn prose inside the "思考过程" disclosure even when
+  // it was the substantive final reply. Fall back to the last text block
+  // anywhere in the turn as the answer; the rest (in original order) goes
+  // into thinking. Slight ordering quirk if there are tools *after* that
+  // text block, but the alternative (silently folding the answer) is worse.
+  let lastTextIdx = -1;
+  for (let i = blocks.length - 1; i >= 0; i--) {
+    if (blocks[i].kind === "text") {
+      lastTextIdx = i;
+      break;
+    }
+  }
+  if (lastTextIdx === -1) {
+    return { thinking: blocks, answer: [] };
+  }
+  const thinking = blocks.filter((_, idx) => idx !== lastTextIdx);
+  const answer = [blocks[lastTextIdx] as Extract<Block, { kind: "text" }>];
+  return { thinking, answer };
 }
 
 /**
