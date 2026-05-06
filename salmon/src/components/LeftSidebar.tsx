@@ -44,9 +44,15 @@ export function LeftSidebar(props: Props) {
   const { active, archived } = useMemo(() => {
     const q = query.trim().toLowerCase();
     const matches = (t: Topic) => !q || t.title.toLowerCase().includes(q);
+    // Sort by updatedAt DESC so the most-recently-active Topic always floats
+    // to the top within its time bucket. The source `topics` array is only
+    // sorted at app launch — subsequent setTopics(cur => cur.map(...)) calls
+    // preserve positional order even as updatedAt changes, so without this
+    // sort the sidebar shows the launch-time snapshot ordering.
+    const byRecent = (a: Topic, b: Topic) => b.updatedAt - a.updatedAt;
     return {
-      active: topics.filter((t) => matches(t) && !t.archived),
-      archived: topics.filter((t) => matches(t) && t.archived),
+      active: topics.filter((t) => matches(t) && !t.archived).sort(byRecent),
+      archived: topics.filter((t) => matches(t) && t.archived).sort(byRecent),
     };
   }, [topics, query]);
 
