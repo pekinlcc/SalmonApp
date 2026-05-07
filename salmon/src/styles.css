@@ -420,6 +420,13 @@ button { font-family: inherit; }
 .tool-name { font-weight: 600; }
 .tool-summary { color: var(--ink-500); font-family: var(--mono); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
 .tool-state { font-size: 10.5px; padding: 1px 6px; border-radius: 3px; font-weight: 600; }
+.tool-elapsed {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--ink-500);
+  font-variant-numeric: tabular-nums;
+  padding: 0 4px;
+}
 .tool-state.running { background: #FFF1B8; color: #8A6700; }
 .tool-state.done { background: #E2F5DD; color: #2F7D1F; }
 .tool-state.cancelled { background: #FFE4E1; color: #B7493D; }

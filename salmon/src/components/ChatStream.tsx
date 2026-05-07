@@ -163,7 +163,7 @@ function renderInline(m: UiMessage, onSelectTool: (t: ToolCall) => void) {
         if (b.kind === "thinking") {
           return <ThinkingBlock key={`th${i}`} content={b.content} />;
         }
-        return <ToolCallCard key={b.tool.id || `tool${i}`} tool={b.tool} onSelect={onSelectTool} />;
+        return <ToolCallCard key={b.tool.id || `tool${i}`} tool={b.tool} startedAt={b.createdAt} onSelect={onSelectTool} />;
       })}
     </>
   );
@@ -219,6 +219,7 @@ function renderThinking(m: UiMessage, onSelectTool: (t: ToolCall) => void) {
                 <ToolCallCard
                   key={b.tool.id || `tool${i}`}
                   tool={b.tool}
+                  startedAt={b.createdAt}
                   onSelect={onSelectTool}
                 />
               );

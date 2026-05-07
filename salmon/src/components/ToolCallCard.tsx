@@ -1,15 +1,19 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { ToolCall } from "../lib/types";
 
 interface Props {
   tool: ToolCall;
+  /** Block.createdAt — used to render an elapsed-time counter while the
+   *  tool is still running, so the card doesn't look frozen on long ops. */
+  startedAt?: number;
   onSelect?: (tool: ToolCall) => void;
 }
 
-export function ToolCallCard({ tool, onSelect }: Props) {
+export function ToolCallCard({ tool, startedAt, onSelect }: Props) {
   const [open, setOpen] = useState(false);
   const summary = summarize(tool);
   const running = tool.state === "running";
+  const elapsed = useElapsedSeconds(running ? startedAt : undefined);
   return (
     <div className={`tool ${open ? "open" : ""} ${running ? "tool-running" : ""}`}>
       <div
@@ -24,6 +28,9 @@ export function ToolCallCard({ tool, onSelect }: Props) {
         </span>
         <span className="tool-name">{tool.name}</span>
         <span className="tool-summary">{summary}</span>
+        {running && elapsed >= 2 && (
+          <span className="tool-elapsed" title="已运行时间">{formatElapsed(elapsed)}</span>
+        )}
         <span className={`tool-state ${tool.state}`}>{tool.state}</span>
       </div>
       {open && (
@@ -46,6 +53,24 @@ export function ToolCallCard({ tool, onSelect }: Props) {
       )}
     </div>
   );
+}
+
+function useElapsedSeconds(startedAt: number | undefined): number {
+  const [now, setNow] = useState<number>(() => Date.now());
+  useEffect(() => {
+    if (!startedAt) return;
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [startedAt]);
+  if (!startedAt) return 0;
+  return Math.max(0, Math.floor((now - startedAt) / 1000));
+}
+
+function formatElapsed(s: number): string {
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  return r === 0 ? `${m}m` : `${m}m${r}s`;
 }
 
 function abbreviate(name: string): string {

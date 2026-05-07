@@ -369,10 +369,21 @@ async fn run_session(
                 let tid_for_err = topic_id.clone();
                 let stderr_fut = async {
                     while let Ok(Some(line)) = stderr_reader.next_line().await {
+                        // Always log to the right-pane Logs tab.
                         let _ = app_for_err.emit("salmon-stream", StreamEvent::Log {
                             topic_id: tid_for_err.clone(),
                             line: format!("[stderr] {line}"),
                         });
+                        // Promote known operational failures to a visible
+                        // Error banner. Without this, rate limits / MCP
+                        // crashes / auth failures stay buried in the Logs
+                        // tab and the chat just looks frozen.
+                        if let Some(msg) = classify_stderr(&line) {
+                            let _ = app_for_err.emit("salmon-stream", StreamEvent::Error {
+                                topic_id: tid_for_err.clone(),
+                                message: msg,
+                            });
+                        }
                     }
                 };
 
@@ -515,7 +526,12 @@ fn handle_stream_event(
                                     },
                                 );
                             }
-                            _ => {}
+                            other => {
+                                eprintln!(
+                                    "[salmon] unhandled claude assistant block type: {} (topic={})",
+                                    other, topic_id
+                                );
+                            }
                         }
                     }
                 }
@@ -563,7 +579,12 @@ fn handle_stream_event(
         "result" => {
             // final summary; nothing to emit beyond what we already streamed
         }
-        _ => {}
+        other => {
+            eprintln!(
+                "[salmon] unhandled claude stream event type: {} (topic={})",
+                other, topic_id
+            );
+        }
     }
 }
 
@@ -708,7 +729,12 @@ fn handle_codex_event(
         "turn.started" | "turn.completed" => {
             // Could be used for usage display; ignored for MVP.
         }
-        _ => {}
+        other => {
+            eprintln!(
+                "[salmon] unhandled codex event kind: {} (topic={})",
+                other, topic_id
+            );
+        }
     }
 }
 
@@ -723,3 +749,40 @@ async fn write_line(stdin: &mut ChildStdin, line: &str) -> Result<()> {
 
 #[allow(dead_code)]
 fn _unused_child(_c: Child) {}
+
+/// Detect operational failures in CLI stderr that should surface as a
+/// banner instead of staying buried in the Logs tab. Returns the error
+/// message to show, or None if the line is benign noise.
+fn classify_stderr(line: &str) -> Option<String> {
+    let low = line.to_ascii_lowercase();
+    // Anthropic / OpenAI rate limits.
+    if low.contains("rate limit")
+        || low.contains("rate_limit_error")
+        || low.contains("ratelimitexceeded")
+        || low.contains(" 429")
+    {
+        return Some(format!("CLI 触发限流 (rate limit)。原始: {}", line.trim()));
+    }
+    // Auth / credential failures.
+    if low.contains("unauthorized")
+        || low.contains("authentication failed")
+        || low.contains("invalid api key")
+        || low.contains("api key not found")
+        || low.contains(" 401")
+    {
+        return Some(format!("CLI 鉴权失败,需要重新登录。原始: {}", line.trim()));
+    }
+    // MCP server lifecycle issues.
+    if low.contains("mcp server") && (low.contains("exit") || low.contains("crash") || low.contains("disconnect")) {
+        return Some(format!("MCP 服务异常。原始: {}", line.trim()));
+    }
+    // Network blowups during a stream.
+    if low.contains("connection reset") || low.contains("connection refused") || low.contains("network error") {
+        return Some(format!("网络错误。原始: {}", line.trim()));
+    }
+    // Generic panic / uncaught exception in the CLI.
+    if low.contains("panicked at") || low.contains("uncaughtexception") || low.contains("fatal error") {
+        return Some(format!("CLI 崩溃。原始: {}", line.trim()));
+    }
+    None
+}
