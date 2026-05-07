@@ -13,6 +13,7 @@ use tokio::sync::mpsc;
 
 /// Per-topic running engine instance.
 pub struct Session {
+    pub run_id: String,
     pub topic_id: String,
     pub workdir: String,
     pub engine_kind: String,
@@ -147,6 +148,8 @@ impl EngineRegistry {
         let (tx, mut rx) = mpsc::unbounded_channel::<EngineCmd>();
         let current_pid: Arc<Mutex<Option<u32>>> = Arc::new(Mutex::new(None));
         let pid_handle = current_pid.clone();
+        let run_id = uuid::Uuid::new_v4().to_string();
+        let run_id_for_task = run_id.clone();
 
         let topic_id_for_task = topic_id.clone();
         let kind = engine_kind.clone();
@@ -187,10 +190,23 @@ impl EngineRegistry {
                     topic_id: topic_id_for_task.clone(),
                 },
             );
-            registry.lock().remove(&topic_id_for_task);
+            let mut reg = registry.lock();
+            let current_is_this_task = reg
+                .get(&topic_id_for_task)
+                .map(|sess| sess.run_id == run_id_for_task)
+                .unwrap_or(false);
+            if current_is_this_task {
+                reg.remove(&topic_id_for_task);
+            } else {
+                eprintln!(
+                    "[salmon] stale task exit for topic={} run_id={} did not remove newer session",
+                    topic_id_for_task, run_id_for_task
+                );
+            }
         });
 
         let session = Session {
+            run_id,
             topic_id: topic_id.clone(),
             workdir,
             engine_kind,

@@ -3,6 +3,8 @@ import type { CliInfo, FileEntry, Message, Recommendation, Topic, WorkdirCheck }
 
 export const api = {
   detectClis: () => invoke<{ clis: CliInfo[] }>("detect_clis"),
+  openLink: (workdir: string, href: string) =>
+    invoke<void>("open_link", { workdir, href }),
   createTopic: (args: {
     title: string;
     engine: string;

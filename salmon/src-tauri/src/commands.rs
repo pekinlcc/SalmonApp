@@ -65,6 +65,129 @@ fn dirs_home() -> Option<PathBuf> {
 }
 
 #[tauri::command]
+pub fn open_link(workdir: String, href: String) -> Result<(), String> {
+    let href = href.trim();
+    if href.is_empty() || href.starts_with('#') {
+        return Ok(());
+    }
+    if href.contains('\0') {
+        return Err("invalid link".into());
+    }
+
+    let target = if href.starts_with("//") {
+        format!("https:{href}")
+    } else if has_uri_scheme(href) {
+        let lower = href.to_ascii_lowercase();
+        if lower.starts_with("javascript:")
+            || lower.starts_with("data:")
+            || lower.starts_with("blob:")
+        {
+            return Err("unsupported link scheme".into());
+        }
+        href.to_string()
+    } else {
+        let path_part = strip_link_suffix(href);
+        if path_part.is_empty() {
+            return Ok(());
+        }
+        let decoded = percent_decode(path_part)?;
+        let path = PathBuf::from(decoded);
+        let resolved = if path.is_absolute() {
+            path
+        } else {
+            PathBuf::from(workdir).join(path)
+        };
+        resolved.to_string_lossy().to_string()
+    };
+
+    open_with_system(&target)
+}
+
+fn open_with_system(target: &str) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    let mut cmd = {
+        let mut c = Command::new("open");
+        c.arg(target);
+        c
+    };
+
+    #[cfg(target_os = "linux")]
+    let mut cmd = {
+        let mut c = Command::new("xdg-open");
+        c.arg(target);
+        c
+    };
+
+    #[cfg(target_os = "windows")]
+    let mut cmd = {
+        let mut c = Command::new("cmd");
+        c.args(["/C", "start", "", target]);
+        c
+    };
+
+    #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
+    {
+        return Err("opening links is unsupported on this platform".into());
+    }
+
+    cmd.spawn()
+        .map(|_| ())
+        .map_err(|e| format!("open link failed: {e}"))
+}
+
+fn has_uri_scheme(s: &str) -> bool {
+    let Some(colon) = s.find(':') else {
+        return false;
+    };
+    if s[..colon].contains('/') || s[..colon].contains('?') || s[..colon].contains('#') {
+        return false;
+    }
+    let mut chars = s[..colon].chars();
+    let Some(first) = chars.next() else {
+        return false;
+    };
+    first.is_ascii_alphabetic()
+        && chars.all(|c| c.is_ascii_alphanumeric() || c == '+' || c == '-' || c == '.')
+}
+
+fn strip_link_suffix(s: &str) -> &str {
+    let end = s
+        .find(['?', '#'])
+        .unwrap_or(s.len());
+    &s[..end]
+}
+
+fn percent_decode(s: &str) -> Result<String, String> {
+    let bytes = s.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'%' {
+            if i + 2 >= bytes.len() {
+                return Err("invalid percent escape in link".into());
+            }
+            let hi = hex_value(bytes[i + 1])?;
+            let lo = hex_value(bytes[i + 2])?;
+            out.push((hi << 4) | lo);
+            i += 3;
+        } else {
+            out.push(bytes[i]);
+            i += 1;
+        }
+    }
+    String::from_utf8(out).map_err(|_| "link path is not valid UTF-8".into())
+}
+
+fn hex_value(b: u8) -> Result<u8, String> {
+    match b {
+        b'0'..=b'9' => Ok(b - b'0'),
+        b'a'..=b'f' => Ok(b - b'a' + 10),
+        b'A'..=b'F' => Ok(b - b'A' + 10),
+        _ => Err("invalid percent escape in link".into()),
+    }
+}
+
+#[tauri::command]
 pub fn create_topic(
     state: State<'_, AppState>,
     title: String,

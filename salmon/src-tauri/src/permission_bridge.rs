@@ -13,8 +13,10 @@
 //! that accepts a `permissionDecision` response shape. Confirmed by
 //! probe-server experiment in May 2026:
 //!
-//!     PreToolUse hook called for tool=WebFetch → return "allow" →
-//!     fetch goes through, no permission_denial recorded.
+//! ```text
+//! PreToolUse hook called for tool=WebFetch → return "allow" →
+//! fetch goes through, no permission_denial recorded.
+//! ```
 //!
 //! Matcher
 //! -------
@@ -23,8 +25,10 @@
 //! be noise. We constrain via `matcher` regex to the set Claude Code
 //! itself prompts for in interactive mode:
 //!
-//!     ^(Bash|Edit|Write|MultiEdit|NotebookEdit|
-//!       WebFetch|WebSearch|Task|mcp__.+)$
+//! ```text
+//! ^(Bash|Edit|Write|MultiEdit|NotebookEdit|
+//!   WebFetch|WebSearch|Task|mcp__.+)$
+//! ```
 //!
 //! Allowlist short-circuit
 //! -----------------------

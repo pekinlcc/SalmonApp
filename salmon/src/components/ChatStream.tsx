@@ -1,13 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import ReactMarkdown from "react-markdown";
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
+import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
+import { api } from "../lib/api";
 import type { Block, ChatLayout, Topic, ToolCall, UiMessage } from "../lib/types";
 import { ToolCallCard } from "./ToolCallCard";
 import { PermissionCard } from "./PermissionCard";
 import { CodeBlock } from "./CodeBlock";
-
-const MD_COMPONENTS = { pre: CodeBlock } as const;
 
 interface Props {
   topic: Topic;
@@ -27,6 +26,7 @@ export function ChatStream(props: Props) {
   const { topic, messages, pendingPermission, errorBanner, chatLayout, busy, workdirMissing } = props;
   const streamRef = useRef<HTMLDivElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
+  const mdComponents = useMemo(() => markdownComponents(topic.workdir), [topic.workdir]);
 
   // Typing-indicator visibility: show throughout the assistant turn while
   // the engine is busy. Previously we hid the dots the moment any block
@@ -163,11 +163,11 @@ export function ChatStream(props: Props) {
               {m.interrupted && <span className="interrupted-tag">已中断</span>}
             </div>
             {m.role === "user" ? (
-              renderUserBody(m)
+              renderUserBody(m, mdComponents)
             ) : chatLayout === "inline" ? (
-              renderInline(m, props.onSelectTool)
+              renderInline(m, props.onSelectTool, mdComponents)
             ) : (
-              renderThinking(m, props.onSelectTool)
+              renderThinking(m, props.onSelectTool, mdComponents)
             )}
           </div>
         </div>
@@ -222,15 +222,35 @@ export function ChatStream(props: Props) {
   );
 }
 
-function renderUserBody(m: UiMessage) {
+function markdownComponents(workdir: string): Components {
+  return {
+    pre: CodeBlock,
+    a({ href, children, node: _node, ...props }) {
+      const onClick = (event: MouseEvent<HTMLAnchorElement>) => {
+        if (!href || href.startsWith("#") || event.button !== 0) return;
+        event.preventDefault();
+        void api.openLink(workdir, href).catch((e) => {
+          void api.debugLog(`open_link failed for ${href}: ${e}`);
+        });
+      };
+      return (
+        <a {...props} href={href} onClick={onClick}>
+          {children}
+        </a>
+      );
+    },
+  };
+}
+
+function renderUserBody(m: UiMessage, components: Components) {
   return m.content ? (
-    <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]} components={MD_COMPONENTS}>
+    <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]} components={components}>
       {m.content}
     </ReactMarkdown>
   ) : null;
 }
 
-function renderInline(m: UiMessage, onSelectTool: (t: ToolCall) => void) {
+function renderInline(m: UiMessage, onSelectTool: (t: ToolCall) => void, components: Components) {
   const blocks = effectiveBlocks(m);
   return (
     <>
@@ -241,7 +261,7 @@ function renderInline(m: UiMessage, onSelectTool: (t: ToolCall) => void) {
               key={`t${i}`}
               remarkPlugins={[remarkGfm]}
               rehypePlugins={[rehypeHighlight]}
-              components={MD_COMPONENTS}
+              components={components}
             >
               {b.content}
             </ReactMarkdown>
@@ -270,7 +290,7 @@ function ThinkingBlock({ content }: { content: string }) {
  * up to and including the last tool call) and the "final answer" (trailing
  * text blocks). When there are no tool calls, the whole thing is the answer.
  */
-function renderThinking(m: UiMessage, onSelectTool: (t: ToolCall) => void) {
+function renderThinking(m: UiMessage, onSelectTool: (t: ToolCall) => void, components: Components) {
   const blocks = effectiveBlocks(m);
   const split = splitThinkingAndAnswer(blocks);
   const toolCount = split.thinking.filter((b) => b.kind === "tool").length;
@@ -293,7 +313,7 @@ function renderThinking(m: UiMessage, onSelectTool: (t: ToolCall) => void) {
                     key={`tt${i}`}
                     remarkPlugins={[remarkGfm]}
                     rehypePlugins={[rehypeHighlight]}
-                    components={MD_COMPONENTS}
+                    components={components}
                   >
                     {b.content}
                   </ReactMarkdown>
@@ -321,7 +341,7 @@ function renderThinking(m: UiMessage, onSelectTool: (t: ToolCall) => void) {
               key={`fa${i}`}
               remarkPlugins={[remarkGfm]}
               rehypePlugins={[rehypeHighlight]}
-              components={MD_COMPONENTS}
+              components={components}
             >
               {b.content}
             </ReactMarkdown>

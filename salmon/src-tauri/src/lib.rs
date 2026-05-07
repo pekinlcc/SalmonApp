@@ -63,6 +63,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::detect_clis,
+            commands::open_link,
             commands::create_topic,
             commands::list_topics,
             commands::delete_topic,
