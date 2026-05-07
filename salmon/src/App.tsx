@@ -695,20 +695,36 @@ export default function App() {
       dangerMode: boolean;
     }) => {
       const t = await api.createTopic(args);
-      setTopics((cur) => [t, ...cur]);
-      // Pre-seed an empty message slot for the new topic. onSelect's
-      // listMessages-based load is async; without this seed the gap between
-      // "new topic created + selected" and "listMessages resolves" would let
-      // any in-flight stream event hit the `m[e.topicId] || []` fallback for
-      // the prior topic in scope and risk seeding the wrong slot. Explicit
-      // empty array also pins messagesByTopic[t.id] === [] so the
-      // "messages.length === 0" banner renders correctly on first paint.
+      setTopics((cur) => [t, ...cur.filter((x) => x.id !== t.id)]);
+      // New-topic selection must not depend on onSelect's closed-over topic
+      // list: React has not committed setTopics yet, so the just-created
+      // topic may be invisible to that callback. Seed every per-topic slot
+      // here to guarantee the first selected render is isolated.
       setMessagesByTopic((m) => ({ ...m, [t.id]: [] }));
+      setLogsByTopic((m) => ({ ...m, [t.id]: [] }));
+      setBusyByTopic((m) => ({ ...m, [t.id]: false }));
+      setPendingPermByTopic((m) => ({ ...m, [t.id]: null }));
+      setErrorByTopic((m) => ({ ...m, [t.id]: null }));
+      setWorkdirOkByTopic((m) => ({ ...m, [t.id]: true }));
+      setSelectedTool(null);
+      setSelectedId(t.id);
+      markRead(t.id);
       setShowNew(false);
-      // immediately open
-      onSelect(t.id);
+      try {
+        const chk = await api.checkWorkdir(t.workdir);
+        setWorkdirOkByTopic((m) => ({ ...m, [t.id]: chk.exists && chk.isDir }));
+      } catch {
+        setWorkdirOkByTopic((m) => ({ ...m, [t.id]: false }));
+      }
+      setSpawningId(t.id);
+      try {
+        await api.openTopic(t.id);
+      } catch (e: any) {
+        setErrorByTopic((er) => ({ ...er, [t.id]: String(e) }));
+        setSpawningId(null);
+      }
     },
-    [onSelect]
+    [markRead]
   );
 
   const sendToTopic = useCallback(
@@ -810,6 +826,8 @@ export default function App() {
     return () => window.removeEventListener("beforeunload", handler);
   }, [runningIds]);
 
+  const selectedMessages = selectedTopic ? messagesByTopic[selectedTopic.id] || [] : [];
+
   // Onboarding view
   if (showOnboarding) {
     return (
@@ -888,12 +906,13 @@ export default function App() {
               )}
               <div className="spacer" />
               <div className="stat">
-                {(messagesByTopic[selectedTopic.id] || []).length} messages
+                {selectedMessages.length} messages
               </div>
             </div>
             <ChatStream
+              key={selectedTopic.id}
               topic={selectedTopic}
-              messages={messagesByTopic[selectedTopic.id] || []}
+              messages={selectedMessages}
               pendingPermission={pendingPermByTopic[selectedTopic.id] || null}
               errorBanner={errorByTopic[selectedTopic.id] || null}
               chatLayout={chatLayout}
