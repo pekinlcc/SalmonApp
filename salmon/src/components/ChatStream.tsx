@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
@@ -25,6 +25,7 @@ interface Props {
 
 export function ChatStream(props: Props) {
   const { topic, messages, pendingPermission, errorBanner, chatLayout, busy, workdirMissing } = props;
+  const streamRef = useRef<HTMLDivElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
 
   // Typing-indicator visibility: show throughout the assistant turn while
@@ -42,14 +43,89 @@ export function ChatStream(props: Props) {
     return last.pending;
   })();
 
+  // ── Auto-scroll: pinned-to-bottom model (ChatGPT / Claude.ai pattern)
+  //
+  // - `pinnedToBottom` reflects whether the user is sitting near the bottom
+  //   of the chat (within BOTTOM_THRESHOLD_PX). It's recomputed on every
+  //   scroll event.
+  // - `contentSig` is a cheap "how much text is in the chat right now"
+  //   signature — it changes on every streamed token, where messages.length
+  //   stays constant (the assistant turn is one UiMessage that grows).
+  //   Using length-only for the deps was the v0.6.16 bug: streaming text
+  //   never re-fired the scroll effect.
+  // - When pinned and content grows, snap to bottom with `auto` (instant) so
+  //   the view doesn't lag behind tokens. `smooth` skips frames at high
+  //   token rates and looks worse than instant.
+  // - When the user scrolls up mid-stream, we honour their position and
+  //   surface a "↓ 新消息" pill instead. Click jumps with `smooth` for the
+  //   visible transition.
+  // - Topic switch: snap the new topic to the bottom on first paint and
+  //   re-arm pinned, so opening a long topic doesn't dump the user at the
+  //   top of yesterday's history.
+  const BOTTOM_THRESHOLD_PX = 80;
+  const [pinnedToBottom, setPinnedToBottom] = useState(true);
+  // contentSig is intentionally a single number (sum), not a hash — we only
+  // care that it monotonically changes when tokens roll in.
+  const contentSig = useMemo(() => {
+    let n = 0;
+    for (const m of messages) {
+      n += m.content?.length || 0;
+      if (m.blocks) {
+        for (const b of m.blocks) {
+          if (b.kind === "text" || b.kind === "thinking") n += b.content.length;
+          else n += 1;
+        }
+      }
+    }
+    if (pendingPermission) n += 1;
+    if (showTyping) n += 1;
+    return n;
+  }, [messages, pendingPermission, showTyping]);
+
+  // Track contentSig at the moment the user was last pinned, so the pill
+  // only appears when there's actually something NEW since they scrolled
+  // away (vs. just sitting unpinned in an idle topic).
+  const seenSigRef = useRef<number>(contentSig);
+
+  const onScroll = useCallback(() => {
+    const el = streamRef.current;
+    if (!el) return;
+    const dist = el.scrollHeight - el.scrollTop - el.clientHeight;
+    const near = dist < BOTTOM_THRESHOLD_PX;
+    setPinnedToBottom((cur) => (cur === near ? cur : near));
+  }, []);
+
+  // Auto-follow when pinned. Programmatic scroll fires onScroll → pinned
+  // recomputes, but distance is ~0 so it stays true.
   useEffect(() => {
+    if (pinnedToBottom) {
+      seenSigRef.current = contentSig;
+      endRef.current?.scrollIntoView({ behavior: "auto", block: "end" });
+    }
+  }, [contentSig, pinnedToBottom]);
+
+  // Topic switch: reset to pinned and snap to bottom after the new topic's
+  // messages are in the DOM.
+  useEffect(() => {
+    setPinnedToBottom(true);
+    const id = requestAnimationFrame(() => {
+      endRef.current?.scrollIntoView({ behavior: "auto", block: "end" });
+    });
+    return () => cancelAnimationFrame(id);
+  }, [topic.id]);
+
+  const jumpToBottom = useCallback(() => {
+    setPinnedToBottom(true);
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [messages.length, pendingPermission, showTyping]);
+  }, []);
+
+  const showJumpPill = !pinnedToBottom && contentSig > seenSigRef.current;
 
   const time = (ts: number) => new Date(ts).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" });
 
   return (
-    <div className="stream">
+    <div className="stream-wrap">
+      <div className="stream" ref={streamRef} onScroll={onScroll}>
       {messages.length === 0 && !pendingPermission && (
         <div className="banner info" style={{ marginTop: 0 }}>
           这个 Topic 由 <code style={{ fontFamily: "var(--mono)", background: "#fff", padding: "0 4px", borderRadius: 3 }}>{topic.workdir}</code> 工作目录里的 <b>{topic.engine === "claude" ? "claude" : "codex"}</b> CLI 子进程驱动，凭证来自你之前的 CLI 登录。
@@ -131,6 +207,17 @@ export function ChatStream(props: Props) {
       )}
 
       <div ref={endRef} />
+      </div>
+      {showJumpPill && (
+        <button
+          type="button"
+          className="jump-to-bottom"
+          onClick={jumpToBottom}
+          title="跳到最新消息"
+        >
+          ↓ 新消息
+        </button>
+      )}
     </div>
   );
 }
