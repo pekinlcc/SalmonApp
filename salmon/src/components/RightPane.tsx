@@ -79,7 +79,12 @@ export function RightPane({ topic, selectedTool, logs, refreshKey, onCollapse }:
     return () => {
       cancelled = true;
     };
-  }, [previewPath]);
+    // refreshKey is bumped after every Tool finishes, so when an Edit/
+    // Write rewrites the file currently being previewed, we re-fetch
+    // instead of staring at the pre-edit text. Office preview cache key
+    // is mtime-tagged on the backend so it stays correct under refresh
+    // too.
+  }, [previewPath, refreshKey]);
 
   // Auto switch to diff tab when an Edit/Write tool is selected
   useEffect(() => {

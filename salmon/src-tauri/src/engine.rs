@@ -56,6 +56,28 @@ impl EngineRegistry {
 
     pub fn close(&self, topic_id: &str) {
         if let Some(sess) = self.inner.lock().remove(topic_id) {
+            // Send Shutdown so the message-loop breaks once it next polls
+            // the channel — but that won't happen until the current child
+            // exits, since the Send arm sits inside `tokio::join!(stdout,
+            // stderr, child.wait)` and never re-reads `rx`. Without the
+            // signal below, deleting a Topic or toggling danger mode
+            // mid-prompt would leave the CLI running for minutes more,
+            // racing with whatever Salmon spawned to replace it.
+            //
+            // Send SIGTERM directly to the child (then SIGKILL as a
+            // backstop) so the wait_fut completes immediately and the
+            // task drops `child` — which `kill_on_drop(true)` would
+            // honour, but only once we get there.
+            let pid = *sess.current_pid.lock();
+            if let Some(pid) = pid {
+                eprintln!(
+                    "[salmon] close: SIGTERM \u{2192} pid {} (topic={})",
+                    pid, topic_id
+                );
+                unsafe {
+                    libc::kill(pid as libc::pid_t, libc::SIGTERM);
+                }
+            }
             let _ = sess.stdin_tx.send(EngineCmd::Shutdown);
         }
     }

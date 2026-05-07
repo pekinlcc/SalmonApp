@@ -347,7 +347,7 @@ impl Db {
 
     pub fn get_recommendation(&self, id: &str) -> Result<Option<Recommendation>> {
         let mut stmt = self.conn.prepare(
-            "SELECT id,source_engine,topic_id,title,rationale,action_hint,status,
+            "SELECT id,source_engine,topic_id,title,rationale,action_hint,payoff,status,
                     priority,self_value,peer_value,
                     generated_at,decided_at,decision_reason
              FROM recommendations WHERE id=?",

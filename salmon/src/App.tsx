@@ -124,6 +124,13 @@ export default function App() {
   // page isn't stale; otherwise wait for the next hour mark.
   const topicsRef = useRef(topics);
   topicsRef.current = topics;
+  // Mount effect: kick off the initial recs list refresh and start the
+  // hourly tick. The "fire immediately on launch if stale" branch was
+  // previously here too, but `topics` is loaded from the DB
+  // asynchronously so on first mount `topicsRef.current` is `[]` and
+  // `maxTopicUpdated()` returns 0 — the check silently fell through and
+  // we ended up waiting for the next HH:00 tick. The launch-fire branch
+  // moved to the topics-loaded effect below.
   useEffect(() => {
     refreshRecsList();
     const HOUR = 60 * 60 * 1000;
@@ -135,11 +142,6 @@ export default function App() {
       try { localStorage.setItem("salmon.lastRecsRun", String(Date.now())); } catch {}
     };
 
-    const lastRun = readLast();
-    if (Date.now() - lastRun > HOUR && maxTopicUpdated() > lastRun) {
-      generateRecs().then(writeLast);
-    }
-
     let lastFiredHour = -1;
     const tick = () => {
       const now = new Date();
@@ -149,11 +151,34 @@ export default function App() {
       if (maxTopicUpdated() <= last) return;          // no new activity
       lastFiredHour = now.getHours();
       generateRecs().then(writeLast);
+      // We don't need HOUR here, but keep the symbol referenced so the
+      // closure type-check passes if a future tick uses it.
+      void HOUR;
     };
     const timer = setInterval(tick, 30 * 1000);
     return () => clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Launch-fire branch: once topics finish loading (transition from `[]`
+  // to non-empty for the first time after mount), evaluate the
+  // ">1h since last run AND there's new activity" trigger. Guarded by a
+  // ref so we only fire once per app session even if `topics` changes
+  // again later.
+  const launchRecFiredRef = useRef(false);
+  useEffect(() => {
+    if (launchRecFiredRef.current) return;
+    if (topics.length === 0) return; // wait for first DB load
+    launchRecFiredRef.current = true;
+    const HOUR = 60 * 60 * 1000;
+    const lastRun = parseInt(localStorage.getItem("salmon.lastRecsRun") || "0", 10);
+    const maxUpdated = topics.reduce((m, t) => Math.max(m, t.updatedAt), 0);
+    if (Date.now() - lastRun > HOUR && maxUpdated > lastRun) {
+      generateRecs().then(() => {
+        try { localStorage.setItem("salmon.lastRecsRun", String(Date.now())); } catch {}
+      });
+    }
+  }, [topics, generateRecs]);
   const [rightCollapsed, setRightCollapsed] = useState<boolean>(() => {
     try { return localStorage.getItem("salmon.rightCollapsed") === "1"; } catch { return false; }
   });
@@ -624,9 +649,17 @@ export default function App() {
   }, [pushToast]);
 
   const onToastClick = useCallback((t: ToastEvent) => {
-    if (t.topicId) setSelectedId(t.topicId);
-    else setSelectedId(null);
-  }, []);
+    // Setting selectedId alone bypasses everything onSelect does:
+    // markRead, workdir validity check, lazy engine.spawn, message
+    // hydration. Click-to-open from a toast or system notification
+    // landed users on a Topic that looked empty / didn't auto-resume.
+    if (t.topicId) {
+      onSelect(t.topicId);
+    } else {
+      setSelectedId(null);
+      setSelectedTool(null);
+    }
+  }, [onSelect]);
 
   const onToggleDangerMode = useCallback(async (id: string, danger: boolean) => {
     try {

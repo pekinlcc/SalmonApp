@@ -129,9 +129,15 @@ pub fn open_topic(state: State<'_, AppState>, id: String) -> Result<(), String> 
             topic.session_id.clone(),
             topic.danger_mode,
             Box::new(move |sid| {
-                if let Some(mut db) = db_handle.try_lock() {
-                    let _ = db.set_session_id(&topic_id_for_cb, sid);
-                }
+                // Block on the DB lock — `try_lock` here used to drop the
+                // session id silently if the rec generator or a message
+                // append happened to be holding the mutex. That left the
+                // topic without a stored session id, so the next launch
+                // couldn't `--resume` and the conversation would fork.
+                // The mutex is held for milliseconds and this callback
+                // fires once per turn, so blocking is fine.
+                let mut db = db_handle.lock();
+                let _ = db.set_session_id(&topic_id_for_cb, sid);
             }),
             Box::new(move |text| {
                 let mut db = db_for_msg.lock();
