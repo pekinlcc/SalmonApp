@@ -639,10 +639,16 @@ fn handle_codex_event(
                     }
                 }
                 "agent_reasoning" | "reasoning" => {
-                    // codex's chain-of-thought; surface as a small note when present.
-                    if kind != "item.completed" {
-                        return;
-                    }
+                    // Codex's chain-of-thought. Same shape as Claude's
+                    // extended-thinking blocks now — emit as a dedicated
+                    // Thinking event so the frontend renders it under the
+                    // 推理 pill / inside the 思考过程 fold instead of
+                    // pretending it's a normal assistant message.
+                    //
+                    // Surface on both item.started (when text is already
+                    // populated — some codex versions front-load it) and
+                    // item.completed. Empty payload events are skipped so
+                    // we don't push placeholder bubbles.
                     if let Some(text) = item
                         .get("text")
                         .and_then(|x| x.as_str())
@@ -651,10 +657,10 @@ fn handle_codex_event(
                         if !text.trim().is_empty() {
                             let _ = app.emit(
                                 "salmon-stream",
-                                StreamEvent::AssistantDone {
+                                StreamEvent::Thinking {
                                     topic_id: topic_id.to_string(),
                                     message_id: id,
-                                    content: format!("> _(reasoning)_ {}", text),
+                                    content: text.to_string(),
                                 },
                             );
                         }
@@ -728,6 +734,34 @@ fn handle_codex_event(
         }
         "turn.started" | "turn.completed" => {
             // Could be used for usage display; ignored for MVP.
+        }
+        "error" | "thread.error" | "stream.error" => {
+            // Codex's `--json` emits structured errors for auth failures,
+            // rate limits, MCP crashes and the like. Without an arm here
+            // they previously hit the eprintln catchall — visible only
+            // in salmon.log, with no user-facing banner. Promote to a
+            // proper Error event so the chat shows a red strip instead
+            // of going silent.
+            let msg = v
+                .get("message")
+                .and_then(|x| x.as_str())
+                .or_else(|| v.get("error").and_then(|e| e.get("message")).and_then(|x| x.as_str()))
+                .unwrap_or("");
+            let code = v.get("code").and_then(|x| x.as_str()).unwrap_or("");
+            let body = if !msg.is_empty() && !code.is_empty() {
+                format!("Codex 错误 [{}]: {}", code, msg)
+            } else if !msg.is_empty() {
+                format!("Codex 错误: {}", msg)
+            } else {
+                format!("Codex 错误事件: {}", v)
+            };
+            let _ = app.emit(
+                "salmon-stream",
+                StreamEvent::Error {
+                    topic_id: topic_id.to_string(),
+                    message: body,
+                },
+            );
         }
         other => {
             eprintln!(
