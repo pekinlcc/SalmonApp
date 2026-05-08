@@ -269,8 +269,17 @@ button { font-family: inherit; }
 .msg-name .ts { color: var(--ink-500); font-weight: 400; margin-left: 6px; font-size: 11px; }
 .msg-body p { margin: 0 0 8px; }
 .msg-body code:not(pre code) { font-family: var(--mono); font-size: 12px; background: var(--ink-50); border: 1px solid var(--ink-100); padding: 1px 5px; border-radius: 4px; }
-.msg-body pre { font-family: var(--mono); font-size: 12px; background: #1B1F23; color: #E6E8EB; padding: 12px 14px; border-radius: var(--radius-sm); overflow-x: auto; margin: 0; }
-.msg-body pre code { background: transparent; border: 0; padding: 0; color: inherit; }
+.msg-body pre { font-family: var(--mono); font-size: 12px; background: #1B1F23; color: #E6E8EB; padding: 12px 14px; border-radius: var(--radius-sm); margin: 0; }
+.msg-body pre code {
+  background: transparent; border: 0; padding: 0; color: inherit;
+  /* Soft-wrap long lines instead of producing a per-block horizontal
+     scrollbar. preserves whitespace + indentation, breaks unbroken
+     tokens (URLs, paths, base64) at the box boundary. Same convention
+     ChatGPT and Claude.ai use. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
 .codeblock { position: relative; margin: 8px 0; }
 .codeblock-copy {
   position: absolute; top: 6px; right: 6px;
@@ -287,7 +296,16 @@ button { font-family: inherit; }
 .codeblock-copy:hover { background: rgba(255,255,255,0.18); }
 .codeblock-copy.copied { background: #2F6F4D; border-color: #2F6F4D; color: #fff; }
 .msg-body ul, .msg-body ol { margin: 0 0 8px; padding-left: 20px; }
-.msg-body table { border-collapse: collapse; margin: 8px 0; }
+/* Wide markdown tables would otherwise stretch the message body and
+   produce a chat-level horizontal scrollbar. Make the table itself a
+   block so it can scroll inside the message bubble instead. */
+.msg-body table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  margin: 8px 0;
+}
 .msg-body th, .msg-body td { border: 1px solid var(--ink-100); padding: 4px 8px; }
 .msg-body blockquote { border-left: 3px solid var(--ink-100); margin: 0 0 8px; padding-left: 10px; color: var(--ink-500); }
 
@@ -549,10 +567,22 @@ button { font-family: inherit; }
 .preview-md ul, .preview-md ol { margin: 0 0 10px; padding-left: 22px; }
 .preview-md li { margin: 2px 0; }
 .preview-md code:not(pre code) { font-family: var(--mono); font-size: 12px; background: var(--ink-50); border: 1px solid var(--ink-100); padding: 1px 5px; border-radius: 4px; }
-.preview-md pre { font-family: var(--mono); font-size: 12px; background: #1B1F23; color: #E6E8EB; padding: 12px 14px; border-radius: var(--radius-sm); overflow-x: auto; margin: 8px 0; }
-.preview-md pre code { background: transparent; border: 0; padding: 0; color: inherit; }
+.preview-md pre { font-family: var(--mono); font-size: 12px; background: #1B1F23; color: #E6E8EB; padding: 12px 14px; border-radius: var(--radius-sm); margin: 8px 0; }
+.preview-md pre code {
+  background: transparent; border: 0; padding: 0; color: inherit;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
 .preview-md blockquote { border-left: 3px solid var(--salmon-300); margin: 8px 0; padding: 2px 12px; color: var(--ink-700); background: var(--salmon-50); border-radius: 0 4px 4px 0; }
-.preview-md table { border-collapse: collapse; margin: 8px 0; font-size: 12.5px; }
+.preview-md table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  margin: 8px 0;
+  font-size: 12.5px;
+}
 .preview-md th, .preview-md td { border: 1px solid var(--ink-100); padding: 5px 9px; text-align: left; }
 .preview-md th { background: var(--ink-50); font-weight: 600; }
 .preview-md hr { border: 0; border-top: 1px solid var(--ink-100); margin: 16px 0; }
