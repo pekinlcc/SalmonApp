@@ -422,11 +422,17 @@ button { font-family: inherit; }
 .settings-modal { width: 600px; }
 
 /* v0.7.3: two-column settings panel — left rail (用量 / 偏好 / 关于),
-   right scrollable content. Modal is now wider+taller because the 用量
-   table needs the room. */
-.settings-modal-v2 {
+   right scrollable content. Modal is wider+taller because the 用量
+   table needs the room. Selector qualified with `.modal` because the
+   shared `.modal` rule (declared later in this file) sets width:480px
+   and padding:22px 24px — without the higher specificity we'd inherit
+   those and the panel would collapse to half-width with internal
+   double-padding. */
+.modal.settings-modal-v2 {
   width: 880px;
+  max-width: calc(100vw - 40px);
   height: 580px;
+  max-height: calc(100vh - 80px);
   padding: 0;
   display: grid;
   grid-template-columns: 200px 1fr;
