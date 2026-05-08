@@ -1,9 +1,10 @@
-import type { ChatLayout, CliInfo } from "../lib/types";
+import type { ChatLayout, CliInfo, UsageSummary } from "../lib/types";
 
 interface Props {
   chatLayout: ChatLayout;
   defaultEngine: string;
   cliStatus: CliInfo[];
+  usageSummary: UsageSummary | null;
   onChangeChatLayout: (layout: ChatLayout) => void;
   onChangeDefaultEngine: (engine: string) => void;
   onClose: () => void;
@@ -13,6 +14,7 @@ export function SettingsDialog({
   chatLayout,
   defaultEngine,
   cliStatus,
+  usageSummary,
   onChangeChatLayout,
   onChangeDefaultEngine,
   onClose,
@@ -108,10 +110,64 @@ export function SettingsDialog({
           </label>
         </section>
 
+        {usageSummary && (
+          <section className="settings-section">
+            <div className="settings-section-title">用量</div>
+            <div className="settings-section-desc">
+              累计 token 消耗。按 Topic 排序，前 50 名。
+            </div>
+            <div className="usage-summary-row">
+              <span>今日 <b>{compact(usageSummary.todayIn + usageSummary.todayOut)}</b></span>
+              <span>近 7 天 <b>{compact(usageSummary.weekIn + usageSummary.weekOut)}</b></span>
+              <span>近 30 天 <b>{compact(usageSummary.monthIn + usageSummary.monthOut)}</b></span>
+              <span>累计 <b>{compact(usageSummary.totalIn + usageSummary.totalOut)}</b></span>
+            </div>
+            {usageSummary.byTopic.length === 0 ? (
+              <div className="settings-section-desc" style={{ marginTop: 6 }}>
+                还没有可统计的 token 数据。等几次对话之后再回来看。
+              </div>
+            ) : (
+              <table className="usage-table">
+                <thead>
+                  <tr>
+                    <th>Topic</th>
+                    <th>引擎</th>
+                    <th style={{ textAlign: "right" }}>输入</th>
+                    <th style={{ textAlign: "right" }}>输出</th>
+                    <th style={{ textAlign: "right" }}>合计</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {usageSummary.byTopic.map((t) => (
+                    <tr key={t.topicId}>
+                      <td className="usage-topic-cell" title={t.topicTitle}>{t.topicTitle || "(未命名)"}</td>
+                      <td>
+                        <span className={`engine-pill ${t.engine === "claude" ? "engine-cc" : "engine-cx"}`}>
+                          {t.engine === "claude" ? "CC" : "CX"}
+                        </span>
+                      </td>
+                      <td style={{ textAlign: "right" }}>{compact(t.totalIn)}</td>
+                      <td style={{ textAlign: "right" }}>{compact(t.totalOut)}</td>
+                      <td style={{ textAlign: "right" }}><b>{compact(t.totalIn + t.totalOut)}</b></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </section>
+        )}
+
         <div className="modal-actions">
           <button className="btn primary" onClick={onClose}>完成</button>
         </div>
       </div>
     </div>
   );
+}
+
+function compact(n: number): string {
+  if (n < 1000) return String(n);
+  if (n < 10000) return `${(n / 1000).toFixed(1)}k`;
+  if (n < 1_000_000) return `${Math.round(n / 1000)}k`;
+  return `${(n / 1_000_000).toFixed(1)}M`;
 }

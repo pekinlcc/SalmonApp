@@ -32,6 +32,9 @@ export interface Message {
   content: string;
   toolCalls?: any;
   createdAt: number;
+  tokenIn?: number | null;
+  tokenOut?: number | null;
+  durationMs?: number | null;
 }
 
 export interface CliInfo {
@@ -54,6 +57,7 @@ export type StreamEvent =
   | { kind: "started"; topicId: string; sessionId: string | null }
   | { kind: "assistantText"; topicId: string; messageId: string; delta: string }
   | { kind: "assistantDone"; topicId: string; messageId: string; content: string }
+  | { kind: "usage"; topicId: string; inputTokens: number; outputTokens: number; durationMs: number | null }
   | { kind: "thinking"; topicId: string; messageId: string; content: string }
   | { kind: "toolCall"; topicId: string; tool: ToolCall }
   | { kind: "toolResult"; topicId: string; toolId: string; state: string; result: string | null }
@@ -81,6 +85,38 @@ export interface UiMessage {
   pending?: boolean;
   interrupted?: boolean;
   createdAt: number;
+  /** Per-turn telemetry, populated when the engine emits Usage / Exited.
+   *  Set on the latest assistant turn; user rows leave these undefined. */
+  tokenIn?: number;
+  tokenOut?: number;
+  durationMs?: number;
+}
+
+export interface EngineUsage {
+  engine: string;
+  totalIn: number;
+  totalOut: number;
+}
+
+export interface TopicUsage {
+  topicId: string;
+  topicTitle: string;
+  engine: string;
+  totalIn: number;
+  totalOut: number;
+}
+
+export interface UsageSummary {
+  todayIn: number;
+  todayOut: number;
+  weekIn: number;
+  weekOut: number;
+  monthIn: number;
+  monthOut: number;
+  totalIn: number;
+  totalOut: number;
+  byEngine: EngineUsage[];
+  byTopic: TopicUsage[];
 }
 
 export type ChatLayout = "inline" | "thinking";

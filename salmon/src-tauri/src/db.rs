@@ -63,6 +63,12 @@ impl Db {
             "ALTER TABLE recommendations ADD COLUMN payoff TEXT NOT NULL DEFAULT ''",
             [],
         );
+        // v0.7.2: per-turn token + duration columns. NULL is fine for
+        // historical rows that predate the schema; aggregations COALESCE
+        // them to 0 so old data doesn't poison the totals.
+        let _ = conn.execute("ALTER TABLE messages ADD COLUMN token_in INTEGER", []);
+        let _ = conn.execute("ALTER TABLE messages ADD COLUMN token_out INTEGER", []);
+        let _ = conn.execute("ALTER TABLE messages ADD COLUMN duration_ms INTEGER", []);
         conn.execute_batch(
             r#"
             CREATE TABLE IF NOT EXISTS recommendations (
@@ -260,7 +266,85 @@ impl Db {
             content: content.into(),
             tool_calls: tool_calls.cloned(),
             created_at: now,
+            token_in: None,
+            token_out: None,
+            duration_ms: None,
         })
+    }
+
+    /// Fold token usage + (optionally) duration into an existing message
+    /// row — called when the engine emits a Usage event after the turn
+    /// completes. Adds rather than replaces tokens so partial/re-issued
+    /// usage events don't truncate the count.
+    pub fn add_message_tokens(
+        &mut self,
+        message_id: &str,
+        input_tokens: i64,
+        output_tokens: i64,
+    ) -> Result<()> {
+        self.conn.execute(
+            "UPDATE messages
+             SET token_in  = COALESCE(token_in,  0) + ?,
+                 token_out = COALESCE(token_out, 0) + ?
+             WHERE id = ?",
+            params![input_tokens, output_tokens, message_id],
+        )?;
+        Ok(())
+    }
+
+    /// Stamp how long this assistant turn ran (ms) — set once when
+    /// `exited` fires for the message. Idempotent.
+    pub fn set_message_duration(&mut self, message_id: &str, duration_ms: i64) -> Result<()> {
+        self.conn.execute(
+            "UPDATE messages SET duration_ms = ? WHERE id = ?",
+            params![duration_ms, message_id],
+        )?;
+        Ok(())
+    }
+
+    /// Fold tokens into whichever assistant message in this topic is
+    /// "most recent" (max created_at). Used by the Tauri command that
+    /// fires on Usage stream events — engine.rs deliberately doesn't
+    /// thread DB ids through the callback chain, so we resolve "the
+    /// turn that just ended" here by querying.
+    pub fn add_latest_assistant_tokens(
+        &mut self,
+        topic_id: &str,
+        input_tokens: i64,
+        output_tokens: i64,
+    ) -> Result<()> {
+        self.conn.execute(
+            "UPDATE messages SET
+               token_in  = COALESCE(token_in,  0) + ?,
+               token_out = COALESCE(token_out, 0) + ?
+             WHERE id = (
+               SELECT id FROM messages
+               WHERE topic_id = ? AND role = 'assistant'
+               ORDER BY created_at DESC LIMIT 1
+             )",
+            params![input_tokens, output_tokens, topic_id],
+        )?;
+        Ok(())
+    }
+
+    /// Same as set_message_duration but resolves by topic+latest. Idempotent
+    /// only in the no-overlapping-turns case — fine for our serial-prompt
+    /// flow.
+    pub fn set_latest_assistant_duration(
+        &mut self,
+        topic_id: &str,
+        duration_ms: i64,
+    ) -> Result<()> {
+        self.conn.execute(
+            "UPDATE messages SET duration_ms = ?
+             WHERE id = (
+               SELECT id FROM messages
+               WHERE topic_id = ? AND role = 'assistant'
+               ORDER BY created_at DESC LIMIT 1
+             )",
+            params![duration_ms, topic_id],
+        )?;
+        Ok(())
     }
 
     pub fn insert_recommendation(&mut self, r: &Recommendation) -> Result<()> {
@@ -387,7 +471,9 @@ impl Db {
 
     pub fn list_messages(&self, topic_id: &str) -> Result<Vec<Message>> {
         let mut stmt = self.conn.prepare(
-            "SELECT id,topic_id,role,content,tool_calls,created_at FROM messages
+            "SELECT id,topic_id,role,content,tool_calls,created_at,
+                    token_in,token_out,duration_ms
+             FROM messages
              WHERE topic_id=? ORDER BY created_at ASC",
         )?;
         let rows = stmt.query_map(params![topic_id], |r| {
@@ -400,6 +486,9 @@ impl Db {
                 content: r.get(3)?,
                 tool_calls: tc,
                 created_at: r.get(5)?,
+                token_in: r.get(6).ok(),
+                token_out: r.get(7).ok(),
+                duration_ms: r.get(8).ok(),
             })
         })?;
         let mut out = Vec::new();
@@ -407,5 +496,103 @@ impl Db {
             out.push(m?);
         }
         Ok(out)
+    }
+
+    /// Build the homepage / settings usage rollup. One pass over messages
+    /// joined with topics, bucketed by (today / week / month / total) using
+    /// LOCAL day boundaries so "今日" matches what the user sees on their
+    /// clock.
+    pub fn usage_summary(&self) -> Result<crate::types::UsageSummary> {
+        use crate::types::{EngineUsage, TopicUsage, UsageSummary};
+        let now = chrono::Local::now();
+        let today_start = now
+            .date_naive()
+            .and_hms_opt(0, 0, 0)
+            .and_then(|d| d.and_local_timezone(chrono::Local).single())
+            .map(|d| d.timestamp_millis())
+            .unwrap_or(0);
+        let week_start = today_start - 6 * 24 * 60 * 60 * 1000;     // last 7 days incl today
+        let month_start = today_start - 29 * 24 * 60 * 60 * 1000;   // last 30 days incl today
+
+        let mut summary = UsageSummary::default();
+
+        // Aggregate buckets in a single SELECT over assistant messages —
+        // user rows have no token columns and would just contribute zeros.
+        let mut stmt = self.conn.prepare(
+            "SELECT created_at, COALESCE(token_in,0), COALESCE(token_out,0)
+             FROM messages WHERE role='assistant'",
+        )?;
+        let rows = stmt.query_map([], |r| {
+            Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?, r.get::<_, i64>(2)?))
+        })?;
+        for row in rows {
+            let (ts, ti, to) = row?;
+            summary.total_in += ti;
+            summary.total_out += to;
+            if ts >= month_start {
+                summary.month_in += ti;
+                summary.month_out += to;
+            }
+            if ts >= week_start {
+                summary.week_in += ti;
+                summary.week_out += to;
+            }
+            if ts >= today_start {
+                summary.today_in += ti;
+                summary.today_out += to;
+            }
+        }
+
+        // By-engine: join messages → topics on topic_id and group by engine.
+        let mut stmt = self.conn.prepare(
+            "SELECT t.engine,
+                    COALESCE(SUM(m.token_in), 0),
+                    COALESCE(SUM(m.token_out), 0)
+             FROM messages m
+             JOIN topics t ON t.id = m.topic_id
+             WHERE m.role='assistant'
+             GROUP BY t.engine
+             ORDER BY (COALESCE(SUM(m.token_in),0) + COALESCE(SUM(m.token_out),0)) DESC",
+        )?;
+        let rows = stmt.query_map([], |r| {
+            Ok(EngineUsage {
+                engine: r.get(0)?,
+                total_in: r.get(1)?,
+                total_out: r.get(2)?,
+            })
+        })?;
+        for row in rows {
+            summary.by_engine.push(row?);
+        }
+
+        // By-topic: top 50 topics by total tokens. Settings page pages the
+        // rest if it ever gets that long; for now this covers any realistic
+        // dataset.
+        let mut stmt = self.conn.prepare(
+            "SELECT m.topic_id, t.title, t.engine,
+                    COALESCE(SUM(m.token_in), 0),
+                    COALESCE(SUM(m.token_out), 0)
+             FROM messages m
+             JOIN topics t ON t.id = m.topic_id
+             WHERE m.role='assistant'
+             GROUP BY m.topic_id
+             HAVING SUM(COALESCE(m.token_in,0) + COALESCE(m.token_out,0)) > 0
+             ORDER BY (SUM(COALESCE(m.token_in,0) + COALESCE(m.token_out,0))) DESC
+             LIMIT 50",
+        )?;
+        let rows = stmt.query_map([], |r| {
+            Ok(TopicUsage {
+                topic_id: r.get(0)?,
+                topic_title: r.get(1)?,
+                engine: r.get(2)?,
+                total_in: r.get(3)?,
+                total_out: r.get(4)?,
+            })
+        })?;
+        for row in rows {
+            summary.by_topic.push(row?);
+        }
+
+        Ok(summary)
     }
 }

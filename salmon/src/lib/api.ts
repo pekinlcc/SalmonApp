@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { CliInfo, FileEntry, Message, Recommendation, Topic, WorkdirCheck } from "./types";
+import type { CliInfo, FileEntry, Message, Recommendation, Topic, UsageSummary, WorkdirCheck } from "./types";
 
 export const api = {
   detectClis: () => invoke<{ clis: CliInfo[] }>("detect_clis"),
@@ -55,4 +55,9 @@ export const api = {
   runningTopics: () => invoke<string[]>("running_topics"),
   debugLog: (message: string) => invoke<void>("debug_log", { message }),
   getHomeDir: () => invoke<string>("get_home_dir"),
+  addTopicUsage: (topicId: string, inputTokens: number, outputTokens: number) =>
+    invoke<void>("add_topic_usage", { topicId, inputTokens, outputTokens }),
+  setTopicTurnDuration: (topicId: string, durationMs: number) =>
+    invoke<void>("set_topic_turn_duration", { topicId, durationMs }),
+  getUsageSummary: () => invoke<UsageSummary>("get_usage_summary"),
 };

@@ -318,6 +318,8 @@ button { font-family: inherit; }
 .msg-body blockquote { border-left: 3px solid var(--ink-100); margin: 0 0 8px; padding-left: 10px; color: var(--ink-500); }
 
 .interrupted-tag { display: inline-block; font-size: 10.5px; padding: 1px 6px; border-radius: 3px; font-weight: 600; background: #FFE4E1; color: #B7493D; margin-left: 6px; }
+.turn-stats { color: var(--ink-500); font-weight: 400; font-size: 11px; }
+.turn-stat { margin-left: 4px; font-variant-numeric: tabular-nums; }
 
 /* ── Typing indicator (Level A) ─────────────────────────────────────── */
 .typing-msg { animation: typing-fade-in .18s ease-out; }
@@ -712,6 +714,62 @@ button { font-family: inherit; }
 
 .welcome-recs-empty { color: var(--ink-500); font-size: 12.5px; padding: 12px 14px; background: var(--panel); border: 1px dashed var(--ink-100); border-radius: var(--radius-sm); }
 .welcome-recs-error { color: #B7493D; font-size: 12px; padding: 10px 14px; background: #FFF1ED; border: 1px solid #FFA68A66; border-radius: var(--radius-sm); }
+
+/* Usage card on the welcome page: today / 7d / 30d / total in a 4-up
+   row, plus a one-line by-engine breakdown underneath. Numbers only. */
+.usage-card {
+  background: var(--panel);
+  border: 1px solid var(--ink-100);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.usage-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+.usage-cell {
+  display: flex; flex-direction: column; gap: 2px;
+}
+.usage-cell-label {
+  font-size: 10.5px; color: var(--ink-500); letter-spacing: 0.04em;
+}
+.usage-cell-val {
+  font-size: 18px; font-weight: 600; color: var(--ink-900);
+  font-variant-numeric: tabular-nums;
+}
+.usage-engine-row {
+  display: flex; gap: 16px; flex-wrap: wrap;
+  font-size: 12px; color: var(--ink-700);
+  border-top: 1px solid var(--ink-100); padding-top: 8px;
+}
+.usage-engine { display: inline-flex; align-items: center; }
+
+/* Settings → 用量 table */
+.usage-summary-row {
+  display: flex; gap: 18px; flex-wrap: wrap;
+  margin: 6px 0 12px;
+  font-size: 12.5px; color: var(--ink-700);
+}
+.usage-summary-row b { color: var(--ink-900); margin-left: 4px; font-variant-numeric: tabular-nums; }
+.usage-table {
+  width: 100%; border-collapse: collapse; font-size: 12.5px;
+  margin-top: 8px;
+}
+.usage-table th, .usage-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--ink-100);
+  font-variant-numeric: tabular-nums;
+}
+.usage-table th {
+  text-align: left; font-weight: 600; font-size: 11px;
+  color: var(--ink-500); letter-spacing: 0.04em; text-transform: uppercase;
+}
+.usage-topic-cell {
+  max-width: 280px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 
 .welcome-recs-list { display: flex; flex-direction: column; gap: 10px; }
 

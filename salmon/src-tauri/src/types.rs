@@ -25,6 +25,50 @@ pub struct Message {
     pub content: String,
     pub tool_calls: Option<serde_json::Value>,
     pub created_at: i64,
+    /// Tokens consumed by this turn (assistant rows only). Populated from
+    /// the `result` event (Claude) or `turn.completed` (Codex). None for
+    /// historical rows that predate the v0.7.2 schema migration.
+    pub token_in: Option<i64>,
+    pub token_out: Option<i64>,
+    /// Wall-clock duration of the turn in ms — set when `exited` fires
+    /// for the assistant message. None for user rows or in-flight turns.
+    pub duration_ms: Option<i64>,
+}
+
+/// Token-usage rollup the welcome page / settings / topic header read.
+/// Cheap to compute (one SQL pass with date arithmetic) so we recompute
+/// on demand instead of materializing.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct UsageSummary {
+    pub today_in: i64,
+    pub today_out: i64,
+    pub week_in: i64,
+    pub week_out: i64,
+    pub month_in: i64,
+    pub month_out: i64,
+    pub total_in: i64,
+    pub total_out: i64,
+    pub by_engine: Vec<EngineUsage>,
+    pub by_topic: Vec<TopicUsage>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EngineUsage {
+    pub engine: String,
+    pub total_in: i64,
+    pub total_out: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TopicUsage {
+    pub topic_id: String,
+    pub topic_title: String,
+    pub engine: String,
+    pub total_in: i64,
+    pub total_out: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -85,6 +129,18 @@ pub enum StreamEvent {
     Started { topic_id: String, session_id: Option<String> },
     AssistantText { topic_id: String, message_id: String, delta: String },
     AssistantDone { topic_id: String, message_id: String, content: String },
+    /// Token usage and turn duration emitted at the end of an assistant
+    /// turn (Claude `result` event / Codex `turn.completed`). Frontend
+    /// matches it to the most recent assistant message in the topic.
+    /// `duration_ms` mirrors what Claude's result event carries directly;
+    /// for Codex (no per-turn duration field) we leave it None and the
+    /// frontend computes wall-clock from message timestamps instead.
+    Usage {
+        topic_id: String,
+        input_tokens: i64,
+        output_tokens: i64,
+        duration_ms: Option<i64>,
+    },
     /// Extended-thinking reasoning text from Claude. Surfaced separately
     /// from AssistantDone so the UI can fold it into the 思考过程 section
     /// instead of the visible answer.

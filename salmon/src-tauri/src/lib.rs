@@ -92,6 +92,9 @@ pub fn run() {
             commands::debug_log,
             commands::get_home_dir,
             commands::save_pasted_image,
+            commands::add_topic_usage,
+            commands::set_topic_turn_duration,
+            commands::get_usage_summary,
         ])
         .run(tauri::generate_context!())
         .expect("error while running SalmonApp");

@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import type { Recommendation, Topic } from "../lib/types";
+import type { Recommendation, Topic, UsageSummary } from "../lib/types";
 import { relativeTime } from "../lib/format";
 
 interface PendingPerm {
@@ -23,6 +23,7 @@ interface Props {
   onAcceptRec: (rec: Recommendation) => void;
   onSelect: (id: string) => void;
   onNewTopic: () => void;
+  usageSummary: UsageSummary | null;
 }
 
 interface Row {
@@ -50,6 +51,7 @@ export function WelcomeBack({
   onAcceptRec,
   onSelect,
   onNewTopic,
+  usageSummary,
 }: Props) {
   const rows: Row[] = useMemo(() => {
     const live = topics.filter((t) => !t.archived);
@@ -97,6 +99,13 @@ export function WelcomeBack({
               : `${attention.length} / ${totalLive} 个 Topic 需要看一眼。`}
           </div>
         </div>
+
+        {usageSummary && (usageSummary.todayIn + usageSummary.todayOut + usageSummary.totalIn + usageSummary.totalOut) > 0 && (
+          <section className="welcome-section">
+            <div className="welcome-section-label">用量</div>
+            <UsageCard summary={usageSummary} />
+          </section>
+        )}
 
         <section className="welcome-section">
           <div className="welcome-section-head">
@@ -301,4 +310,52 @@ function shortPath(p: string): string {
   const parts = q.split("/").filter(Boolean);
   if (parts.length <= 2) return q;
   return "…/" + parts.slice(-2).join("/");
+}
+
+
+/**
+ * Compact usage rollup: today / 7d / 30d / total, plus a one-line
+ * by-engine breakdown. Numbers only — user opted against a chart;
+ * cost estimation is also out (no price table to maintain).
+ */
+function UsageCard({ summary }: { summary: UsageSummary }) {
+  const cells: Array<{ label: string; tokens: number }> = [
+    { label: "今日", tokens: summary.todayIn + summary.todayOut },
+    { label: "近 7 天", tokens: summary.weekIn + summary.weekOut },
+    { label: "近 30 天", tokens: summary.monthIn + summary.monthOut },
+    { label: "累计", tokens: summary.totalIn + summary.totalOut },
+  ];
+  return (
+    <div className="usage-card">
+      <div className="usage-row">
+        {cells.map((c) => (
+          <div key={c.label} className="usage-cell">
+            <div className="usage-cell-label">{c.label}</div>
+            <div className="usage-cell-val">{compactTokens(c.tokens)}</div>
+          </div>
+        ))}
+      </div>
+      {summary.byEngine.length > 0 && (
+        <div className="usage-engine-row">
+          {summary.byEngine.map((eu) => (
+            <span key={eu.engine} className="usage-engine">
+              <span className={`engine-pill ${eu.engine === "claude" ? "engine-cc" : "engine-cx"}`}>
+                {eu.engine === "claude" ? "CC" : "CX"}
+              </span>
+              <span style={{ marginLeft: 6 }}>
+                {compactTokens(eu.totalIn + eu.totalOut)} ({compactTokens(eu.totalIn)} in · {compactTokens(eu.totalOut)} out)
+              </span>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function compactTokens(n: number): string {
+  if (n < 1000) return String(n);
+  if (n < 10000) return `${(n / 1000).toFixed(1)}k`;
+  if (n < 1_000_000) return `${Math.round(n / 1000)}k`;
+  return `${(n / 1_000_000).toFixed(1)}M`;
 }

@@ -1624,6 +1624,49 @@ pub fn debug_log(message: String) {
     eprintln!("[fe] {message}");
 }
 
+/// Add token usage onto the most recent assistant message in a topic.
+/// Called from the frontend when a Usage stream event lands so the row
+/// is persisted (the in-memory message also updates for immediate
+/// display). Idempotent-ish: re-firing would double-count, but the
+/// engine only emits one Usage per turn.
+#[tauri::command]
+pub fn add_topic_usage(
+    state: State<'_, AppState>,
+    topic_id: String,
+    input_tokens: i64,
+    output_tokens: i64,
+) -> Result<(), String> {
+    state
+        .db
+        .lock()
+        .add_latest_assistant_tokens(&topic_id, input_tokens, output_tokens)
+        .map_err(map_err)
+}
+
+/// Stamp duration on the most recent assistant message in a topic —
+/// called when `exited` fires for that turn. Frontend computes the
+/// number itself (exited timestamp − user-message createdAt) so we
+/// don't have to thread state across handle_*_event calls.
+#[tauri::command]
+pub fn set_topic_turn_duration(
+    state: State<'_, AppState>,
+    topic_id: String,
+    duration_ms: i64,
+) -> Result<(), String> {
+    state
+        .db
+        .lock()
+        .set_latest_assistant_duration(&topic_id, duration_ms)
+        .map_err(map_err)
+}
+
+#[tauri::command]
+pub fn get_usage_summary(
+    state: State<'_, AppState>,
+) -> Result<crate::types::UsageSummary, String> {
+    state.db.lock().usage_summary().map_err(map_err)
+}
+
 #[tauri::command]
 pub fn get_home_dir() -> String {
     std::env::var("HOME").unwrap_or_default()

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { ask } from "@tauri-apps/plugin-dialog";
-import type { Block, ChatLayout, CliInfo, Message, Recommendation, StreamEvent, ToolCall, Topic, UiMessage } from "./lib/types";
+import type { Block, ChatLayout, CliInfo, Message, Recommendation, StreamEvent, ToolCall, Topic, UiMessage, UsageSummary } from "./lib/types";
 import { api } from "./lib/api";
 import { notify, type NotifyOpts, type ToastEvent } from "./lib/notify";
 import { LeftSidebar } from "./components/LeftSidebar";
@@ -44,6 +44,15 @@ export default function App() {
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [recsLoading, setRecsLoading] = useState(false);
   const [recsError, setRecsError] = useState<string | null>(null);
+  const [usageSummary, setUsageSummary] = useState<UsageSummary | null>(null);
+  const refreshUsageSummary = useCallback(async () => {
+    try {
+      const s = await api.getUsageSummary();
+      setUsageSummary(s);
+    } catch (e: any) {
+      api.debugLog(`getUsageSummary failed: ${e}`);
+    }
+  }, []);
   const lastRecsRunRef = useRef<number>(0);
 
   // Topic id whose danger toggle was just flipped — drives the transient
@@ -133,6 +142,7 @@ export default function App() {
   // moved to the topics-loaded effect below.
   useEffect(() => {
     refreshRecsList();
+    refreshUsageSummary();
     const HOUR = 60 * 60 * 1000;
     const maxTopicUpdated = () =>
       topicsRef.current.reduce((m, t) => Math.max(m, t.updatedAt), 0);
@@ -366,6 +376,42 @@ export default function App() {
         setBusyByTopic((b) => ({ ...b, [e.topicId]: true }));
         break;
       }
+      case "usage": {
+        // Per-turn token rollup from Claude's `result` / Codex's
+        // `turn.completed`. Stamp the latest assistant message in memory
+        // so the per-message footer can show "1.2k in · 340 out" right
+        // away, then persist via a backend command so list_messages on a
+        // future open returns the same numbers. Duration overrides the
+        // wall-clock fallback computed by `exited` if the engine reported
+        // its own (Claude does, Codex doesn't).
+        setMessagesByTopic((m) => {
+          const prev = m[e.topicId];
+          if (!prev) return m;
+          let lastIdx = -1;
+          for (let i = prev.length - 1; i >= 0; i--) {
+            if (prev[i].role === "assistant") { lastIdx = i; break; }
+          }
+          if (lastIdx === -1) return m;
+          const target = prev[lastIdx];
+          const updated: UiMessage = {
+            ...target,
+            tokenIn: (target.tokenIn || 0) + e.inputTokens,
+            tokenOut: (target.tokenOut || 0) + e.outputTokens,
+            durationMs: e.durationMs ?? target.durationMs,
+          };
+          const list = [...prev.slice(0, lastIdx), updated, ...prev.slice(lastIdx + 1)];
+          return { ...m, [e.topicId]: list };
+        });
+        api.addTopicUsage(e.topicId, e.inputTokens, e.outputTokens)
+          .then(() => refreshUsageSummary())
+          .catch((err) => api.debugLog(`addTopicUsage failed: ${err}`));
+        if (e.durationMs !== null && e.durationMs > 0) {
+          api.setTopicTurnDuration(e.topicId, e.durationMs).catch((err) => {
+            api.debugLog(`setTopicTurnDuration (from usage) failed: ${err}`);
+          });
+        }
+        break;
+      }
       case "toolCall": {
         setMessagesByTopic((m) => {
           const prev = m[e.topicId] || [];
@@ -452,16 +498,30 @@ export default function App() {
       }
       case "exited": {
         setBusyByTopic((b) => ({ ...b, [e.topicId]: false }));
+        const exitedAt = Date.now();
         // Mark current pending assistant as done, AND sweep any tool calls
         // still in `running`. The CLI subprocess can die mid tool-call (e.g.
         // a Bash that pkill's its own parent), in which case the matching
         // tool_result line never reaches us and the card would otherwise
-        // hang on "running" forever.
+        // hang on "running" forever. Also stamp wall-clock duration onto
+        // the most recent assistant message: from the most recent user
+        // message's createdAt → exitedAt.
+        let durationMs: number | null = null;
         setMessagesByTopic((m) => {
           const prev = m[e.topicId];
           if (!prev) return m;
+          let lastUserAt: number | null = null;
+          for (let i = prev.length - 1; i >= 0; i--) {
+            if (prev[i].role === "user") { lastUserAt = prev[i].createdAt; break; }
+          }
+          if (lastUserAt !== null) durationMs = exitedAt - lastUserAt;
           let dirty = false;
-          const list = prev.map((msg) => {
+          // Find the index of the latest assistant so we can attach duration.
+          let latestAssistantIdx = -1;
+          for (let i = prev.length - 1; i >= 0; i--) {
+            if (prev[i].role === "assistant") { latestAssistantIdx = i; break; }
+          }
+          const list = prev.map((msg, idx) => {
             const pending =
               msg.role === "assistant" && msg.pending ? false : msg.pending;
             if (pending !== msg.pending) dirty = true;
@@ -488,12 +548,25 @@ export default function App() {
                   }
                 : b
             );
-            return pending === msg.pending && tools === msg.tools && blocks === msg.blocks
+            const stampDuration =
+              idx === latestAssistantIdx && durationMs !== null && durationMs > 0
+                ? durationMs
+                : msg.durationMs;
+            if (stampDuration !== msg.durationMs) dirty = true;
+            return pending === msg.pending && tools === msg.tools && blocks === msg.blocks && stampDuration === msg.durationMs
               ? msg
-              : { ...msg, pending, tools, blocks };
+              : { ...msg, pending, tools, blocks, durationMs: stampDuration };
           });
           return dirty ? { ...m, [e.topicId]: list } : m;
         });
+        // Persist the duration so list_messages on next load returns it.
+        // Backend resolves "latest assistant in topic" itself; we don't
+        // need to track DB ids in the frontend.
+        if (durationMs !== null && durationMs > 0) {
+          api.setTopicTurnDuration(e.topicId, durationMs).catch((err) => {
+            api.debugLog(`setTopicTurnDuration failed: ${err}`);
+          });
+        }
         // Distinguish clean exit from crash. null/0 = success per Unix
         // convention; engine drivers signal interruption with non-zero.
         const topic = topics.find((t) => t.id === e.topicId);
@@ -851,9 +924,9 @@ export default function App() {
         spawningId={spawningId}
         cliStatus={cliStatus}
         onSelect={onSelect}
-        onHome={() => { setSelectedId(null); setSelectedTool(null); }}
+        onHome={() => { setSelectedId(null); setSelectedTool(null); refreshUsageSummary(); }}
         onNewTopic={() => setShowNew(true)}
-        onOpenSettings={() => setShowSettings(true)}
+        onOpenSettings={() => { setShowSettings(true); refreshUsageSummary(); }}
         onDeleteTopic={onDelete}
         onRequestRenameTopic={(id) => setRenamingTopicId(id)}
         onArchiveTopic={onArchive}
@@ -876,6 +949,7 @@ export default function App() {
               onAcceptRec={onAcceptRec}
               onSelect={onSelect}
               onNewTopic={() => setShowNew(true)}
+              usageSummary={usageSummary}
             />
           </section>
         </>
@@ -907,6 +981,18 @@ export default function App() {
               <div className="spacer" />
               <div className="stat">
                 {selectedMessages.length} messages
+                {(() => {
+                  const total = selectedMessages.reduce(
+                    (n, m) => n + (m.tokenIn || 0) + (m.tokenOut || 0),
+                    0,
+                  );
+                  if (total === 0) return null;
+                  return (
+                    <span style={{ marginLeft: 8 }} title="本 Topic 累计 tokens (in + out)">
+                      · {formatTokensCompact(total)} tokens
+                    </span>
+                  );
+                })()}
               </div>
             </div>
             <ChatStream
@@ -966,6 +1052,7 @@ export default function App() {
           chatLayout={chatLayout}
           defaultEngine={defaultEngine}
           cliStatus={cliStatus}
+          usageSummary={usageSummary}
           onChangeChatLayout={onChangeChatLayout}
           onChangeDefaultEngine={onChangeDefaultEngine}
           onClose={() => setShowSettings(false)}
@@ -1004,6 +1091,13 @@ function cryptoId(): string {
 function truncate(s: string, n: number): string {
   if (!s) return "";
   return s.length > n ? s.slice(0, n) + "…" : s;
+}
+
+function formatTokensCompact(n: number): string {
+  if (n < 1000) return String(n);
+  if (n < 10000) return `${(n / 1000).toFixed(1)}k`;
+  if (n < 1_000_000) return `${Math.round(n / 1000)}k`;
+  return `${(n / 1_000_000).toFixed(1)}M`;
 }
 
 // Compose the auto-send prompt for "同意 · 开干". Folds title + rationale +
@@ -1056,5 +1150,8 @@ function hydrate(msgs: Message[]): UiMessage[] {
       : [],
     tools: [],
     createdAt: m.createdAt,
+    tokenIn: m.tokenIn ?? undefined,
+    tokenOut: m.tokenOut ?? undefined,
+    durationMs: m.durationMs ?? undefined,
   }));
 }

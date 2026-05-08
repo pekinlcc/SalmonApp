@@ -161,6 +161,7 @@ export function ChatStream(props: Props) {
               {m.role === "user" ? "你" : "SalmonApp · " + (topic.engine === "claude" ? "Claude Code" : "Codex")}
               <span className="ts">{time(m.createdAt)}</span>
               {m.interrupted && <span className="interrupted-tag">已中断</span>}
+              {m.role === "assistant" && !m.pending && renderTurnStats(m)}
             </div>
             {m.role === "user" ? (
               renderUserBody(m, mdComponents)
@@ -220,6 +221,40 @@ export function ChatStream(props: Props) {
       )}
     </div>
   );
+}
+
+/** Right-aligned turn stats next to the assistant message timestamp:
+ *  · 用时 4s · 1.2k in · 340 out
+ *  Each segment is conditional — older messages without persisted
+ *  duration / tokens just get fewer pills. Skip rendering entirely if
+ *  there's nothing to show. */
+function renderTurnStats(m: UiMessage) {
+  const dur = m.durationMs && m.durationMs > 0 ? formatDuration(m.durationMs) : null;
+  const tin = m.tokenIn ? formatTokens(m.tokenIn) : null;
+  const tout = m.tokenOut ? formatTokens(m.tokenOut) : null;
+  if (!dur && !tin && !tout) return null;
+  return (
+    <span className="turn-stats">
+      {dur && <span className="turn-stat" title="用时">· 用时 {dur}</span>}
+      {tin && <span className="turn-stat" title="输入 tokens">· {tin} in</span>}
+      {tout && <span className="turn-stat" title="输出 tokens">· {tout} out</span>}
+    </span>
+  );
+}
+
+function formatDuration(ms: number): string {
+  if (ms < 1000) return `${ms}ms`;
+  const s = ms / 1000;
+  if (s < 60) return `${s.toFixed(s < 10 ? 1 : 0)}s`;
+  const m = Math.floor(s / 60);
+  const r = Math.round(s - m * 60);
+  return r === 0 ? `${m}m` : `${m}m${r}s`;
+}
+
+function formatTokens(n: number): string {
+  if (n < 1000) return String(n);
+  if (n < 10000) return `${(n / 1000).toFixed(1)}k`;
+  return `${Math.round(n / 1000)}k`;
 }
 
 function markdownComponents(workdir: string): Components {

@@ -615,7 +615,48 @@ fn handle_stream_event(
             }
         }
         "result" => {
-            // final summary; nothing to emit beyond what we already streamed
+            // Claude's per-turn rollup. Carries the usage breakdown and a
+            // wall-clock duration the CLI itself measured. Shape (omitting
+            // unrelated fields):
+            //   {"type":"result","duration_ms":12345,
+            //    "usage":{"input_tokens":100,
+            //             "cache_creation_input_tokens":0,
+            //             "cache_read_input_tokens":0,
+            //             "output_tokens":50}}
+            // Sum the three input variants — cost differs between fresh /
+            // cached / cache-creation tokens but for "how much did this turn
+            // use" they're all inbound. Skip emit if the payload is empty
+            // (subtype=error and similar) so we don't write 0/0 rows.
+            let usage = v.get("usage");
+            let input_tokens = usage
+                .and_then(|u| u.get("input_tokens"))
+                .and_then(|x| x.as_i64())
+                .unwrap_or(0);
+            let cache_creation = usage
+                .and_then(|u| u.get("cache_creation_input_tokens"))
+                .and_then(|x| x.as_i64())
+                .unwrap_or(0);
+            let cache_read = usage
+                .and_then(|u| u.get("cache_read_input_tokens"))
+                .and_then(|x| x.as_i64())
+                .unwrap_or(0);
+            let output_tokens = usage
+                .and_then(|u| u.get("output_tokens"))
+                .and_then(|x| x.as_i64())
+                .unwrap_or(0);
+            let total_in = input_tokens + cache_creation + cache_read;
+            let duration_ms = v.get("duration_ms").and_then(|x| x.as_i64());
+            if total_in > 0 || output_tokens > 0 || duration_ms.is_some() {
+                let _ = app.emit(
+                    "salmon-stream",
+                    StreamEvent::Usage {
+                        topic_id: topic_id.to_string(),
+                        input_tokens: total_in,
+                        output_tokens,
+                        duration_ms,
+                    },
+                );
+            }
         }
         other => {
             eprintln!(
@@ -770,8 +811,44 @@ fn handle_codex_event(
                 }
             }
         }
-        "turn.started" | "turn.completed" => {
-            // Could be used for usage display; ignored for MVP.
+        "turn.started" => {
+            // No usage in the start event; nothing to do.
+        }
+        "turn.completed" => {
+            // Codex's per-turn rollup. Schema is less stable than Claude's
+            // but the usage object tends to live either at the top level
+            // or under `turn.usage` / `response.usage`. Try in that order.
+            let usage = v
+                .get("usage")
+                .or_else(|| v.get("turn").and_then(|t| t.get("usage")))
+                .or_else(|| v.get("response").and_then(|r| r.get("usage")));
+            let input_tokens = usage
+                .and_then(|u| u.get("input_tokens"))
+                .and_then(|x| x.as_i64())
+                .or_else(|| usage.and_then(|u| u.get("prompt_tokens")).and_then(|x| x.as_i64()))
+                .unwrap_or(0);
+            let output_tokens = usage
+                .and_then(|u| u.get("output_tokens"))
+                .and_then(|x| x.as_i64())
+                .or_else(|| {
+                    usage
+                        .and_then(|u| u.get("completion_tokens"))
+                        .and_then(|x| x.as_i64())
+                })
+                .unwrap_or(0);
+            // Codex doesn't expose duration_ms in turn.completed; let the
+            // frontend fall back to (exited.ts - user.createdAt) wall-clock.
+            if input_tokens > 0 || output_tokens > 0 {
+                let _ = app.emit(
+                    "salmon-stream",
+                    StreamEvent::Usage {
+                        topic_id: topic_id.to_string(),
+                        input_tokens,
+                        output_tokens,
+                        duration_ms: None,
+                    },
+                );
+            }
         }
         "error" | "thread.error" | "stream.error" => {
             // Codex's `--json` emits structured errors for auth failures,
