@@ -1,4 +1,7 @@
+import { useEffect, useState } from "react";
 import type { ChatLayout, CliInfo, UsageSummary } from "../lib/types";
+import { api } from "../lib/api";
+import pkg from "../../package.json";
 
 interface Props {
   chatLayout: ChatLayout;
@@ -10,6 +13,14 @@ interface Props {
   onClose: () => void;
 }
 
+type Tab = "usage" | "preferences" | "about";
+
+const TABS: Array<{ key: Tab; icon: string; label: string }> = [
+  { key: "usage", icon: "📊", label: "用量" },
+  { key: "preferences", icon: "⚙", label: "偏好" },
+  { key: "about", icon: "ℹ", label: "关于" },
+];
+
 export function SettingsDialog({
   chatLayout,
   defaultEngine,
@@ -19,57 +30,193 @@ export function SettingsDialog({
   onChangeDefaultEngine,
   onClose,
 }: Props) {
+  // Default landing on 用量 — that's the "thing the user opened settings to
+  // glance at quickly" in 9 cases out of 10. Preferences is a rarer click.
+  const [tab, setTab] = useState<Tab>("usage");
+
   return (
     <div className="modal-bg" onClick={onClose}>
-      <div className="modal settings-modal" onClick={(e) => e.stopPropagation()}>
-        <h3>设置</h3>
+      <div className="modal settings-modal-v2" onClick={(e) => e.stopPropagation()}>
+        <aside className="settings-rail">
+          <h4>设置</h4>
+          {TABS.map((t) => (
+            <button
+              key={t.key}
+              className={`rail-item ${tab === t.key ? "active" : ""}`}
+              onClick={() => setTab(t.key)}
+            >
+              <span className="rail-icon">{t.icon}</span>
+              <span>{t.label}</span>
+            </button>
+          ))}
+          <div className="rail-spacer" />
+          <button className="btn rail-close" onClick={onClose}>关闭</button>
+        </aside>
 
-        <section className="settings-section">
-          <div className="settings-section-title">默认引擎</div>
-          <div className="settings-section-desc">
-            "新建 Topic"弹窗的默认值。每个 Topic 一旦创建,引擎就锁死(因为 CLI 的 session resume 是按引擎绑死的);这里改的只影响下一次新建。
-          </div>
-          <div className="engine-row">
-            {cliStatus.map((c) => {
-              const disabled = !c.installed || !c.loggedIn;
-              const checked = defaultEngine === c.binary;
-              return (
-                <label
-                  key={c.binary}
-                  className={`engine-card ${checked ? "selected" : ""} ${disabled ? "disabled" : ""}`}
-                >
-                  <input
-                    type="radio"
-                    name="default-engine"
-                    value={c.binary}
-                    checked={checked}
-                    disabled={disabled}
-                    onChange={() => onChangeDefaultEngine(c.binary)}
-                  />
-                  <div className="engine-card-body">
-                    <div className="engine-card-title">
-                      <span className={`engine-pill ${c.binary === "claude" ? "engine-cc" : "engine-cx"}`}>
-                        {c.binary === "claude" ? "CC" : "CX"}
-                      </span>
-                      <span>{c.name}</span>
-                    </div>
-                    <div className="engine-card-status">
-                      {!c.installed ? "未安装" : !c.loggedIn ? "未登录" : "已登录"}
-                      {c.version && <span className="engine-card-ver"> · {c.version}</span>}
-                    </div>
-                  </div>
-                </label>
-              );
-            })}
-          </div>
+        <section className="settings-content-v2">
+          {tab === "usage" && <UsageTab summary={usageSummary} />}
+          {tab === "preferences" && (
+            <PreferencesTab
+              chatLayout={chatLayout}
+              defaultEngine={defaultEngine}
+              cliStatus={cliStatus}
+              onChangeChatLayout={onChangeChatLayout}
+              onChangeDefaultEngine={onChangeDefaultEngine}
+            />
+          )}
+          {tab === "about" && <AboutTab cliStatus={cliStatus} />}
         </section>
+      </div>
+    </div>
+  );
+}
 
-        <section className="settings-section">
-          <div className="settings-section-title">对话布局</div>
-          <div className="settings-section-desc">
-            助手的回复在中间栏的展示方式。两种风格,工具调用和最终结论的视觉权重不一样。
+function UsageTab({ summary }: { summary: UsageSummary | null }) {
+  if (!summary) {
+    return (
+      <>
+        <h3>用量</h3>
+        <div className="sub">正在加载…</div>
+      </>
+    );
+  }
+  const cells: Array<{ label: string; tokens: number }> = [
+    { label: "今日", tokens: summary.todayIn + summary.todayOut },
+    { label: "近 7 天", tokens: summary.weekIn + summary.weekOut },
+    { label: "近 30 天", tokens: summary.monthIn + summary.monthOut },
+    { label: "累计", tokens: summary.totalIn + summary.totalOut },
+  ];
+  const empty = summary.totalIn + summary.totalOut === 0;
+  return (
+    <>
+      <h3>用量</h3>
+      <div className="sub">累计 token 消耗。按 Topic 排序，前 50 名。</div>
+      <div className="usage-row" style={{ marginBottom: 14 }}>
+        {cells.map((c) => (
+          <div key={c.label} className="usage-cell" style={{ background: "var(--panel)", border: "1px solid var(--ink-100)", padding: 12, borderRadius: 6 }}>
+            <div className="usage-cell-label">{c.label}</div>
+            <div className="usage-cell-val" style={{ fontSize: 22 }}>{compact(c.tokens)}</div>
           </div>
+        ))}
+      </div>
+      {summary.byEngine.length > 0 && (
+        <div className="usage-engine-row">
+          {summary.byEngine.map((eu) => (
+            <span key={eu.engine} className="usage-engine">
+              <span className={`engine-pill ${eu.engine === "claude" ? "engine-cc" : "engine-cx"}`}>
+                {eu.engine === "claude" ? "CC" : "CX"}
+              </span>
+              <span style={{ marginLeft: 6 }}>
+                {compact(eu.totalIn + eu.totalOut)} ({compact(eu.totalIn)} in · {compact(eu.totalOut)} out)
+              </span>
+            </span>
+          ))}
+        </div>
+      )}
+      {empty ? (
+        <div className="settings-section-desc" style={{ marginTop: 14 }}>
+          还没有可统计的 token 数据。等几次对话之后再回来看。
+        </div>
+      ) : (
+        <table className="usage-table">
+          <thead>
+            <tr>
+              <th>Topic</th>
+              <th>引擎</th>
+              <th style={{ textAlign: "right" }}>输入</th>
+              <th style={{ textAlign: "right" }}>输出</th>
+              <th style={{ textAlign: "right" }}>合计</th>
+            </tr>
+          </thead>
+          <tbody>
+            {summary.byTopic.map((t) => (
+              <tr key={t.topicId}>
+                <td className="usage-topic-cell" title={t.topicTitle}>
+                  {t.topicTitle || "(未命名)"}
+                </td>
+                <td>
+                  <span className={`engine-pill ${t.engine === "claude" ? "engine-cc" : "engine-cx"}`}>
+                    {t.engine === "claude" ? "CC" : "CX"}
+                  </span>
+                </td>
+                <td style={{ textAlign: "right" }}>{compact(t.totalIn)}</td>
+                <td style={{ textAlign: "right" }}>{compact(t.totalOut)}</td>
+                <td style={{ textAlign: "right" }}>
+                  <b>{compact(t.totalIn + t.totalOut)}</b>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </>
+  );
+}
 
+function PreferencesTab({
+  chatLayout,
+  defaultEngine,
+  cliStatus,
+  onChangeChatLayout,
+  onChangeDefaultEngine,
+}: {
+  chatLayout: ChatLayout;
+  defaultEngine: string;
+  cliStatus: CliInfo[];
+  onChangeChatLayout: (layout: ChatLayout) => void;
+  onChangeDefaultEngine: (engine: string) => void;
+}) {
+  return (
+    <>
+      <h3>偏好</h3>
+      <div className="sub">影响新建 Topic 和渲染行为的全局开关。</div>
+
+      <section className="settings-section">
+        <div className="settings-section-title">默认引擎</div>
+        <div className="settings-section-desc">
+          "新建 Topic"弹窗的默认值。每个 Topic 一旦创建,引擎就锁死(因为 CLI 的 session resume 是按引擎绑死的);这里改的只影响下一次新建。
+        </div>
+        <div className="engine-row">
+          {cliStatus.map((c) => {
+            const disabled = !c.installed || !c.loggedIn;
+            const checked = defaultEngine === c.binary;
+            return (
+              <label
+                key={c.binary}
+                className={`engine-card ${checked ? "selected" : ""} ${disabled ? "disabled" : ""}`}
+              >
+                <input
+                  type="radio"
+                  name="default-engine"
+                  value={c.binary}
+                  checked={checked}
+                  disabled={disabled}
+                  onChange={() => onChangeDefaultEngine(c.binary)}
+                />
+                <div className="engine-card-body">
+                  <div className="engine-card-title">
+                    <span className={`engine-pill ${c.binary === "claude" ? "engine-cc" : "engine-cx"}`}>
+                      {c.binary === "claude" ? "CC" : "CX"}
+                    </span>
+                    <span>{c.name}</span>
+                  </div>
+                  <div className="engine-card-status">
+                    {!c.installed ? "未安装" : !c.loggedIn ? "未登录" : "已登录"}
+                    {c.version && <span className="engine-card-ver"> · {c.version}</span>}
+                  </div>
+                </div>
+              </label>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="settings-section">
+        <div className="settings-section-title">对话布局</div>
+        <div className="settings-section-desc">
+          影响 assistant 消息里思考过程、工具调用和最终答案的呈现方式。Topic 内即时生效。
+        </div>
+        <div className="engine-row">
           <label className={`layout-card ${chatLayout === "thinking" ? "selected" : ""}`}>
             <input
               type="radio"
@@ -78,18 +225,16 @@ export function SettingsDialog({
               checked={chatLayout === "thinking"}
               onChange={() => onChangeChatLayout("thinking")}
             />
-            <div className="layout-card-body">
+            <div>
               <div className="layout-card-title">
-                折叠"思考过程" + 突出最终答案
-                <span className="badge default">默认</span>
+                折叠思考 + 答案 <span className="badge default">默认</span>
               </div>
               <div className="layout-card-desc">
-                中间执行的工具调用全部折叠成一个 disclosure(默认展开,可关),最终的文字结论靠下与思考块的距离 + 字重突出。<br />
-                适合:看完答案就走,工具过程当注脚。
+                所有工具调用收进"思考过程"折叠，最后一段文字作为答案。<br />
+                适合:专注答案,过程作参考。
               </div>
             </div>
           </label>
-
           <label className={`layout-card ${chatLayout === "inline" ? "selected" : ""}`}>
             <input
               type="radio"
@@ -98,70 +243,67 @@ export function SettingsDialog({
               checked={chatLayout === "inline"}
               onChange={() => onChangeChatLayout("inline")}
             />
-            <div className="layout-card-body">
+            <div>
               <div className="layout-card-title">
                 内联时序交错(Cherry Studio / Claude.ai 风)
               </div>
               <div className="layout-card-desc">
-                每段文字 + 每个工具调用按到达顺序自然排列。能完整还原 AI"先看 X→再 grep Y→给结论"的演化路径。<br />
-                适合:复盘/调试 AI 思路,工具过程是主体。
+                每段文字 + 每个工具调用按到达顺序自然排列。能完整还原 AI 思路演化。<br />
+                适合:复盘 / 调试 AI 思路。
               </div>
             </div>
           </label>
-        </section>
+        </div>
+      </section>
+    </>
+  );
+}
 
-        {usageSummary && (
-          <section className="settings-section">
-            <div className="settings-section-title">用量</div>
-            <div className="settings-section-desc">
-              累计 token 消耗。按 Topic 排序，前 50 名。
-            </div>
-            <div className="usage-summary-row">
-              <span>今日 <b>{compact(usageSummary.todayIn + usageSummary.todayOut)}</b></span>
-              <span>近 7 天 <b>{compact(usageSummary.weekIn + usageSummary.weekOut)}</b></span>
-              <span>近 30 天 <b>{compact(usageSummary.monthIn + usageSummary.monthOut)}</b></span>
-              <span>累计 <b>{compact(usageSummary.totalIn + usageSummary.totalOut)}</b></span>
-            </div>
-            {usageSummary.byTopic.length === 0 ? (
-              <div className="settings-section-desc" style={{ marginTop: 6 }}>
-                还没有可统计的 token 数据。等几次对话之后再回来看。
-              </div>
-            ) : (
-              <table className="usage-table">
-                <thead>
-                  <tr>
-                    <th>Topic</th>
-                    <th>引擎</th>
-                    <th style={{ textAlign: "right" }}>输入</th>
-                    <th style={{ textAlign: "right" }}>输出</th>
-                    <th style={{ textAlign: "right" }}>合计</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {usageSummary.byTopic.map((t) => (
-                    <tr key={t.topicId}>
-                      <td className="usage-topic-cell" title={t.topicTitle}>{t.topicTitle || "(未命名)"}</td>
-                      <td>
-                        <span className={`engine-pill ${t.engine === "claude" ? "engine-cc" : "engine-cx"}`}>
-                          {t.engine === "claude" ? "CC" : "CX"}
-                        </span>
-                      </td>
-                      <td style={{ textAlign: "right" }}>{compact(t.totalIn)}</td>
-                      <td style={{ textAlign: "right" }}>{compact(t.totalOut)}</td>
-                      <td style={{ textAlign: "right" }}><b>{compact(t.totalIn + t.totalOut)}</b></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </section>
-        )}
+function AboutTab({ cliStatus }: { cliStatus: CliInfo[] }) {
+  const [dataDir, setDataDir] = useState<string>("");
+  useEffect(() => {
+    api.getAppDataDir().then(setDataDir).catch(() => {});
+  }, []);
+  return (
+    <>
+      <h3>关于</h3>
+      <div className="sub">
+        SalmonApp 是一个三栏式 Claude Code / Codex CLI 桌面客户端。
+      </div>
 
-        <div className="modal-actions">
-          <button className="btn primary" onClick={onClose}>完成</button>
+      <div className="about-grid">
+        <div className="about-row">
+          <span className="about-k">版本</span>
+          <span className="about-v"><b>v{pkg.version}</b></span>
+        </div>
+        {cliStatus.map((c) => (
+          <div className="about-row" key={c.binary}>
+            <span className="about-k">{c.name} CLI</span>
+            <span className="about-v">
+              <span className={`engine-pill ${c.binary === "claude" ? "engine-cc" : "engine-cx"}`}>
+                {c.binary === "claude" ? "CC" : "CX"}
+              </span>{" "}
+              {!c.installed ? "未安装" : !c.loggedIn ? "未登录" : "已登录"}
+              {c.version && <span style={{ color: "var(--ink-500)" }}> · {c.version}</span>}
+            </span>
+          </div>
+        ))}
+        <div className="about-row">
+          <span className="about-k">数据目录</span>
+          <span className="about-v about-mono" title={dataDir}>
+            {dataDir || "(loading…)"}
+          </span>
+        </div>
+        <div className="about-row">
+          <span className="about-k">仓库</span>
+          <span className="about-v">
+            <a href="https://github.com/pekinlcc/SalmonApp" target="_blank" rel="noreferrer">
+              github.com/pekinlcc/SalmonApp
+            </a>
+          </span>
         </div>
       </div>
-    </div>
+    </>
   );
 }
 

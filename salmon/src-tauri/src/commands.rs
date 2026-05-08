@@ -1667,6 +1667,19 @@ pub fn get_usage_summary(
     state.db.lock().usage_summary().map_err(map_err)
 }
 
+/// Surface the resolved app data directory for the Settings → 关于 tab
+/// (so users can find their salmon.db / paste cache / log file). Asks
+/// Tauri at call time instead of caching at setup so an unusual OS
+/// reconfiguration doesn't show a stale path.
+#[tauri::command]
+pub fn get_app_data_dir(app: tauri::AppHandle) -> Result<String, String> {
+    use tauri::Manager;
+    app.path()
+        .app_data_dir()
+        .map(|p| p.to_string_lossy().into_owned())
+        .map_err(|e| format!("{e}"))
+}
+
 #[tauri::command]
 pub fn get_home_dir() -> String {
     std::env::var("HOME").unwrap_or_default()

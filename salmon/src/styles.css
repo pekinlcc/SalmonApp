@@ -420,6 +420,83 @@ button { font-family: inherit; }
 
 /* Settings dialog */
 .settings-modal { width: 600px; }
+
+/* v0.7.3: two-column settings panel — left rail (用量 / 偏好 / 关于),
+   right scrollable content. Modal is now wider+taller because the 用量
+   table needs the room. */
+.settings-modal-v2 {
+  width: 880px;
+  height: 580px;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  overflow: hidden;
+}
+.settings-rail {
+  background: #FAFAF8;
+  border-right: 1px solid var(--ink-100);
+  padding: 18px 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.settings-rail h4 {
+  font-size: 11px; color: var(--ink-500); letter-spacing: .08em;
+  text-transform: uppercase; margin: 4px 10px 8px; font-weight: 600;
+}
+.rail-item {
+  padding: 8px 12px; border-radius: var(--radius-sm);
+  font-size: 13px; color: var(--ink-700); cursor: pointer;
+  display: flex; align-items: center; gap: 10px;
+  background: transparent; border: 0; text-align: left;
+  font-family: inherit;
+}
+.rail-item:hover { background: var(--ink-50); }
+.rail-item.active {
+  background: var(--salmon-50); color: var(--salmon-700); font-weight: 600;
+}
+.rail-icon { font-size: 14px; width: 18px; text-align: center; flex-shrink: 0; }
+.rail-spacer { flex: 1; }
+.rail-close { margin: 0 4px; font-size: 12px; padding: 6px 12px; }
+
+.settings-content-v2 {
+  padding: 22px 26px;
+  overflow: auto;
+}
+.settings-content-v2 > h3 {
+  font-size: 18px; font-weight: 600; margin: 0 0 4px;
+}
+.settings-content-v2 > .sub {
+  color: var(--ink-500); font-size: 12.5px; margin-bottom: 18px;
+}
+
+/* About-tab key/value rows */
+.about-grid {
+  border: 1px solid var(--ink-100); border-radius: var(--radius-sm);
+  background: var(--panel);
+}
+.about-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--ink-100);
+  font-size: 12.5px;
+}
+.about-row:last-child { border-bottom: 0; }
+.about-k { color: var(--ink-500); }
+.about-v { color: var(--ink-900); display: inline-flex; align-items: center; gap: 6px; }
+.about-v a { color: var(--salmon-700); text-decoration: none; }
+.about-v a:hover { text-decoration: underline; }
+.about-mono { font-family: var(--mono); font-size: 11px; color: var(--ink-500); }
+
+/* Foot gear (replaces the old top-of-sidebar one) */
+.left-foot { align-items: center; }
+.foot-gear {
+  margin-left: auto;
+  background: transparent; border: 0; padding: 4px 8px;
+  font-size: 16px; color: var(--ink-500); cursor: pointer;
+  border-radius: 4px; line-height: 1;
+}
+.foot-gear:hover { background: var(--ink-50); color: var(--salmon-700); }
 .settings-section { margin-bottom: 14px; }
 .settings-section-title { font-weight: 600; font-size: 14px; margin-bottom: 4px; }
 .settings-section-desc { color: var(--ink-500); font-size: 12px; margin-bottom: 10px; }

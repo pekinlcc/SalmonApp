@@ -64,13 +64,6 @@ export function LeftSidebar(props: Props) {
         <div className="logo" onClick={props.onHome} title="返回首页" style={{ cursor: "pointer" }}>S</div>
         <div className="name" onClick={props.onHome} style={{ cursor: "pointer" }}>SalmonApp</div>
         <div className="ver">v{pkg.version}</div>
-        <button
-          className="settings-btn"
-          title="设置"
-          onClick={props.onOpenSettings}
-        >
-          ⚙
-        </button>
       </div>
 
       <button
@@ -261,6 +254,14 @@ export function LeftSidebar(props: Props) {
             </div>
           );
         })}
+        <button
+          className="foot-gear"
+          title="设置 / 用量"
+          onClick={props.onOpenSettings}
+          aria-label="设置"
+        >
+          ⚙
+        </button>
       </div>
     </aside>
   );

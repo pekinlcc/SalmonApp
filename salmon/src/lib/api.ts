@@ -60,4 +60,5 @@ export const api = {
   setTopicTurnDuration: (topicId: string, durationMs: number) =>
     invoke<void>("set_topic_turn_duration", { topicId, durationMs }),
   getUsageSummary: () => invoke<UsageSummary>("get_usage_summary"),
+  getAppDataDir: () => invoke<string>("get_app_data_dir"),
 };

@@ -1,0 +1,565 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<title>SalmonApp · Settings 改版 mockup</title>
+<style>
+  :root {
+    --salmon-50:  #FFF1ED;
+    --salmon-100: #FFD9CD;
+    --salmon-300: #FFA68A;
+    --salmon-500: #FA8072;
+    --salmon-600: #E5685A;
+    --salmon-700: #B7493D;
+    --ink-900: #1B1F23;
+    --ink-700: #3A4047;
+    --ink-500: #6B7280;
+    --ink-300: #B7BDC4;
+    --ink-100: #E6E8EB;
+    --ink-50:  #F5F6F7;
+    --bg:      #FAFAF9;
+    --panel:   #FFFFFF;
+    --shadow:  0 1px 0 rgba(16,18,20,0.04), 0 4px 18px rgba(16,18,20,0.04);
+    --radius:  10px;
+    --radius-sm: 6px;
+    --mono: ui-monospace, "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Inter", "PingFang SC", "Microsoft YaHei", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px;
+    background: #ECECE9;
+    font-family: var(--sans);
+    color: var(--ink-900);
+    font-size: 13px; line-height: 1.55;
+  }
+  h1 { font-size: 20px; font-weight: 700; margin: 0 0 4px; }
+  h2 { font-size: 14px; color: var(--ink-500); font-weight: 500; margin: 0 0 18px; }
+  .doc-section { margin-bottom: 36px; }
+  .doc-section > h3 {
+    font-size: 12px; color: var(--ink-500); letter-spacing: .08em;
+    text-transform: uppercase; margin: 0 0 10px;
+  }
+  .doc-note {
+    font-size: 12px; color: var(--ink-500);
+    margin: 8px 0 0; max-width: 720px;
+  }
+
+  /* ===== Sidebar shell preview ===== */
+  .shell-row { display: flex; gap: 28px; align-items: flex-start; flex-wrap: wrap; }
+  .sidebar {
+    width: 260px; height: 540px;
+    background: #F7F5F3; border: 1px solid var(--ink-100);
+    border-radius: var(--radius); overflow: hidden;
+    display: flex; flex-direction: column;
+    font-family: var(--sans);
+  }
+  .left-head {
+    padding: 14px 14px 8px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .logo {
+    width: 24px; height: 24px; border-radius: 7px;
+    background: linear-gradient(135deg, var(--salmon-500), var(--salmon-700));
+    color: white; font-weight: 700; font-size: 13px;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 1px 2px rgba(183,73,61,.4);
+  }
+  .name { font-weight: 600; font-size: 14px; }
+  .ver { color: var(--ink-500); font-size: 11px; margin-left: auto; }
+  .gear-btn {
+    background: transparent; border: 0; padding: 4px 6px;
+    font-size: 14px; color: var(--ink-500); cursor: pointer;
+    border-radius: 4px;
+  }
+  .home-btn, .new-btn {
+    margin: 4px 12px 6px; padding: 8px 10px;
+    border: 1px solid var(--ink-100); background: white;
+    border-radius: var(--radius-sm);
+    font-size: 12.5px; color: var(--ink-700);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .home-btn.active {
+    background: var(--salmon-50); border-color: var(--salmon-300);
+    color: var(--salmon-700);
+  }
+  .home-icon { color: var(--salmon-500); font-weight: 700; }
+  .home-sub { margin-left: auto; color: var(--ink-500); font-size: 10.5px; }
+  .new-btn .plus { color: var(--salmon-500); font-weight: 700; }
+  .search {
+    margin: 0 12px 8px;
+    background: white; border: 1px solid var(--ink-100); border-radius: var(--radius-sm);
+    padding: 5px 8px; color: var(--ink-500); font-size: 12px;
+  }
+  .topic-list { flex: 1; padding: 4px 8px 8px; overflow: auto; color: var(--ink-500); }
+  .topic-row {
+    padding: 9px 10px; border-radius: var(--radius-sm);
+    margin: 2px 0;
+    display: flex; align-items: center; gap: 6px;
+    font-size: 12.5px;
+  }
+  .topic-row.active {
+    background: var(--salmon-50); box-shadow: inset 2px 0 0 var(--salmon-500);
+    color: var(--salmon-700); font-weight: 600;
+  }
+  .pill {
+    font-size: 9.5px; font-weight: 600; padding: 1px 5px; border-radius: 3px;
+    flex-shrink: 0;
+  }
+  .pill-cc { background: #FFE4DA; color: #B7493D; }
+  .pill-cx { background: #E6F0FF; color: #2F5BB7; }
+
+  /* New foot */
+  .left-foot-old {
+    border-top: 1px solid var(--ink-100); background: rgba(255,255,255,.6);
+    padding: 10px 14px;
+    display: flex; gap: 14px; flex-wrap: wrap;
+    font-size: 11.5px; color: var(--ink-500);
+  }
+  .left-foot-new {
+    border-top: 1px solid var(--ink-100); background: rgba(255,255,255,.6);
+    padding: 8px 10px 8px 14px;
+    display: flex; align-items: center; gap: 10px;
+    font-size: 11.5px; color: var(--ink-500);
+  }
+  .health { display: inline-flex; align-items: center; gap: 5px; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: #4ade80; display: inline-block; }
+  .dot.warn { background: #f59e0b; }
+  .dot.miss { background: #b7493d; }
+  .gear-foot {
+    margin-left: auto;
+    background: transparent; border: 0; padding: 4px 8px;
+    font-size: 16px; color: var(--ink-500); cursor: pointer;
+    border-radius: 4px; line-height: 1;
+  }
+  .gear-foot:hover { background: var(--ink-50); color: var(--salmon-700); }
+  .strike { text-decoration: line-through; color: var(--ink-300); }
+
+  /* ===== Settings modal ===== */
+  .modal-backdrop {
+    background: rgba(20,22,28,.18); padding: 60px 40px;
+    border-radius: 12px; min-height: 600px;
+    display: flex; align-items: stretch; justify-content: center;
+  }
+  .modal-card {
+    background: var(--panel); border-radius: 12px; box-shadow: var(--shadow);
+    width: 880px; height: 540px;
+    display: grid; grid-template-columns: 200px 1fr;
+    overflow: hidden; border: 1px solid var(--ink-100);
+  }
+  .settings-rail {
+    background: #FAFAF8; border-right: 1px solid var(--ink-100);
+    padding: 18px 10px; display: flex; flex-direction: column; gap: 2px;
+  }
+  .settings-rail h4 {
+    font-size: 11px; color: var(--ink-500); letter-spacing: .08em;
+    text-transform: uppercase; margin: 4px 10px 8px; font-weight: 600;
+  }
+  .rail-item {
+    padding: 8px 12px; border-radius: var(--radius-sm);
+    font-size: 13px; color: var(--ink-700); cursor: pointer;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .rail-item:hover { background: var(--ink-50); }
+  .rail-item.active { background: var(--salmon-50); color: var(--salmon-700); font-weight: 600; }
+  .rail-spacer { flex: 1; }
+  .rail-meta {
+    font-size: 11px; color: var(--ink-500); padding: 8px 12px;
+    border-top: 1px solid var(--ink-100); margin-top: 8px;
+  }
+
+  .settings-content {
+    padding: 22px 26px; overflow: auto;
+  }
+  .settings-content h3 {
+    font-size: 18px; font-weight: 600; margin: 0 0 4px;
+  }
+  .settings-content .sub {
+    color: var(--ink-500); font-size: 12.5px; margin-bottom: 18px;
+  }
+
+  /* Usage card layout (matches v0.7.2 styles) */
+  .usage-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 14px; }
+  .usage-cell {
+    display: flex; flex-direction: column; gap: 2px;
+    padding: 12px; border: 1px solid var(--ink-100);
+    border-radius: var(--radius-sm); background: var(--panel);
+  }
+  .usage-cell-label { font-size: 10.5px; color: var(--ink-500); letter-spacing: .04em; }
+  .usage-cell-val {
+    font-size: 22px; font-weight: 700; color: var(--ink-900);
+    font-variant-numeric: tabular-nums;
+  }
+  .usage-engine-row {
+    display: flex; gap: 16px; flex-wrap: wrap;
+    font-size: 12px; color: var(--ink-700);
+    border-top: 1px solid var(--ink-100); padding-top: 10px; margin-bottom: 16px;
+  }
+  .usage-engine-row .engine-pair { display: inline-flex; align-items: center; gap: 6px; }
+
+  table.usage-table { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-top: 6px; }
+  .usage-table th, .usage-table td {
+    padding: 7px 8px; border-bottom: 1px solid var(--ink-100);
+    font-variant-numeric: tabular-nums;
+  }
+  .usage-table th {
+    text-align: left; font-weight: 600; font-size: 11px;
+    color: var(--ink-500); letter-spacing: .04em; text-transform: uppercase;
+  }
+  .topic-cell { max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* Preferences section style */
+  .pref-block {
+    border: 1px solid var(--ink-100); border-radius: var(--radius-sm);
+    padding: 14px 16px; margin-bottom: 14px; background: var(--panel);
+  }
+  .pref-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+  .pref-desc { font-size: 12px; color: var(--ink-500); margin-bottom: 10px; }
+  .engine-row { display: flex; gap: 8px; }
+  .engine-card {
+    flex: 1; display: flex; gap: 8px; padding: 10px 12px;
+    border: 1.5px solid var(--ink-100); border-radius: var(--radius-sm);
+    cursor: pointer;
+  }
+  .engine-card.selected { border-color: var(--salmon-500); background: var(--salmon-50); }
+  .engine-card-body .title { font-size: 12.5px; font-weight: 500; }
+  .engine-card-body .status { color: var(--ink-500); font-size: 10.5px; margin-top: 2px; }
+
+  .layout-row { display: flex; gap: 8px; }
+  .layout-card {
+    flex: 1; padding: 10px 12px; border: 1.5px solid var(--ink-100);
+    border-radius: var(--radius-sm); cursor: pointer;
+  }
+  .layout-card.selected { border-color: var(--salmon-500); background: var(--salmon-50); }
+  .layout-card .title { font-size: 12.5px; font-weight: 500; }
+  .layout-card .desc { font-size: 11px; color: var(--ink-500); margin-top: 4px; line-height: 1.5; }
+
+  /* About section */
+  .about-row {
+    display: flex; justify-content: space-between; padding: 8px 0;
+    border-bottom: 1px solid var(--ink-100); font-size: 12.5px;
+  }
+  .about-row:last-child { border: 0; }
+  .about-row .k { color: var(--ink-500); }
+  .about-row a { color: var(--salmon-700); text-decoration: none; }
+
+  .arrow-tag {
+    display: inline-block; background: #FFFAE3; border: 1px dashed #DDB94E;
+    padding: 2px 6px; font-size: 10.5px; color: #8A6700; border-radius: 3px;
+    vertical-align: middle; margin-left: 6px;
+  }
+</style>
+</head>
+<body>
+
+<h1>SalmonApp · Settings 改版 mockup</h1>
+<h2>v0.7.2 → v0.7.3 提议。两幅图：(A) 入口位置；(B) 重组后的设置面板。</h2>
+
+<!-- ─────────── (A) 入口位置 ─────────── -->
+<div class="doc-section">
+  <h3>(A) ⚙ 入口位置</h3>
+  <p class="doc-note">
+    现在 ⚙ 在左上角 logo 旁边 —— 视觉上它和品牌挤在一起，又不是高频操作。挪到底部 left-foot
+    的右端，跟 CLI 健康状态做邻居。点 ⚙ 打开下面 (B) 的新面板。
+  </p>
+  <div class="shell-row">
+
+    <!-- 左：当前 -->
+    <div>
+      <div class="doc-note" style="margin-bottom:8px;">现在</div>
+      <div class="sidebar">
+        <div class="left-head">
+          <div class="logo">S</div>
+          <div class="name">SalmonApp</div>
+          <div class="ver">v0.7.2</div>
+          <button class="gear-btn" title="设置">⚙</button>
+        </div>
+        <div class="home-btn active">
+          <span class="home-icon">✦</span> 首页 <span class="home-sub">总览 / 未读</span>
+        </div>
+        <div class="new-btn"><span class="plus">＋</span> 新建 Topic</div>
+        <div class="search">搜索 Topic 标题…</div>
+        <div class="topic-list">
+          <div class="topic-row active">
+            <span class="pill pill-cc">CC</span>
+            <span style="flex:1; overflow:hidden; text-overflow:ellipsis;">取消开机密钥</span>
+          </div>
+          <div class="topic-row">
+            <span class="pill pill-cx">CX</span>
+            <span style="flex:1; overflow:hidden; text-overflow:ellipsis;">飞书日历</span>
+          </div>
+          <div class="topic-row">
+            <span class="pill pill-cc">CC</span>
+            <span style="flex:1; overflow:hidden; text-overflow:ellipsis;">PC 操作系统份额走势</span>
+          </div>
+          <div style="text-align:center; color:var(--ink-300); font-size:11px; padding:24px 0;">…</div>
+        </div>
+        <div class="left-foot-old">
+          <span class="health"><span class="dot"></span> Claude Code: 已登录</span>
+          <span class="health"><span class="dot"></span> Codex: 已登录</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 右：改后 -->
+    <div>
+      <div class="doc-note" style="margin-bottom:8px;">改后</div>
+      <div class="sidebar">
+        <div class="left-head">
+          <div class="logo">S</div>
+          <div class="name">SalmonApp</div>
+          <div class="ver">v0.7.3</div>
+          <span class="strike" style="margin-left:6px; font-size:14px;">⚙</span>
+          <span class="arrow-tag">移走</span>
+        </div>
+        <div class="home-btn active">
+          <span class="home-icon">✦</span> 首页 <span class="home-sub">总览 / 未读</span>
+        </div>
+        <div class="new-btn"><span class="plus">＋</span> 新建 Topic</div>
+        <div class="search">搜索 Topic 标题…</div>
+        <div class="topic-list">
+          <div class="topic-row active">
+            <span class="pill pill-cc">CC</span>
+            <span style="flex:1; overflow:hidden; text-overflow:ellipsis;">取消开机密钥</span>
+          </div>
+          <div class="topic-row">
+            <span class="pill pill-cx">CX</span>
+            <span style="flex:1; overflow:hidden; text-overflow:ellipsis;">飞书日历</span>
+          </div>
+          <div class="topic-row">
+            <span class="pill pill-cc">CC</span>
+            <span style="flex:1; overflow:hidden; text-overflow:ellipsis;">PC 操作系统份额走势</span>
+          </div>
+          <div style="text-align:center; color:var(--ink-300); font-size:11px; padding:24px 0;">…</div>
+        </div>
+        <div class="left-foot-new">
+          <span class="health"><span class="dot"></span> Claude</span>
+          <span class="health"><span class="dot"></span> Codex</span>
+          <button class="gear-foot" title="设置 / 用量">⚙</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ─────────── (B) 设置面板 ─────────── -->
+<div class="doc-section">
+  <h3>(B) 设置面板内部分层</h3>
+  <p class="doc-note">
+    左侧导航 + 右侧内容的两栏布局，替代现在那个长滚动单页。<b>用量</b> 是默认进入的页（最常看的），
+    其他配置归到 <b>偏好</b>。<b>关于</b> 放版本 / GitHub / CLI 详情。Topic-级的 Bypass 仍然在
+    Topic 头部就近控制，不进设置（per-topic 不是全局）。
+  </p>
+  <div class="modal-backdrop">
+    <div class="modal-card">
+      <!-- 左：rail -->
+      <aside class="settings-rail">
+        <h4>设置</h4>
+        <div class="rail-item active">📊 用量</div>
+        <div class="rail-item">⚙ 偏好</div>
+        <div class="rail-item">ℹ 关于</div>
+        <div class="rail-spacer"></div>
+        <div class="rail-meta">
+          v0.7.3 · 5月8日<br />
+          <a style="color: var(--salmon-700); text-decoration:none;" href="#">GitHub →</a>
+        </div>
+      </aside>
+
+      <!-- 右：用量（默认 active）-->
+      <section class="settings-content">
+        <h3>用量</h3>
+        <div class="sub">累计 token 消耗。按 Topic 排序，前 50 名。</div>
+
+        <div class="usage-row">
+          <div class="usage-cell">
+            <div class="usage-cell-label">今日</div>
+            <div class="usage-cell-val">12.4k</div>
+          </div>
+          <div class="usage-cell">
+            <div class="usage-cell-label">近 7 天</div>
+            <div class="usage-cell-val">78k</div>
+          </div>
+          <div class="usage-cell">
+            <div class="usage-cell-label">近 30 天</div>
+            <div class="usage-cell-val">312k</div>
+          </div>
+          <div class="usage-cell">
+            <div class="usage-cell-label">累计</div>
+            <div class="usage-cell-val">1.2M</div>
+          </div>
+        </div>
+
+        <div class="usage-engine-row">
+          <span class="engine-pair">
+            <span class="pill pill-cc">CC</span>
+            <span>820k (520k in · 300k out)</span>
+          </span>
+          <span class="engine-pair">
+            <span class="pill pill-cx">CX</span>
+            <span>410k (260k in · 150k out)</span>
+          </span>
+        </div>
+
+        <table class="usage-table">
+          <thead>
+            <tr>
+              <th>Topic</th><th>引擎</th>
+              <th style="text-align:right;">输入</th>
+              <th style="text-align:right;">输出</th>
+              <th style="text-align:right;">合计</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="topic-cell">取消开机密钥</td>
+              <td><span class="pill pill-cc">CC</span></td>
+              <td style="text-align:right;">42k</td>
+              <td style="text-align:right;">18k</td>
+              <td style="text-align:right;"><b>60k</b></td>
+            </tr>
+            <tr>
+              <td class="topic-cell">SalmonApp 自身开发</td>
+              <td><span class="pill pill-cc">CC</span></td>
+              <td style="text-align:right;">38k</td>
+              <td style="text-align:right;">22k</td>
+              <td style="text-align:right;"><b>60k</b></td>
+            </tr>
+            <tr>
+              <td class="topic-cell">飞书日历</td>
+              <td><span class="pill pill-cx">CX</span></td>
+              <td style="text-align:right;">28k</td>
+              <td style="text-align:right;">15k</td>
+              <td style="text-align:right;"><b>43k</b></td>
+            </tr>
+            <tr>
+              <td class="topic-cell" style="color:var(--ink-300);">…</td>
+              <td colspan="4" style="color:var(--ink-300);">… 47 more</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+    </div>
+  </div>
+</div>
+
+<!-- ─────────── (B 续) 偏好 / 关于 ─────────── -->
+<div class="doc-section">
+  <h3>(B 续) 偏好页 + 关于页 内容预览</h3>
+  <p class="doc-note">同一个面板，切到左边别的 rail-item 时，右侧内容变成下面这两种之一。</p>
+  <div class="shell-row" style="gap:24px;">
+
+    <!-- 偏好 -->
+    <div>
+      <div class="doc-note" style="margin-bottom:8px;">⚙ 偏好</div>
+      <div class="modal-card" style="width:520px;">
+        <aside class="settings-rail">
+          <h4>设置</h4>
+          <div class="rail-item">📊 用量</div>
+          <div class="rail-item active">⚙ 偏好</div>
+          <div class="rail-item">ℹ 关于</div>
+          <div class="rail-spacer"></div>
+        </aside>
+        <section class="settings-content">
+          <h3>偏好</h3>
+          <div class="sub">影响新建 Topic / 渲染行为的全局开关。</div>
+
+          <div class="pref-block">
+            <div class="pref-title">默认引擎</div>
+            <div class="pref-desc">"新建 Topic" 弹窗的默认值。每个 Topic 一旦创建,引擎就锁死。</div>
+            <div class="engine-row">
+              <label class="engine-card selected">
+                <input type="radio" checked /> <div class="engine-card-body">
+                  <div class="title"><span class="pill pill-cc">CC</span> Claude Code</div>
+                  <div class="status">已登录 · 2.1.128</div>
+                </div>
+              </label>
+              <label class="engine-card">
+                <input type="radio" /> <div class="engine-card-body">
+                  <div class="title"><span class="pill pill-cx">CX</span> Codex</div>
+                  <div class="status">已登录 · 0.128.0</div>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <div class="pref-block">
+            <div class="pref-title">对话布局</div>
+            <div class="pref-desc">影响 assistant 消息里 thinking + 工具 + 答案的呈现方式。</div>
+            <div class="layout-row">
+              <label class="layout-card selected">
+                <input type="radio" checked />
+                <div class="title">折叠思考 + 答案 (默认)</div>
+                <div class="desc">tools 和中间文字塞进"思考过程"折叠，最后一段当答案。</div>
+              </label>
+              <label class="layout-card">
+                <input type="radio" />
+                <div class="title">内联交错</div>
+                <div class="desc">每段文字 + 每个工具按到达顺序自然排列。</div>
+              </label>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <!-- 关于 -->
+    <div>
+      <div class="doc-note" style="margin-bottom:8px;">ℹ 关于</div>
+      <div class="modal-card" style="width:380px;">
+        <aside class="settings-rail">
+          <h4>设置</h4>
+          <div class="rail-item">📊 用量</div>
+          <div class="rail-item">⚙ 偏好</div>
+          <div class="rail-item active">ℹ 关于</div>
+          <div class="rail-spacer"></div>
+        </aside>
+        <section class="settings-content">
+          <h3>关于</h3>
+          <div class="sub">SalmonApp 是一个三栏式 Claude Code / Codex CLI 桌面客户端。</div>
+
+          <div class="about-row">
+            <span class="k">版本</span><span><b>v0.7.3</b></span>
+          </div>
+          <div class="about-row">
+            <span class="k">Claude Code CLI</span>
+            <span><span class="pill pill-cc">CC</span> 已登录 · 2.1.128</span>
+          </div>
+          <div class="about-row">
+            <span class="k">Codex CLI</span>
+            <span><span class="pill pill-cx">CX</span> 已登录 · 0.128.0</span>
+          </div>
+          <div class="about-row">
+            <span class="k">数据目录</span>
+            <span style="font-family:var(--mono); font-size:10.5px; color:var(--ink-500);">
+              ~/.local/share/app.salmonapp.desktop/
+            </span>
+          </div>
+          <div class="about-row">
+            <span class="k">仓库</span>
+            <a href="https://github.com/pekinlcc/SalmonApp">github.com/pekinlcc/SalmonApp</a>
+          </div>
+          <div class="about-row">
+            <span class="k">许可</span><span>—</span>
+          </div>
+        </section>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ─────────── 决策点 ─────────── -->
+<div class="doc-section">
+  <h3>需要你拍板的几点</h3>
+  <ol style="font-size:13px; color:var(--ink-700); line-height:1.7;">
+    <li><b>分类名字</b>：<code>用量 / 偏好 / 关于</code> 三层。"偏好"还是叫"通用"？默认值 vs 替代叫法。</li>
+    <li><b>左下 ⚙ 是替代版本号还是并列</b>？mockup 用的是并列（CLI 健康 + ⚙ 在右端）；版本号还在顶部 <code>v0.7.3</code> 处。如果你想把版本号也挪到底部，可以做。</li>
+    <li><b>"关于"页要放数据目录路径吗？</b>对清理 / 备份有用，但暴露了内部细节。可去。</li>
+    <li><b>关于页要不要"导出 / 清空 SQLite"按钮？</b>原 PRD 里提过但没落地。这次顺手做？</li>
+    <li><b>"二级菜单"</b>你说一级二级 —— 如果你想 <em>偏好</em> 下面再分子项（外观 / 数据 / 实验性），告诉我，我再画一版。当前 mockup 是"一级 rail，右侧直铺"。</li>
+  </ol>
+</div>
+
+</body>
+</html>
