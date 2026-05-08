@@ -270,15 +270,23 @@ button { font-family: inherit; }
 .msg-body p { margin: 0 0 8px; }
 .msg-body code:not(pre code) { font-family: var(--mono); font-size: 12px; background: var(--ink-50); border: 1px solid var(--ink-100); padding: 1px 5px; border-radius: 4px; }
 .msg-body pre { font-family: var(--mono); font-size: 12px; background: #1B1F23; color: #E6E8EB; padding: 12px 14px; border-radius: var(--radius-sm); margin: 0; }
-.msg-body pre code {
+/* Soft-wrap long lines instead of producing a per-block horizontal
+   scrollbar. Preserves whitespace + indentation, breaks unbroken
+   tokens (URLs, paths, base64) at the box boundary. Same convention
+   ChatGPT and Claude.ai use.
+   The duplicated `.msg-body pre code.hljs` selector is intentional:
+   highlight.js's github-dark theme (loaded AFTER our stylesheet) sets
+   `pre code.hljs { overflow-x: auto; padding: 1em }` at specificity
+   (0,1,2), tied with `.msg-body pre code` and winning on cascade order.
+   Adding `.hljs` to our selector pushes specificity to (0,2,3) so the
+   wrap rules beat the theme regardless of import order. */
+.msg-body pre code,
+.msg-body pre code.hljs {
   background: transparent; border: 0; padding: 0; color: inherit;
-  /* Soft-wrap long lines instead of producing a per-block horizontal
-     scrollbar. preserves whitespace + indentation, breaks unbroken
-     tokens (URLs, paths, base64) at the box boundary. Same convention
-     ChatGPT and Claude.ai use. */
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   word-break: break-word;
+  overflow-x: visible;
 }
 .codeblock { position: relative; margin: 8px 0; }
 .codeblock-copy {
@@ -568,11 +576,14 @@ button { font-family: inherit; }
 .preview-md li { margin: 2px 0; }
 .preview-md code:not(pre code) { font-family: var(--mono); font-size: 12px; background: var(--ink-50); border: 1px solid var(--ink-100); padding: 1px 5px; border-radius: 4px; }
 .preview-md pre { font-family: var(--mono); font-size: 12px; background: #1B1F23; color: #E6E8EB; padding: 12px 14px; border-radius: var(--radius-sm); margin: 8px 0; }
-.preview-md pre code {
+/* Same hljs-override trick as .msg-body pre code above. */
+.preview-md pre code,
+.preview-md pre code.hljs {
   background: transparent; border: 0; padding: 0; color: inherit;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   word-break: break-word;
+  overflow-x: visible;
 }
 .preview-md blockquote { border-left: 3px solid var(--salmon-300); margin: 8px 0; padding: 2px 12px; color: var(--ink-700); background: var(--salmon-50); border-radius: 0 4px 4px 0; }
 .preview-md table {
