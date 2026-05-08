@@ -246,11 +246,19 @@ export function LeftSidebar(props: Props) {
       <div className="left-foot">
         {cliStatus.map((c) => {
           const cls = !c.installed ? "miss" : c.loggedIn ? "" : "warn";
-          const label = !c.installed ? "未安装" : c.loggedIn ? "已登录" : "未登录";
+          const state = !c.installed ? "未安装" : c.loggedIn ? "已登录" : "未登录";
+          // Compact label so the gear stays on the same row even on the
+          // 260px sidebar. Full state is in the tooltip — dot colour
+          // already encodes ok / warn / miss at a glance.
+          const short = c.binary === "claude" ? "Claude" : "Codex";
           return (
-            <div key={c.binary} className={`health ${cls}`} title={c.path || ""}>
+            <div
+              key={c.binary}
+              className={`health ${cls}`}
+              title={`${c.name}: ${state}${c.path ? ` · ${c.path}` : ""}`}
+            >
               <span className="dot" />
-              {c.name}: {label}
+              {short}
             </div>
           );
         })}
