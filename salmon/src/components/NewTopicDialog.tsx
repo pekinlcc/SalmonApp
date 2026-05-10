@@ -55,7 +55,7 @@ export function NewTopicDialog({ cliStatus, defaultEngine, topics, onCancel, onC
       title: title.trim(),
       engine: engineOverride,
       workdir,
-      model: model.trim() || null,
+      model: engineOverride === "claude" ? model.trim() || null : null,
       dangerMode: danger,
     });
   };

@@ -32,21 +32,7 @@ pub fn detect_clis() -> Result<DetectResult, String> {
                     version = Some(v);
                 }
             }
-            // login probe — minimal, no cost. We treat presence of CLI config as "logged in".
-            // For Claude Code we look for ~/.claude/ directory or settings.
-            if bin == "claude" {
-                if let Some(home) = dirs_home() {
-                    let p1 = home.join(".claude");
-                    let p2 = home.join(".config").join("claude");
-                    logged_in = p1.exists() || p2.exists();
-                }
-            } else if bin == "codex" {
-                if let Some(home) = dirs_home() {
-                    let p1 = home.join(".codex");
-                    let p2 = home.join(".config").join("codex");
-                    logged_in = p1.exists() || p2.exists();
-                }
-            }
+            logged_in = cli_logged_in(bin, p);
         }
         out.push(CliInfo {
             name: name.into(),
@@ -60,8 +46,43 @@ pub fn detect_clis() -> Result<DetectResult, String> {
     Ok(DetectResult { clis: out })
 }
 
-fn dirs_home() -> Option<PathBuf> {
-    std::env::var_os("HOME").map(PathBuf::from)
+fn cli_logged_in(bin: &str, path: &std::path::Path) -> bool {
+    match bin {
+        "claude" => claude_logged_in(path),
+        "codex" => codex_logged_in(path),
+        _ => false,
+    }
+}
+
+fn claude_logged_in(path: &std::path::Path) -> bool {
+    let Ok(out) = Command::new(path).args(["auth", "status"]).output() else {
+        return false;
+    };
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    if let Ok(v) = serde_json::from_str::<serde_json::Value>(stdout.trim()) {
+        return v
+            .get("loggedIn")
+            .and_then(|x| x.as_bool())
+            .unwrap_or(false);
+    }
+    out.status.success() && !looks_logged_out(&stdout, &String::from_utf8_lossy(&out.stderr))
+}
+
+fn codex_logged_in(path: &std::path::Path) -> bool {
+    let Ok(out) = Command::new(path).args(["login", "status"]).output() else {
+        return false;
+    };
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    out.status.success() && !looks_logged_out(&stdout, &stderr)
+}
+
+fn looks_logged_out(stdout: &str, stderr: &str) -> bool {
+    let combined = format!("{stdout}\n{stderr}").to_ascii_lowercase();
+    combined.contains("not logged in")
+        || combined.contains("loggedin\": false")
+        || combined.contains("login required")
+        || combined.contains("please login")
 }
 
 #[tauri::command]
@@ -238,6 +259,10 @@ pub fn open_topic(state: State<'_, AppState>, id: String) -> Result<(), String> 
         .get_topic(&id)
         .map_err(map_err)?
         .ok_or_else(|| "topic not found".to_string())?;
+    spawn_topic(&state, topic)
+}
+
+fn spawn_topic(state: &State<'_, AppState>, topic: Topic) -> Result<(), String> {
     let db_handle = Arc::clone(&state.db);
     let topic_id_for_cb = topic.id.clone();
     let db_for_msg = Arc::clone(&state.db);
@@ -276,12 +301,22 @@ pub fn send_message(
     topic_id: String,
     content: String,
 ) -> Result<Message, String> {
+    let topic = state
+        .db
+        .lock()
+        .get_topic(&topic_id)
+        .map_err(map_err)?
+        .ok_or_else(|| "topic not found".to_string())?;
+    spawn_topic(&state, topic)?;
     let saved = state
         .db
         .lock()
         .append_message(&topic_id, "user", &content, None)
         .map_err(map_err)?;
-    state.engine.send(&topic_id, &content).map_err(map_err)?;
+    if let Err(e) = state.engine.send(&topic_id, &content).map_err(map_err) {
+        let _ = state.db.lock().delete_message(&saved.id);
+        return Err(e);
+    }
     Ok(saved)
 }
 
@@ -462,13 +497,13 @@ pub async fn generate_recommendations(
     // ─── Round 1: parallel candidate generation with self-rated value ───
     let gen_prompt = build_recommendation_prompt(&topics_block, &feedback_block);
     eprintln!("[salmon] rec round1 prompt: {} chars", gen_prompt.len());
-    let (claude_res, codex_res) = tokio::join!(
-        run_engine(&fallback_workdir, gen_prompt.clone(), "claude"),
-        run_engine(&fallback_workdir, gen_prompt.clone(), "codex"),
-    );
+    let available_engines = recommendation_engines();
+    if available_engines.is_empty() {
+        return Err("没有已登录的 CLI,无法生成推荐".to_string());
+    }
     let mut all: Vec<Recommendation> = Vec::new();
-    for (engine, res) in [("claude", claude_res), ("codex", codex_res)] {
-        match res {
+    for engine in &available_engines {
+        match run_engine(&fallback_workdir, gen_prompt.clone(), engine).await {
             Ok(out) => match parse_recommendation_json(&out, &valid_ids, engine, now_ms) {
                 Ok(mut rs) => all.append(&mut rs),
                 Err(e) => eprintln!("[salmon] {} round1 parse: {}", engine, e),
@@ -493,15 +528,16 @@ pub async fn generate_recommendations(
         claude_candidates.len(), codex_review_prompt.len(),
     );
 
-    let claude_review_fut = async {
-        if codex_candidates.is_empty() { Err("nothing to review".to_string()) }
-        else { run_engine(&fallback_workdir, claude_review_prompt, "claude").await }
+    let claude_review_res = if available_engines.iter().any(|e| e == "claude") && !codex_candidates.is_empty() {
+        run_engine(&fallback_workdir, claude_review_prompt, "claude").await
+    } else {
+        Err("nothing to review".to_string())
     };
-    let codex_review_fut = async {
-        if claude_candidates.is_empty() { Err("nothing to review".to_string()) }
-        else { run_engine(&fallback_workdir, codex_review_prompt, "codex").await }
+    let codex_review_res = if available_engines.iter().any(|e| e == "codex") && !claude_candidates.is_empty() {
+        run_engine(&fallback_workdir, codex_review_prompt, "codex").await
+    } else {
+        Err("nothing to review".to_string())
     };
-    let (claude_review_res, codex_review_res) = tokio::join!(claude_review_fut, codex_review_fut);
 
     let claude_ratings = claude_review_res
         .ok()
@@ -637,6 +673,18 @@ fn rec_score(r: &Recommendation) -> u8 {
         (_, Some("high")) => 2,
         _ => 1,
     }
+}
+
+fn recommendation_engines() -> Vec<&'static str> {
+    ["claude", "codex"]
+        .into_iter()
+        .filter(|engine| {
+            which::which(engine)
+                .ok()
+                .map(|path| cli_logged_in(engine, &path))
+                .unwrap_or(false)
+        })
+        .collect()
 }
 
 async fn run_engine(
@@ -778,8 +826,13 @@ async fn guess_decision_reason(
         rec.title, rec.rationale, rec.action_hint, rec.source_engine,
         history_block,
     );
-    let bin = which::which("claude").map_err(map_err)?;
-    let raw = run_cli_for_recommendations(bin, fallback_workdir, prompt, false).await?;
+    let engine = recommendation_engines()
+        .into_iter()
+        .find(|e| *e == rec.source_engine)
+        .or_else(|| recommendation_engines().into_iter().next())
+        .ok_or_else(|| "没有已登录的 CLI,跳过反馈原因推测".to_string())?;
+    let bin = which::which(engine).map_err(map_err)?;
+    let raw = run_cli_for_recommendations(bin, fallback_workdir, prompt, engine == "codex").await?;
     let reason = clean_title(&raw);
     if !reason.is_empty() {
         db_handle

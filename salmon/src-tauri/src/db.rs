@@ -272,6 +272,12 @@ impl Db {
         })
     }
 
+    pub fn delete_message(&mut self, id: &str) -> Result<()> {
+        self.conn
+            .execute("DELETE FROM messages WHERE id = ?", params![id])?;
+        Ok(())
+    }
+
     /// Fold token usage + (optionally) duration into an existing message
     /// row — called when the engine emits a Usage event after the turn
     /// completes. Adds rather than replaces tokens so partial/re-issued

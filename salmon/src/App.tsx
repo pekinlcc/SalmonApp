@@ -594,6 +594,7 @@ export default function App() {
           return next;
         });
         setBusyByTopic((b) => ({ ...b, [e.topicId]: false }));
+        setPendingPermByTopic((p) => ({ ...p, [e.topicId]: null }));
         // Safety net: same orphan-tool-call sweep as `exited`. Normally
         // exited fires first and clears these, but if the driver task
         // panicked mid-prompt only sessionEnded reaches us.
@@ -803,10 +804,11 @@ export default function App() {
   const sendToTopic = useCallback(
     async (topicId: string, text: string) => {
       const now = Date.now();
+      const optimisticId = cryptoId();
       setMessagesByTopic((m) => {
         const list = [...(m[topicId] || [])];
         list.push({
-          id: cryptoId(),
+          id: optimisticId,
           role: "user",
           content: text,
           blocks: [{ kind: "text", content: text, createdAt: now }],
@@ -824,6 +826,10 @@ export default function App() {
       try {
         await api.sendMessage(topicId, text);
       } catch (e: any) {
+        setMessagesByTopic((m) => ({
+          ...m,
+          [topicId]: (m[topicId] || []).filter((msg) => msg.id !== optimisticId),
+        }));
         setErrorByTopic((er) => ({ ...er, [topicId]: String(e) }));
         setBusyByTopic((b) => ({ ...b, [topicId]: false }));
       }
@@ -882,17 +888,14 @@ export default function App() {
     setTopics((cur) => cur.map((t) => (t.id === id ? { ...t, title } : t)));
   }, []);
 
-  // Quit confirmation when running topics exist
+  // Quit confirmation when running topics exist. beforeunload requires a
+  // synchronous confirmation path; awaiting a Tauri dialog here cannot block
+  // the close event reliably.
   useEffect(() => {
-    const handler = async (e: BeforeUnloadEvent) => {
+    const handler = (e: BeforeUnloadEvent) => {
       if (runningIds.size > 0) {
         e.preventDefault();
-        e.returnValue = "";
-        const ok = await ask(`还有 ${runningIds.size} 个 Topic 在运行，确认退出？所有运行中的工具调用会被中断。`, {
-          title: "退出 SalmonApp",
-          kind: "warning",
-        });
-        if (!ok) return;
+        e.returnValue = `还有 ${runningIds.size} 个 Topic 在运行。`;
       }
     };
     window.addEventListener("beforeunload", handler);
