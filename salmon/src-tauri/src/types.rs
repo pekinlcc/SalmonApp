@@ -51,6 +51,19 @@ pub struct UsageSummary {
     pub total_out: i64,
     pub by_engine: Vec<EngineUsage>,
     pub by_topic: Vec<TopicUsage>,
+    /// Daily token totals for the last 30 days, oldest → newest. Always
+    /// 30 entries — empty days are zero-filled so the bar chart has
+    /// stable bar positions.
+    pub daily30: Vec<DailyUsage>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DailyUsage {
+    /// Local-time YYYY-MM-DD.
+    pub date: String,
+    pub total_in: i64,
+    pub total_out: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

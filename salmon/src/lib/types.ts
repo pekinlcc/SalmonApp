@@ -106,6 +106,13 @@ export interface TopicUsage {
   totalOut: number;
 }
 
+export interface DailyUsage {
+  /** Local YYYY-MM-DD. */
+  date: string;
+  totalIn: number;
+  totalOut: number;
+}
+
 export interface UsageSummary {
   todayIn: number;
   todayOut: number;
@@ -117,6 +124,8 @@ export interface UsageSummary {
   totalOut: number;
   byEngine: EngineUsage[];
   byTopic: TopicUsage[];
+  /** 30 entries oldest → newest, zero-filled for days with no activity. */
+  daily30: DailyUsage[];
 }
 
 export type ChatLayout = "inline" | "thinking";

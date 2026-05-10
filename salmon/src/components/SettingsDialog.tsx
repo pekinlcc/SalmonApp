@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { ChatLayout, CliInfo, UsageSummary } from "../lib/types";
+import type { ChatLayout, CliInfo, DailyUsage, UsageSummary } from "../lib/types";
 import { api } from "../lib/api";
 import pkg from "../../package.json";
 
@@ -99,6 +99,9 @@ function UsageTab({ summary }: { summary: UsageSummary | null }) {
           </div>
         ))}
       </div>
+      {summary.daily30.length > 0 && summary.daily30.some((d) => d.totalIn + d.totalOut > 0) && (
+        <DailyChart days={summary.daily30} />
+      )}
       {summary.byEngine.length > 0 && (
         <div className="usage-engine-row">
           {summary.byEngine.map((eu) => (
@@ -312,4 +315,97 @@ function compact(n: number): string {
   if (n < 10000) return `${(n / 1000).toFixed(1)}k`;
   if (n < 1_000_000) return `${Math.round(n / 1000)}k`;
   return `${(n / 1_000_000).toFixed(1)}M`;
+}
+
+/**
+ * 30-day daily token bar chart. Each bar = (totalIn + totalOut) for a
+ * day, scaled against the max day in the window. Hover a bar to see the
+ * date + raw counts via the native `<title>` tooltip — no JS positioning
+ * needed. Width is fluid (viewBox), parent decides actual size.
+ */
+function DailyChart({ days }: { days: DailyUsage[] }) {
+  const W = 600;
+  const H = 120;
+  const PAD_TOP = 8;
+  const PAD_BOTTOM = 18; // room for x-axis labels
+  const innerH = H - PAD_TOP - PAD_BOTTOM;
+  const N = days.length || 30;
+  const gap = 3;
+  const barW = (W - gap * (N - 1)) / N;
+  const max = days.reduce((m, d) => Math.max(m, d.totalIn + d.totalOut), 0);
+  const safeMax = max > 0 ? max : 1;
+
+  // Sparse x-axis labels: today, -7d, -14d, -21d, oldest. Five anchors.
+  const labels: Array<{ x: number; text: string }> = [];
+  if (days.length > 0) {
+    const anchors = [0, Math.floor((N - 1) / 4), Math.floor((N - 1) / 2), Math.floor((3 * (N - 1)) / 4), N - 1];
+    for (const i of anchors) {
+      const d = days[i];
+      if (!d) continue;
+      // Show MM-DD; today gets "今日" instead.
+      const text = i === N - 1 ? "今日" : d.date.slice(5);
+      labels.push({ x: i * (barW + gap) + barW / 2, text });
+    }
+  }
+
+  return (
+    <div className="usage-chart-wrap">
+      <div className="usage-chart-meta">
+        <span className="usage-chart-title">近 30 天每日用量</span>
+        <span className="usage-chart-max">峰值 {compact(max)}</span>
+      </div>
+      <svg
+        className="usage-chart-svg"
+        viewBox={`0 0 ${W} ${H}`}
+        preserveAspectRatio="none"
+        role="img"
+        aria-label="近 30 天每日 token 用量柱状图"
+      >
+        {/* baseline */}
+        <line
+          x1={0}
+          x2={W}
+          y1={H - PAD_BOTTOM + 0.5}
+          y2={H - PAD_BOTTOM + 0.5}
+          stroke="var(--ink-100)"
+          strokeWidth={1}
+        />
+        {days.map((d, i) => {
+          const total = d.totalIn + d.totalOut;
+          const h = total > 0 ? Math.max(2, (total / safeMax) * innerH) : 0;
+          const x = i * (barW + gap);
+          const y = H - PAD_BOTTOM - h;
+          const isToday = i === days.length - 1;
+          return (
+            <rect
+              key={d.date}
+              x={x}
+              y={y}
+              width={barW}
+              height={h}
+              rx={1.5}
+              className={`usage-bar ${total === 0 ? "empty" : ""} ${isToday ? "today" : ""}`}
+            >
+              <title>
+                {d.date}
+                {"  "}· {compact(total)} tokens ({compact(d.totalIn)} in · {compact(d.totalOut)} out)
+              </title>
+            </rect>
+          );
+        })}
+        {labels.map((l, i) => (
+          <text
+            key={i}
+            x={l.x}
+            y={H - 4}
+            textAnchor="middle"
+            fontSize={10}
+            fill="var(--ink-500)"
+          >
+            {l.text}
+          </text>
+        ))}
+      </svg>
+    </div>
+  );
 }

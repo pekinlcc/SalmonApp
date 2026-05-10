@@ -593,6 +593,40 @@ impl Db {
             summary.by_topic.push(row?);
         }
 
+        // Daily totals for the last 30 days. Build a zero-filled scaffold
+        // first (today, today-1, …, today-29), then layer in whatever the
+        // SQL aggregation returned. Missing days stay at 0 so the bar
+        // chart x-axis is stable regardless of activity gaps.
+        use crate::types::DailyUsage;
+        let mut day_map: std::collections::HashMap<String, (i64, i64)> =
+            std::collections::HashMap::new();
+        let mut stmt = self.conn.prepare(
+            "SELECT
+               DATE(datetime(created_at/1000, 'unixepoch', 'localtime')) AS d,
+               COALESCE(SUM(token_in),  0),
+               COALESCE(SUM(token_out), 0)
+             FROM messages
+             WHERE role='assistant' AND created_at >= ?
+             GROUP BY d",
+        )?;
+        let rows = stmt.query_map(params![month_start], |r| {
+            Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?, r.get::<_, i64>(2)?))
+        })?;
+        for row in rows {
+            let (d, ti, to) = row?;
+            day_map.insert(d, (ti, to));
+        }
+        for i in (0..30).rev() {
+            let day = now - chrono::Duration::days(i);
+            let date = day.format("%Y-%m-%d").to_string();
+            let (ti, to) = day_map.get(&date).copied().unwrap_or((0, 0));
+            summary.daily30.push(DailyUsage {
+                date,
+                total_in: ti,
+                total_out: to,
+            });
+        }
+
         Ok(summary)
     }
 }

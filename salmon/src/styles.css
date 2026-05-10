@@ -843,6 +843,37 @@ button { font-family: inherit; }
 }
 .usage-engine { display: inline-flex; align-items: center; }
 
+/* Settings → 用量 → 30-day bar chart */
+.usage-chart-wrap {
+  margin: 12px 0 14px;
+  padding: 10px 12px;
+  background: var(--panel);
+  border: 1px solid var(--ink-100);
+  border-radius: var(--radius-sm);
+}
+.usage-chart-meta {
+  display: flex; justify-content: space-between; align-items: baseline;
+  margin-bottom: 4px;
+}
+.usage-chart-title {
+  font-size: 11px; color: var(--ink-500);
+  letter-spacing: 0.04em; text-transform: uppercase; font-weight: 600;
+}
+.usage-chart-max {
+  font-size: 11px; color: var(--ink-500);
+  font-variant-numeric: tabular-nums;
+}
+.usage-chart-svg {
+  width: 100%; height: 120px; display: block;
+}
+.usage-bar {
+  fill: var(--salmon-300);
+  transition: fill 120ms;
+}
+.usage-bar.empty { fill: var(--ink-100); }
+.usage-bar.today { fill: var(--salmon-500); }
+.usage-bar:hover { fill: var(--salmon-700); }
+
 /* Settings → 用量 table */
 .usage-summary-row {
   display: flex; gap: 18px; flex-wrap: wrap;
