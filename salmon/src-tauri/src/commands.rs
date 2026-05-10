@@ -528,12 +528,12 @@ pub async fn generate_recommendations(
         claude_candidates.len(), codex_review_prompt.len(),
     );
 
-    let claude_review_res = if available_engines.iter().any(|e| e == "claude") && !codex_candidates.is_empty() {
+    let claude_review_res = if available_engines.iter().any(|e| *e == "claude") && !codex_candidates.is_empty() {
         run_engine(&fallback_workdir, claude_review_prompt, "claude").await
     } else {
         Err("nothing to review".to_string())
     };
-    let codex_review_res = if available_engines.iter().any(|e| e == "codex") && !claude_candidates.is_empty() {
+    let codex_review_res = if available_engines.iter().any(|e| *e == "codex") && !claude_candidates.is_empty() {
         run_engine(&fallback_workdir, codex_review_prompt, "codex").await
     } else {
         Err("nothing to review".to_string())
