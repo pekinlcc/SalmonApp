@@ -73,6 +73,7 @@ pub fn run() {
             commands::interrupt_topic,
             commands::approve_permission,
             commands::list_messages,
+            commands::search_messages,
             commands::list_workdir_files,
             commands::read_file_text,
             commands::render_office_preview,

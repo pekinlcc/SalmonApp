@@ -37,6 +37,17 @@ export interface Message {
   durationMs?: number | null;
 }
 
+export interface SearchResult {
+  topicId: string;
+  topicTitle: string;
+  engine: string;
+  workdir: string;
+  messageId: string;
+  role: "user" | "assistant" | "system";
+  snippet: string;
+  createdAt: number;
+}
+
 export interface CliInfo {
   name: string;
   binary: string;

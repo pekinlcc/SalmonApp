@@ -15,6 +15,7 @@ interface Props {
   pendingPermByTopic: Record<string, PendingPerm | null>;
   errorByTopic: Record<string, string | null>;
   workdirOkByTopic: Record<string, boolean>;
+  runningIds: Set<string>;
   recommendations: Recommendation[];
   recsLoading: boolean;
   recsError: string | null;
@@ -28,7 +29,7 @@ interface Props {
 
 interface Row {
   topic: Topic;
-  status: "needs-input" | "unread" | "missing-workdir" | "ok";
+  status: "needs-input" | "error" | "running" | "unread" | "missing-workdir" | "ok";
   badgeText: string | null;
 }
 
@@ -52,6 +53,7 @@ export function WelcomeBack({
   onSelect,
   onNewTopic,
   usageSummary,
+  runningIds,
 }: Props) {
   const rows: Row[] = useMemo(() => {
     const live = topics.filter((t) => !t.archived);
@@ -62,13 +64,19 @@ export function WelcomeBack({
       if (pendingPermByTopic[t.id]) {
         return { topic: t, status: "needs-input", badgeText: "需要授权" };
       }
+      if (errorByTopic[t.id]) {
+        return { topic: t, status: "error", badgeText: "出错" };
+      }
+      if (runningIds.has(t.id)) {
+        return { topic: t, status: "running", badgeText: "运行中" };
+      }
       const seen = lastReadAt[t.id] || 0;
       if (t.updatedAt > seen) {
         return { topic: t, status: "unread", badgeText: "未读" };
       }
       return { topic: t, status: "ok", badgeText: null };
     });
-  }, [topics, lastReadAt, pendingPermByTopic, errorByTopic, workdirOkByTopic]);
+  }, [topics, lastReadAt, pendingPermByTopic, errorByTopic, workdirOkByTopic, runningIds]);
 
   const attention = useMemo(
     () =>
@@ -137,7 +145,7 @@ export function WelcomeBack({
 
         {attention.length > 0 && (
           <section className="welcome-section">
-            <div className="welcome-section-label">Sessions</div>
+            <div className="welcome-section-label">需要处理</div>
             <div className="welcome-list">
               {attention.map((r) => (
                 <SessionRow key={r.topic.id} row={r} onClick={() => onSelect(r.topic.id)} />
@@ -299,7 +307,12 @@ function labelVal(v: string | null): string {
 }
 
 function statusRank(s: Row["status"]): number {
-  return s === "needs-input" ? 0 : s === "missing-workdir" ? 1 : s === "unread" ? 2 : 3;
+  if (s === "needs-input") return 0;
+  if (s === "error") return 1;
+  if (s === "missing-workdir") return 2;
+  if (s === "running") return 3;
+  if (s === "unread") return 4;
+  return 5;
 }
 
 function shortPath(p: string): string {

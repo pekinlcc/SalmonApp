@@ -18,6 +18,8 @@ interface Props {
   workdirMissing?: boolean;
   onArchive?: () => void;
   onDelete?: () => void;
+  onRetryTopic?: () => void;
+  onRefreshClis?: () => void;
   onApprovePermission: (id: string, allow: boolean) => void;
   onSelectTool: (t: ToolCall) => void;
 }
@@ -149,7 +151,14 @@ export function ChatStream(props: Props) {
         </div>
       )}
 
-      {errorBanner && <div className="banner error">{errorBanner}</div>}
+      {errorBanner && (
+        <ErrorRecoveryBanner
+          message={errorBanner}
+          engine={topic.engine}
+          onRetryTopic={props.onRetryTopic}
+          onRefreshClis={props.onRefreshClis}
+        />
+      )}
 
       {messages.map((m) => (
         <div key={m.id} className="msg">
@@ -219,6 +228,41 @@ export function ChatStream(props: Props) {
           ↓ 新消息
         </button>
       )}
+    </div>
+  );
+}
+
+function ErrorRecoveryBanner({
+  message,
+  engine,
+  onRetryTopic,
+  onRefreshClis,
+}: {
+  message: string;
+  engine: string;
+  onRetryTopic?: () => void;
+  onRefreshClis?: () => void;
+}) {
+  const loginCmd = engine === "claude" ? "claude /login" : "codex login";
+  const low = message.toLowerCase();
+  const looksAuth = low.includes("login") || low.includes("auth") || low.includes("not logged");
+  const copyLogin = async () => {
+    try {
+      await navigator.clipboard.writeText(loginCmd);
+    } catch {}
+  };
+  return (
+    <div className="banner error recover-banner">
+      <div className="recover-message">{message}</div>
+      <div className="recover-actions">
+        <button className="btn" onClick={onRetryTopic}>重新启动 Topic</button>
+        <button className="btn" onClick={onRefreshClis}>重新检测 CLI</button>
+        {looksAuth && (
+          <button className="btn" onClick={copyLogin} title="复制登录命令">
+            复制 {loginCmd}
+          </button>
+        )}
+      </div>
     </div>
   );
 }

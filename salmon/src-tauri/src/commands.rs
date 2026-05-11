@@ -1,4 +1,4 @@
-use crate::types::{CliInfo, Message, Recommendation, Topic};
+use crate::types::{CliInfo, Message, Recommendation, SearchResult, Topic};
 use crate::AppState;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -352,6 +352,20 @@ pub fn list_messages(
     topic_id: String,
 ) -> Result<Vec<Message>, String> {
     state.db.lock().list_messages(&topic_id).map_err(map_err)
+}
+
+#[tauri::command]
+pub fn search_messages(
+    state: State<'_, AppState>,
+    query: String,
+    limit: Option<usize>,
+) -> Result<Vec<SearchResult>, String> {
+    let limit = limit.unwrap_or(30).clamp(1, 100);
+    state
+        .db
+        .lock()
+        .search_messages(&query, limit)
+        .map_err(map_err)
 }
 
 #[derive(Serialize)]

@@ -3,7 +3,7 @@ use chrono::Utc;
 use rusqlite::{params, Connection};
 use std::path::Path;
 
-use crate::types::{Message, Recommendation, Topic};
+use crate::types::{Message, Recommendation, SearchResult, Topic};
 
 pub struct Db {
     conn: Connection,
@@ -504,6 +504,43 @@ impl Db {
         Ok(out)
     }
 
+    pub fn search_messages(&self, query: &str, limit: usize) -> Result<Vec<SearchResult>> {
+        let q = query.trim();
+        if q.is_empty() {
+            return Ok(Vec::new());
+        }
+        let like = format!("%{}%", q.replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_"));
+        let mut stmt = self.conn.prepare(
+            "SELECT t.id,t.title,t.engine,t.workdir,
+                    m.id,m.role,m.content,m.created_at
+             FROM messages m
+             JOIN topics t ON t.id = m.topic_id
+             WHERE m.content LIKE ? ESCAPE '\\'
+                OR t.title LIKE ? ESCAPE '\\'
+                OR t.workdir LIKE ? ESCAPE '\\'
+             ORDER BY m.created_at DESC
+             LIMIT ?",
+        )?;
+        let rows = stmt.query_map(params![like, like, like, limit as i64], |r| {
+            let content: String = r.get(6)?;
+            Ok(SearchResult {
+                topic_id: r.get(0)?,
+                topic_title: r.get(1)?,
+                engine: r.get(2)?,
+                workdir: r.get(3)?,
+                message_id: r.get(4)?,
+                role: r.get(5)?,
+                snippet: make_snippet(&content, q, 180),
+                created_at: r.get(7)?,
+            })
+        })?;
+        let mut out = Vec::new();
+        for row in rows {
+            out.push(row?);
+        }
+        Ok(out)
+    }
+
     /// Build the homepage / settings usage rollup. One pass over messages
     /// joined with topics, bucketed by (today / week / month / total) using
     /// LOCAL day boundaries so "今日" matches what the user sees on their
@@ -635,4 +672,22 @@ impl Db {
 
         Ok(summary)
     }
+}
+
+fn make_snippet(content: &str, query: &str, max_chars: usize) -> String {
+    let text = content.replace('\n', " ");
+    let lower = text.to_lowercase();
+    let needle = query.to_lowercase();
+    let hit_byte = lower.find(&needle).unwrap_or(0);
+    let hit = lower[..hit_byte].chars().count();
+    let start = hit.saturating_sub(max_chars / 3);
+    let total = text.chars().count();
+    let mut snippet: String = text.chars().skip(start).take(max_chars).collect();
+    if start > 0 {
+        snippet.insert_str(0, "...");
+    }
+    if total > start + max_chars {
+        snippet.push_str("...");
+    }
+    snippet
 }

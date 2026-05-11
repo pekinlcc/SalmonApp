@@ -35,6 +35,19 @@ pub struct Message {
     pub duration_ms: Option<i64>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SearchResult {
+    pub topic_id: String,
+    pub topic_title: String,
+    pub engine: String,
+    pub workdir: String,
+    pub message_id: String,
+    pub role: String,
+    pub snippet: String,
+    pub created_at: i64,
+}
+
 /// Token-usage rollup the welcome page / settings / topic header read.
 /// Cheap to compute (one SQL pass with date arithmetic) so we recompute
 /// on demand instead of materializing.

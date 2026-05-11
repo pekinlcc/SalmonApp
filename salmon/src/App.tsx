@@ -14,6 +14,7 @@ import { PromptDialog } from "./components/PromptDialog";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { WelcomeBack } from "./components/WelcomeBack";
 import { Toasts } from "./components/Toasts";
+import { SearchDialog } from "./components/SearchDialog";
 
 interface PendingPerm {
   id: string;
@@ -29,6 +30,8 @@ export default function App() {
   const [defaultEngine, setDefaultEngine] = useState<string>("claude");
   const [chatLayout, setChatLayout] = useState<ChatLayout>("thinking");
   const [showSettings, setShowSettings] = useState(false);
+  const [searchInitialQuery, setSearchInitialQuery] = useState("");
+  const [showSearch, setShowSearch] = useState(false);
   const [workdirOkByTopic, setWorkdirOkByTopic] = useState<Record<string, boolean>>({});
   const [lastReadAt, setLastReadAt] = useState<Record<string, number>>(() => {
     try { return JSON.parse(localStorage.getItem("salmon.lastReadAt") || "{}"); } catch { return {}; }
@@ -711,6 +714,24 @@ export default function App() {
     }
   }, []);
 
+  const openSearch = useCallback((query = "") => {
+    setSearchInitialQuery(query);
+    setShowSearch(true);
+  }, []);
+
+  const onRetryTopic = useCallback(async (id: string) => {
+    setErrorByTopic((er) => ({ ...er, [id]: null }));
+    setSpawningId(id);
+    try {
+      await api.openTopic(id);
+      setRunningIds((s) => new Set(s).add(id));
+    } catch (e: any) {
+      setErrorByTopic((er) => ({ ...er, [id]: String(e) }));
+    } finally {
+      setSpawningId((cur) => (cur === id ? null : cur));
+    }
+  }, []);
+
   // Single dispatch point for every "the user might want to know" event.
   // Suppresses a notification when the user is already looking at the
   // relevant context: a topic-tied event whose topicId matches the open
@@ -929,6 +950,7 @@ export default function App() {
         onSelect={onSelect}
         onHome={() => { setSelectedId(null); setSelectedTool(null); refreshUsageSummary(); }}
         onNewTopic={() => setShowNew(true)}
+        onOpenSearch={openSearch}
         onOpenSettings={() => { setShowSettings(true); refreshUsageSummary(); }}
         onDeleteTopic={onDelete}
         onRequestRenameTopic={(id) => setRenamingTopicId(id)}
@@ -944,6 +966,7 @@ export default function App() {
               pendingPermByTopic={pendingPermByTopic}
               errorByTopic={errorByTopic}
               workdirOkByTopic={workdirOkByTopic}
+              runningIds={runningIds}
               recommendations={recommendations}
               recsLoading={recsLoading}
               recsError={recsError}
@@ -1015,6 +1038,8 @@ export default function App() {
                 );
                 if (ok) onDelete(selectedTopic.id);
               }}
+              onRetryTopic={() => onRetryTopic(selectedTopic.id)}
+              onRefreshClis={() => { void refresh(); }}
               onApprovePermission={onApprove}
               onSelectTool={setSelectedTool}
             />
@@ -1059,6 +1084,15 @@ export default function App() {
           onChangeChatLayout={onChangeChatLayout}
           onChangeDefaultEngine={onChangeDefaultEngine}
           onClose={() => setShowSettings(false)}
+        />
+      )}
+
+      {showSearch && (
+        <SearchDialog
+          topics={topics}
+          initialQuery={searchInitialQuery}
+          onSelect={onSelect}
+          onClose={() => setShowSearch(false)}
         />
       )}
 

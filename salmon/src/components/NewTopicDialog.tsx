@@ -29,6 +29,18 @@ export function NewTopicDialog({ cliStatus, defaultEngine, topics, onCancel, onC
     if (topics.length === 0) return "";
     return [...topics].sort((a, b) => b.updatedAt - a.updatedAt)[0].workdir || "";
   }, [topics]);
+  const recentWorkdirs = useMemo(() => {
+    const seen = new Set<string>();
+    return [...topics]
+      .sort((a, b) => b.updatedAt - a.updatedAt)
+      .map((t) => t.workdir)
+      .filter((p) => {
+        if (!p || seen.has(p)) return false;
+        seen.add(p);
+        return true;
+      })
+      .slice(0, 5);
+  }, [topics]);
 
   const [workdir, setWorkdir] = useState<string>(initialWorkdir);
   const [advancedOpen, setAdvancedOpen] = useState(false);
@@ -86,6 +98,23 @@ export function NewTopicDialog({ cliStatus, defaultEngine, topics, onCancel, onC
             <button type="button" className="btn" style={{ flex: "0 0 auto" }} onClick={pickDir}>浏览…</button>
           </div>
         </label>
+
+        {recentWorkdirs.length > 0 && (
+          <div className="recent-dirs">
+            <span className="recent-dirs-label">最近目录</span>
+            {recentWorkdirs.map((dir) => (
+              <button
+                key={dir}
+                type="button"
+                className={`recent-dir-chip ${workdir === dir ? "active" : ""}`}
+                onClick={() => setWorkdir(dir)}
+                title={dir}
+              >
+                {shortDir(dir)}
+              </button>
+            ))}
+          </div>
+        )}
 
         <label>
           <span>引擎</span>
@@ -168,4 +197,14 @@ export function NewTopicDialog({ cliStatus, defaultEngine, topics, onCancel, onC
       </div>
     </div>
   );
+}
+
+function shortDir(path: string): string {
+  const home = (window as any).__SALMON_HOME__ || "";
+  let p = path;
+  if (home && p.startsWith(home)) p = "~" + p.slice(home.length);
+  if (p.length <= 34) return p;
+  const parts = p.split("/").filter(Boolean);
+  if (parts.length <= 2) return p;
+  return "..." + "/" + parts.slice(-2).join("/");
 }

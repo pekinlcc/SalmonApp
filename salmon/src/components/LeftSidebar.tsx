@@ -13,6 +13,7 @@ interface Props {
   onSelect: (id: string) => void;
   onHome: () => void;
   onNewTopic: () => void;
+  onOpenSearch: (query?: string) => void;
   onOpenSettings: () => void;
   onDeleteTopic: (id: string) => void;
   onRequestRenameTopic: (id: string) => void;
@@ -81,10 +82,22 @@ export function LeftSidebar(props: Props) {
 
       <div className="search">
         <input
-          placeholder="搜索 Topic 标题…"
+          placeholder="搜索 Topic 标题..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && query.trim()) {
+              props.onOpenSearch(query.trim());
+            }
+          }}
         />
+        <button
+          className="search-open"
+          onClick={() => props.onOpenSearch(query.trim())}
+          title="全局搜索 Topic 和消息"
+        >
+          ⌕
+        </button>
       </div>
 
       <div className="topic-list" ref={listRef}>

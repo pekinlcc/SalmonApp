@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { CliInfo, FileEntry, Message, Recommendation, Topic, UsageSummary, WorkdirCheck } from "./types";
+import type { CliInfo, FileEntry, Message, Recommendation, SearchResult, Topic, UsageSummary, WorkdirCheck } from "./types";
 
 export const api = {
   detectClis: () => invoke<{ clis: CliInfo[] }>("detect_clis"),
@@ -25,6 +25,8 @@ export const api = {
     invoke<void>("approve_permission", { topicId, requestId, allow }),
   listMessages: (topicId: string) =>
     invoke<Message[]>("list_messages", { topicId }),
+  searchMessages: (query: string, limit = 30) =>
+    invoke<SearchResult[]>("search_messages", { query, limit }),
   listWorkdirFiles: (workdir: string) =>
     invoke<FileEntry[]>("list_workdir_files", { workdir }),
   readFileText: (path: string) => invoke<string>("read_file_text", { path }),
