@@ -82,6 +82,8 @@ pub fn run() {
             commands::set_default_engine,
             commands::get_chat_layout,
             commands::set_chat_layout,
+            commands::get_composer_send_mode,
+            commands::set_composer_send_mode,
             commands::set_archived,
             commands::check_workdir,
             commands::generate_recommendations,

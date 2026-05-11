@@ -446,6 +446,29 @@ pub fn set_chat_layout(state: State<'_, AppState>, layout: String) -> Result<(),
         .map_err(map_err)
 }
 
+#[tauri::command]
+pub fn get_composer_send_mode(state: State<'_, AppState>) -> Result<String, String> {
+    let v = state
+        .db
+        .lock()
+        .get_setting("composer_send_mode")
+        .map_err(map_err)?;
+    Ok(v.unwrap_or_else(|| "modEnter".to_string()))
+}
+
+#[tauri::command]
+pub fn set_composer_send_mode(state: State<'_, AppState>, mode: String) -> Result<(), String> {
+    let v = match mode.as_str() {
+        "modEnter" | "enter" => mode,
+        _ => return Err(format!("invalid composer send mode: {}", mode)),
+    };
+    state
+        .db
+        .lock()
+        .set_setting("composer_send_mode", &v)
+        .map_err(map_err)
+}
+
 // ─── Recommendations ────────────────────────────────────────────────────────
 
 const REC_PROMPT_BUDGET_CHARS: usize = 18_000;

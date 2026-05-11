@@ -140,6 +140,7 @@ export interface UsageSummary {
 }
 
 export type ChatLayout = "inline" | "thinking";
+export type ComposerSendMode = "modEnter" | "enter";
 
 export interface Recommendation {
   id: string;

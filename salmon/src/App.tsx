@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { ask } from "@tauri-apps/plugin-dialog";
-import type { Block, ChatLayout, CliInfo, Message, Recommendation, StreamEvent, ToolCall, Topic, UiMessage, UsageSummary } from "./lib/types";
+import type { Block, ChatLayout, CliInfo, ComposerSendMode, Message, Recommendation, StreamEvent, ToolCall, Topic, UiMessage, UsageSummary } from "./lib/types";
 import { api } from "./lib/api";
 import { notify, type NotifyOpts, type ToastEvent } from "./lib/notify";
 import { LeftSidebar } from "./components/LeftSidebar";
@@ -29,6 +29,7 @@ export default function App() {
   const [topics, setTopics] = useState<Topic[]>([]);
   const [defaultEngine, setDefaultEngine] = useState<string>("claude");
   const [chatLayout, setChatLayout] = useState<ChatLayout>("thinking");
+  const [composerSendMode, setComposerSendMode] = useState<ComposerSendMode>("modEnter");
   const [showSettings, setShowSettings] = useState(false);
   const [searchInitialQuery, setSearchInitialQuery] = useState("");
   const [showSearch, setShowSearch] = useState(false);
@@ -251,6 +252,10 @@ export default function App() {
       const layout = await api.getChatLayout();
       if (layout === "inline" || layout === "thinking") setChatLayout(layout);
     } catch {}
+    try {
+      const mode = await api.getComposerSendMode();
+      if (mode === "modEnter" || mode === "enter") setComposerSendMode(mode);
+    } catch {}
     return { clis: det.clis, topics: ts };
   }, []);
 
@@ -269,6 +274,15 @@ export default function App() {
       await api.setDefaultEngine(engine);
     } catch (e) {
       api.debugLog(`set_default_engine failed: ${e}`);
+    }
+  }, []);
+
+  const onChangeComposerSendMode = useCallback(async (mode: ComposerSendMode) => {
+    setComposerSendMode(mode);
+    try {
+      await api.setComposerSendMode(mode);
+    } catch (e) {
+      api.debugLog(`set_composer_send_mode failed: ${e}`);
     }
   }, []);
 
@@ -1047,6 +1061,7 @@ export default function App() {
               topicId={selectedTopic.id}
               busy={!!busyByTopic[selectedTopic.id]}
               disabled={workdirOkByTopic[selectedTopic.id] === false}
+              sendMode={composerSendMode}
               onSend={onSend}
               onInterrupt={onInterrupt}
             />
@@ -1078,10 +1093,12 @@ export default function App() {
       {showSettings && (
         <SettingsDialog
           chatLayout={chatLayout}
+          composerSendMode={composerSendMode}
           defaultEngine={defaultEngine}
           cliStatus={cliStatus}
           usageSummary={usageSummary}
           onChangeChatLayout={onChangeChatLayout}
+          onChangeComposerSendMode={onChangeComposerSendMode}
           onChangeDefaultEngine={onChangeDefaultEngine}
           onClose={() => setShowSettings(false)}
         />

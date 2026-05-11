@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { CliInfo, FileEntry, Message, Recommendation, SearchResult, Topic, UsageSummary, WorkdirCheck } from "./types";
+import type { CliInfo, ComposerSendMode, FileEntry, Message, Recommendation, SearchResult, Topic, UsageSummary, WorkdirCheck } from "./types";
 
 export const api = {
   detectClis: () => invoke<{ clis: CliInfo[] }>("detect_clis"),
@@ -40,6 +40,9 @@ export const api = {
   getChatLayout: () => invoke<string>("get_chat_layout"),
   setChatLayout: (layout: string) =>
     invoke<void>("set_chat_layout", { layout }),
+  getComposerSendMode: () => invoke<ComposerSendMode>("get_composer_send_mode"),
+  setComposerSendMode: (mode: ComposerSendMode) =>
+    invoke<void>("set_composer_send_mode", { mode }),
   setArchived: (id: string, archived: boolean) =>
     invoke<void>("set_archived", { id, archived }),
   checkWorkdir: (path: string) =>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
@@ -24,6 +24,31 @@ export function RightPane({ topic, selectedTool, logs, refreshKey, onCollapse }:
   const [officeLoading, setOfficeLoading] = useState(false);
   const [officeError, setOfficeError] = useState<string | null>(null);
   const [previewFullscreen, setPreviewFullscreen] = useState(false);
+  const [logQuery, setLogQuery] = useState("");
+  const [logsErrorsOnly, setLogsErrorsOnly] = useState(false);
+
+  const filteredLogs = useMemo(() => {
+    const q = logQuery.trim().toLowerCase();
+    return logs
+      .filter((line) => !logsErrorsOnly || isErrorLog(line))
+      .filter((line) => !q || line.toLowerCase().includes(q));
+  }, [logs, logQuery, logsErrorsOnly]);
+
+  const openWorkdir = () => {
+    api.openLink(topic.workdir, ".").catch(() => {});
+  };
+
+  const openPreviewPath = () => {
+    if (!previewPath) return;
+    api.openLink(topic.workdir, previewPath).catch(() => {});
+  };
+
+  const copyTailLogs = async () => {
+    const text = logs.slice(-200).join("\n");
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {}
+  };
 
   useEffect(() => {
     if (!previewFullscreen) return;
@@ -121,6 +146,7 @@ export function RightPane({ topic, selectedTool, logs, refreshKey, onCollapse }:
               {topic.workdir}
             </span>
             <span style={{ marginLeft: "auto" }}>{files.length} 项</span>
+            <button className="icon-btn" title="打开工作目录" onClick={openWorkdir}>↗</button>
           </div>
           <div className="right-body">
             <div className="tree">
@@ -164,6 +190,15 @@ export function RightPane({ topic, selectedTool, logs, refreshKey, onCollapse }:
             {previewPath && (
               <button
                 className="icon-btn"
+                title="在系统中打开"
+                onClick={openPreviewPath}
+              >
+                ↗
+              </button>
+            )}
+            {previewPath && (
+              <button
+                className="icon-btn"
                 title="全屏预览 (Esc 退出)"
                 onClick={() => setPreviewFullscreen(true)}
               >
@@ -198,15 +233,37 @@ export function RightPane({ topic, selectedTool, logs, refreshKey, onCollapse }:
 
       {tab === "logs" && (
         <>
-          <div className="right-toolbar"><span>当前 Topic 的 CLI 原始流</span></div>
+          <div className="right-toolbar logs-toolbar">
+            <span>CLI 原始流</span>
+            <input
+              value={logQuery}
+              onChange={(e) => setLogQuery(e.target.value)}
+              placeholder="搜索日志..."
+              className="log-search"
+            />
+            <button
+              className={`mini-toggle ${logsErrorsOnly ? "on" : ""}`}
+              onClick={() => setLogsErrorsOnly((v) => !v)}
+              title="只看 error / panic / fail 等日志"
+            >
+              Error
+            </button>
+            <button className="icon-btn" onClick={copyTailLogs} title="复制最后 200 行">⧉</button>
+          </div>
           <div className="right-body logs">
-            {logs.slice(-500).map((l, i) => <div key={i} className="l">{l}</div>)}
+            {filteredLogs.slice(-500).map((l, i) => <div key={i} className={`l ${isErrorLog(l) ? "err" : ""}`}>{l}</div>)}
             {logs.length === 0 && <div className="empty">还没有日志</div>}
+            {logs.length > 0 && filteredLogs.length === 0 && <div className="empty">没有匹配日志</div>}
           </div>
         </>
       )}
     </aside>
   );
+}
+
+function isErrorLog(line: string): boolean {
+  const s = line.toLowerCase();
+  return s.includes("error") || s.includes("panic") || s.includes("failed") || s.includes("fail") || s.includes("exception") || s.includes("denied");
 }
 
 function labelOf(t: Tab) {

@@ -1,10 +1,11 @@
-import { useState, useRef, useEffect } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { useState, useRef, useEffect, type DragEvent } from "react";
+import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { readImage, readText } from "@tauri-apps/plugin-clipboard-manager";
+import type { ComposerSendMode } from "../lib/types";
 
 const IS_MAC =
   typeof navigator !== "undefined" && /mac|iphone|ipad|ipod/i.test(navigator.platform);
-const SEND_SHORTCUT_LABEL = IS_MAC ? "⌘+Enter" : "Ctrl+Enter";
+const MOD_SEND_SHORTCUT_LABEL = IS_MAC ? "⌘+Enter" : "Ctrl+Enter";
 
 const TEXTAREA_MIN_HEIGHT = 44;
 const TEXTAREA_MAX_HEIGHT = 240;
@@ -13,6 +14,7 @@ interface Props {
   topicId: string;
   busy: boolean;
   disabled?: boolean;
+  sendMode: ComposerSendMode;
   onSend: (text: string) => void;
   onInterrupt: () => void;
 }
@@ -28,17 +30,21 @@ interface Draft {
   attachments: Attachment[];
 }
 
-export function Composer({ topicId, busy, disabled, onSend, onInterrupt }: Props) {
+export function Composer({ topicId, busy, disabled, sendMode, onSend, onInterrupt }: Props) {
   // Drafts live per-topic so switching A → B doesn't leak A's text into
   // B's composer. Kept in a ref Map (not React state) because we want to
   // mutate on every keystroke without causing a sibling re-render — only
   // the *active* topic's draft drives rendering, via `text` / `attachments`.
   const draftsRef = useRef<Map<string, Draft>>(new Map());
+  const lastSentRef = useRef<Map<string, string>>(new Map());
   const lastTopicRef = useRef<string>(topicId);
   const [text, setText] = useState<string>("");
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [pasting, setPasting] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
   const ref = useRef<HTMLTextAreaElement>(null);
+  const sendShortcutLabel = sendMode === "enter" ? "Enter" : MOD_SEND_SHORTCUT_LABEL;
+  const newlineShortcutLabel = sendMode === "enter" ? "Shift+Enter" : "Enter";
 
   // Topic switch: snapshot the outgoing draft, load the incoming one.
   // Doing this during render (vs. useEffect) keeps the new topic from
@@ -71,6 +77,7 @@ export function Composer({ topicId, busy, disabled, onSend, onInterrupt }: Props
     const refs = attachments.map((a) => `@${a.path}`).join(" ");
     const finalText = refs ? (v ? `${v}\n\n${refs}` : refs) : v;
     if (!finalText) return;
+    lastSentRef.current.set(topicId, finalText);
     onSend(finalText);
     setText("");
     setAttachments([]);
@@ -111,6 +118,63 @@ export function Composer({ topicId, busy, disabled, onSend, onInterrupt }: Props
     }
   };
 
+  const addDroppedFile = async (file: File) => {
+    const path = (file as any).path || (file as any).webkitRelativePath || "";
+    if (path) {
+      setAttachments((prev) => [
+        ...prev,
+        {
+          path,
+          preview: file.type.startsWith("image/") ? convertFileSrc(path) : "",
+          name: file.name || path.split("/").pop() || "file",
+        },
+      ]);
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      void invoke("debug_log", { message: `Composer drop: skipped non-path file ${file.name}` });
+      return;
+    }
+
+    const dataUrl = await fileToDataUrl(file);
+    const base64 = dataUrl.split(",")[1] || "";
+    const ext = file.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") || "png";
+    const savedPath = await invoke<string>("save_pasted_image", {
+      topicId,
+      base64Data: base64,
+      ext,
+    });
+    setAttachments((prev) => [
+      ...prev,
+      {
+        path: savedPath,
+        preview: dataUrl,
+        name: file.name || savedPath.split("/").pop() || "drop.png",
+      },
+    ]);
+  };
+
+  const handleDrop = async (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    if (disabled) return;
+    const files = Array.from(e.dataTransfer.files || []);
+    if (files.length === 0) return;
+    setPasting(true);
+    try {
+      for (const file of files) {
+        await addDroppedFile(file);
+      }
+    } catch (err) {
+      void invoke("debug_log", { message: `Composer drop failed: ${err}` });
+    } finally {
+      setPasting(false);
+      ref.current?.focus();
+    }
+  };
+
   const insertAtCursor = (insert: string) => {
     const el = ref.current;
     if (!el) {
@@ -134,19 +198,47 @@ export function Composer({ topicId, busy, disabled, onSend, onInterrupt }: Props
 
   return (
     <div className="composer">
-      <div className="composer-box">
+      <div
+        className={`composer-box ${dragActive ? "drag-active" : ""}`}
+        onDragEnter={(e) => {
+          e.preventDefault();
+          if (!disabled) setDragActive(true);
+        }}
+        onDragOver={(e) => {
+          e.preventDefault();
+          if (!disabled) e.dataTransfer.dropEffect = "copy";
+        }}
+        onDragLeave={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDragActive(false);
+        }}
+        onDrop={handleDrop}
+      >
         <textarea
           ref={ref}
           placeholder={
             disabled
               ? "工作目录不可用,无法发送(选归档或删除该 Topic)"
-              : `问点什么…  ${SEND_SHORTCUT_LABEL} 发送 · Enter 换行 · 直接粘贴图片`
+              : `问点什么...  ${sendShortcutLabel} 发送 · ${newlineShortcutLabel} 换行 · ↑ 恢复上一条 · 可拖拽文件`
           }
           value={text}
           disabled={disabled}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey) {
+            if (e.key === "ArrowUp" && !text && !e.shiftKey && !e.altKey && !e.metaKey && !e.ctrlKey) {
+              const last = lastSentRef.current.get(topicId);
+              if (last) {
+                e.preventDefault();
+                setText(last);
+                requestAnimationFrame(() => {
+                  ref.current?.focus();
+                  ref.current?.setSelectionRange(last.length, last.length);
+                });
+              }
+              return;
+            }
+            const modSend = e.key === "Enter" && (e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey;
+            const enterSend = sendMode === "enter" && e.key === "Enter" && !e.shiftKey && !e.altKey && !e.metaKey && !e.ctrlKey;
+            if (modSend || enterSend) {
               e.preventDefault();
               submit();
               return;
@@ -162,7 +254,7 @@ export function Composer({ topicId, busy, disabled, onSend, onInterrupt }: Props
           <div className="composer-attachments">
             {attachments.map((a) => (
               <div key={a.path} className="attach-chip" title={a.path}>
-                <img src={a.preview} alt={a.name} />
+                {a.preview ? <img src={a.preview} alt={a.name} /> : <span className="attach-file-icon">📄</span>}
                 <span className="attach-name">{a.name}</span>
                 <button
                   type="button"
@@ -188,14 +280,23 @@ export function Composer({ topicId, busy, disabled, onSend, onInterrupt }: Props
             disabled={busy || disabled || (!text.trim() && attachments.length === 0)}
             onClick={submit}
             style={{ marginLeft: "auto" }}
-            title={`快捷键: ${SEND_SHORTCUT_LABEL}`}
+            title={`快捷键: ${sendShortcutLabel}`}
           >
-            发送 {SEND_SHORTCUT_LABEL}
+            发送 {sendShortcutLabel}
           </button>
         </div>
       </div>
     </div>
   );
+}
+
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(reader.error || new Error("read file failed"));
+    reader.readAsDataURL(file);
+  });
 }
 
 async function rgbaToPngBase64(rgba: Uint8Array | number[], width: number, height: number): Promise<string> {

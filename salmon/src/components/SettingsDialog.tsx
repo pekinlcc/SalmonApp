@@ -1,14 +1,16 @@
 import { useEffect, useState } from "react";
-import type { ChatLayout, CliInfo, DailyUsage, UsageSummary } from "../lib/types";
+import type { ChatLayout, CliInfo, ComposerSendMode, DailyUsage, UsageSummary } from "../lib/types";
 import { api } from "../lib/api";
 import pkg from "../../package.json";
 
 interface Props {
   chatLayout: ChatLayout;
+  composerSendMode: ComposerSendMode;
   defaultEngine: string;
   cliStatus: CliInfo[];
   usageSummary: UsageSummary | null;
   onChangeChatLayout: (layout: ChatLayout) => void;
+  onChangeComposerSendMode: (mode: ComposerSendMode) => void;
   onChangeDefaultEngine: (engine: string) => void;
   onClose: () => void;
 }
@@ -23,10 +25,12 @@ const TABS: Array<{ key: Tab; icon: string; label: string }> = [
 
 export function SettingsDialog({
   chatLayout,
+  composerSendMode,
   defaultEngine,
   cliStatus,
   usageSummary,
   onChangeChatLayout,
+  onChangeComposerSendMode,
   onChangeDefaultEngine,
   onClose,
 }: Props) {
@@ -58,9 +62,11 @@ export function SettingsDialog({
           {tab === "preferences" && (
             <PreferencesTab
               chatLayout={chatLayout}
+              composerSendMode={composerSendMode}
               defaultEngine={defaultEngine}
               cliStatus={cliStatus}
               onChangeChatLayout={onChangeChatLayout}
+              onChangeComposerSendMode={onChangeComposerSendMode}
               onChangeDefaultEngine={onChangeDefaultEngine}
             />
           )}
@@ -158,15 +164,19 @@ function UsageTab({ summary }: { summary: UsageSummary | null }) {
 
 function PreferencesTab({
   chatLayout,
+  composerSendMode,
   defaultEngine,
   cliStatus,
   onChangeChatLayout,
+  onChangeComposerSendMode,
   onChangeDefaultEngine,
 }: {
   chatLayout: ChatLayout;
+  composerSendMode: ComposerSendMode;
   defaultEngine: string;
   cliStatus: CliInfo[];
   onChangeChatLayout: (layout: ChatLayout) => void;
+  onChangeComposerSendMode: (mode: ComposerSendMode) => void;
   onChangeDefaultEngine: (engine: string) => void;
 }) {
   return (
@@ -254,6 +264,43 @@ function PreferencesTab({
                 每段文字 + 每个工具调用按到达顺序自然排列。能完整还原 AI 思路演化。<br />
                 适合:复盘 / 调试 AI 思路。
               </div>
+            </div>
+          </label>
+        </div>
+      </section>
+
+      <section className="settings-section">
+        <div className="settings-section-title">发送快捷键</div>
+        <div className="settings-section-desc">
+          控制输入框里 Enter 的行为。Topic 内即时生效。
+        </div>
+        <div className="engine-row">
+          <label className={`layout-card ${composerSendMode === "modEnter" ? "selected" : ""}`}>
+            <input
+              type="radio"
+              name="composer-send-mode"
+              value="modEnter"
+              checked={composerSendMode === "modEnter"}
+              onChange={() => onChangeComposerSendMode("modEnter")}
+            />
+            <div>
+              <div className="layout-card-title">
+                Cmd/Ctrl + Enter 发送 <span className="badge default">默认</span>
+              </div>
+              <div className="layout-card-desc">Enter 换行，适合长提示词。</div>
+            </div>
+          </label>
+          <label className={`layout-card ${composerSendMode === "enter" ? "selected" : ""}`}>
+            <input
+              type="radio"
+              name="composer-send-mode"
+              value="enter"
+              checked={composerSendMode === "enter"}
+              onChange={() => onChangeComposerSendMode("enter")}
+            />
+            <div>
+              <div className="layout-card-title">Enter 发送</div>
+              <div className="layout-card-desc">Shift + Enter 换行，适合短消息节奏。</div>
             </div>
           </label>
         </div>
