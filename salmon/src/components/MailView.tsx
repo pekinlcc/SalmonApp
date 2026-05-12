@@ -39,6 +39,7 @@ export function MailView({ pendingComposeReply, onConsumeComposeReply }: MailVie
   >(null);
   const [showContacts, setShowContacts] = useState(false);
   const [contacts, setContacts] = useState<ContactRow[]>([]);
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
 
   // Cross-event listener body needs the latest selectedAccountId, but
   // wiring the listener with that state as a dep makes us unmount/remount
@@ -323,28 +324,55 @@ export function MailView({ pendingComposeReply, onConsumeComposeReply }: MailVie
           <button className="btn-ghost" onClick={onToggleContacts}>
             {showContacts ? "← 邮件" : "👥 联系人"}
           </button>
-          {oauthStatus.googleConfigured && <button className="btn-ghost" onClick={onAddGmail}>＋ Gmail</button>}
-          {oauthStatus.microsoftConfigured && <button className="btn-ghost" onClick={onAddOutlook}>＋ Outlook</button>}
+          <div className="add-account-wrap">
+            <button
+              className="btn-ghost"
+              onClick={() => setAddMenuOpen((v) => !v)}
+              title="添加邮箱账号"
+            >
+              ＋ 添加账号 ▾
+            </button>
+            {addMenuOpen && (
+              <div className="add-account-menu" onClick={() => setAddMenuOpen(false)}>
+                {oauthStatus.googleConfigured ? (
+                  <button onClick={onAddGmail}>
+                    <span className="prov-tag" style={{ marginRight: 8 }}>G</span>Gmail
+                  </button>
+                ) : (
+                  <div className="add-account-disabled">Gmail 未配置 OAuth</div>
+                )}
+                {oauthStatus.microsoftConfigured ? (
+                  <button onClick={onAddOutlook}>
+                    <span className="prov-tag" style={{ marginRight: 8 }}>O</span>Outlook
+                  </button>
+                ) : (
+                  <div className="add-account-disabled">Outlook 未配置 OAuth</div>
+                )}
+              </div>
+            )}
+          </div>
           <button className="btn-ghost" onClick={onRemoveAccount}>移除当前</button>
         </div>
       </div>
-      <div className="mail-grid">
-        <aside className="mail-rail">
-          {accounts.map((a) => (
-            <button
-              key={a.id}
-              className={`mail-acct ${a.id === selectedAccountId ? "active" : ""}`}
-              onClick={() => setSelectedAccountId(a.id)}
-              title={`${a.provider} · ${a.email}`}
-            >
-              <div className="mail-acct-email">
-                <span className="prov-tag">{a.provider === "outlook" ? "O" : "G"}</span>
-                {a.email}
-              </div>
-              {a.unreadCount > 0 && <span className="mail-acct-badge">{a.unreadCount}</span>}
-            </button>
-          ))}
-        </aside>
+      <div className={`mail-grid ${accounts.length <= 1 ? "single-account" : ""}`}>
+        {accounts.length > 1 && (
+          <aside className="mail-rail">
+            {accounts.map((a) => (
+              <button
+                key={a.id}
+                className={`mail-acct ${a.id === selectedAccountId ? "active" : ""}`}
+                onClick={() => setSelectedAccountId(a.id)}
+                title={`${a.provider} · ${a.email}`}
+              >
+                <div className="mail-acct-email">
+                  <span className="prov-tag">{a.provider === "outlook" ? "O" : "G"}</span>
+                  {a.email}
+                </div>
+                {a.unreadCount > 0 && <span className="mail-acct-badge">{a.unreadCount}</span>}
+              </button>
+            ))}
+          </aside>
+        )}
 
         {showContacts ? (
           <section className="mail-list mail-contacts" role="list">

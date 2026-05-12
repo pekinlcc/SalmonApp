@@ -1,12 +1,17 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../lib/api";
 import type { CalEvent, MailAccount } from "../lib/types";
 
 /**
- * v0.9.0-alpha.5: read-only calendar. Week view + agenda fallback.
- * Sync window is 7d back / 90d forward; CRUD (create / RSVP) is a v0.10
- * item.
+ * v0.10.0 — calendar with proper week grid: hour ruler on the left,
+ * one column per day, events absolutely positioned by start time and
+ * duration. Plus manual event creation (click empty cell or "+ 新建").
  */
+const HOUR_PX = 48;          // pixel height of one hour row
+const FIRST_HOUR = 0;        // grid starts at midnight; we scroll to ~07:00 on mount
+const HOURS_TOTAL = 24;
+const ALL_DAY_BAND_H = 28;
+
 export function CalendarView() {
   const [accounts, setAccounts] = useState<MailAccount[]>([]);
   const [events, setEvents] = useState<CalEvent[]>([]);
@@ -14,33 +19,31 @@ export function CalendarView() {
   const [view, setView] = useState<"week" | "agenda">("week");
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [composing, setComposing] = useState<{ start: Date; end: Date } | null>(null);
+  const gridScrollRef = useRef<HTMLDivElement>(null);
 
-  const weekEnd = useMemo(() => {
-    const d = new Date(weekStart);
-    d.setDate(d.getDate() + 7);
-    return d;
-  }, [weekStart]);
+  const weekEnd = useMemo(() => addDays(weekStart, 7), [weekStart]);
 
   const loadEvents = useCallback(async () => {
     try {
-      const startMs = weekStart.getTime();
-      const endMs = weekEnd.getTime();
-      const evs = await api.listCalendarEvents(startMs, endMs);
+      const evs = await api.listCalendarEvents(weekStart.getTime(), weekEnd.getTime());
       setEvents(evs);
-    } catch (e: any) {
-      setError(String(e));
-    }
+    } catch (e: any) { setError(String(e)); }
   }, [weekStart, weekEnd]);
 
   useEffect(() => {
     (async () => {
-      try {
-        const a = await api.listMailAccounts();
-        setAccounts(a);
-      } catch {}
+      try { setAccounts(await api.listMailAccounts()); } catch {}
       await loadEvents();
     })();
   }, [loadEvents]);
+
+  // Auto-scroll to ~07:00 so the user lands somewhere useful instead of midnight.
+  useEffect(() => {
+    if (view === "week" && gridScrollRef.current) {
+      gridScrollRef.current.scrollTop = 7 * HOUR_PX - 20;
+    }
+  }, [view]);
 
   const onSyncAll = useCallback(async () => {
     if (accounts.length === 0) return;
@@ -52,17 +55,36 @@ export function CalendarView() {
         catch (e: any) { api.debugLog(`cal sync ${a.email} failed: ${e}`); }
       }
       await loadEvents();
+      window.dispatchEvent(new CustomEvent("salmon:toast", {
+        detail: { title: "✓ 日历已从云端拉取最新", kind: "done" },
+      }));
     } finally {
       setSyncing(false);
     }
   }, [accounts, loadEvents]);
+
+  // Click empty hour cell → open compose pre-filled with that hour.
+  const onCellClick = useCallback((day: Date, hour: number) => {
+    const start = new Date(day);
+    start.setHours(hour, 0, 0, 0);
+    const end = new Date(start);
+    end.setHours(hour + 1, 0, 0, 0);
+    setComposing({ start, end });
+  }, []);
+
+  const onNewClick = useCallback(() => {
+    const start = nextRoundHour(new Date());
+    const end = new Date(start);
+    end.setHours(start.getHours() + 1);
+    setComposing({ start, end });
+  }, []);
 
   if (accounts.length === 0) {
     return (
       <div className="empty-feature">
         <div className="empty-icon">📅</div>
         <div className="empty-title">日历</div>
-        <div className="empty-sub">先到邮件里登录 Gmail / Outlook 账号，日历会自动共用 OAuth。</div>
+        <div className="empty-sub">先到邮件里登录 Gmail / Outlook 账号 — 日历用同一份 OAuth。</div>
       </div>
     );
   }
@@ -72,87 +94,188 @@ export function CalendarView() {
       <div className="cal-head">
         <div className="cal-title">📅 日历</div>
         <div className="cal-nav">
-          <button className="btn-ghost" onClick={() => {
-            const d = new Date(weekStart); d.setDate(d.getDate() - 7); setWeekStart(d);
-          }}>‹ 上周</button>
+          <button className="btn-ghost" onClick={() => setWeekStart(addDays(weekStart, -7))}>‹ 上周</button>
           <button className="btn-ghost" onClick={() => setWeekStart(startOfWeek(new Date()))}>本周</button>
-          <button className="btn-ghost" onClick={() => {
-            const d = new Date(weekStart); d.setDate(d.getDate() + 7); setWeekStart(d);
-          }}>下周 ›</button>
+          <button className="btn-ghost" onClick={() => setWeekStart(addDays(weekStart, 7))}>下周 ›</button>
           <span className="cal-range">{fmtMD(weekStart)} – {fmtMD(addDays(weekEnd, -1))}</span>
         </div>
         <div className="cal-actions">
           <button className={`btn-ghost ${view === "week" ? "active" : ""}`} onClick={() => setView("week")}>周视图</button>
           <button className={`btn-ghost ${view === "agenda" ? "active" : ""}`} onClick={() => setView("agenda")}>列表</button>
-          <button className="btn primary" onClick={onSyncAll} disabled={syncing}>
-            {syncing ? "同步中…" : "↻ 同步全部"}
+          <button className="btn primary" onClick={onNewClick}>＋ 新建</button>
+          <button className="btn-ghost" onClick={onSyncAll} disabled={syncing}>
+            {syncing ? "同步中…" : "↻ 同步"}
           </button>
         </div>
       </div>
       {error && <div className="cal-error">{error}</div>}
       {view === "week" ? (
-        <WeekGrid weekStart={weekStart} events={events} />
+        <WeekGrid
+          weekStart={weekStart}
+          events={events}
+          gridScrollRef={gridScrollRef}
+          onCellClick={onCellClick}
+        />
       ) : (
         <Agenda events={events} accounts={accounts} />
+      )}
+      {composing && (
+        <NewEventModal
+          accounts={accounts}
+          initialStart={composing.start}
+          initialEnd={composing.end}
+          onClose={() => setComposing(null)}
+          onCreated={() => {
+            setComposing(null);
+            loadEvents();
+          }}
+        />
       )}
     </div>
   );
 }
 
-function WeekGrid({ weekStart, events }: { weekStart: Date; events: CalEvent[] }) {
+// ── Week grid with hour ruler ───────────────────────────────────────
+
+function WeekGrid({
+  weekStart,
+  events,
+  gridScrollRef,
+  onCellClick,
+}: {
+  weekStart: Date;
+  events: CalEvent[];
+  gridScrollRef: React.RefObject<HTMLDivElement>;
+  onCellClick: (day: Date, hour: number) => void;
+}) {
   const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart]);
   const today = new Date().toDateString();
 
-  // Bucket events by day key.
-  const eventsByDay = useMemo(() => {
-    const map = new Map<string, CalEvent[]>();
+  // Bucket events: all-day per day, timed per day.
+  const buckets = useMemo(() => {
+    const allDay = new Map<string, CalEvent[]>();
+    const timed = new Map<string, CalEvent[]>();
     for (const ev of events) {
-      const key = new Date(ev.startMs).toDateString();
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(ev);
+      const dayKey = new Date(ev.startMs).toDateString();
+      if (ev.allDay) {
+        if (!allDay.has(dayKey)) allDay.set(dayKey, []);
+        allDay.get(dayKey)!.push(ev);
+      } else {
+        if (!timed.has(dayKey)) timed.set(dayKey, []);
+        timed.get(dayKey)!.push(ev);
+      }
     }
-    for (const [, arr] of map) arr.sort((a, b) => a.startMs - b.startMs);
-    return map;
+    for (const arr of timed.values()) arr.sort((a, b) => a.startMs - b.startMs);
+    return { allDay, timed };
   }, [events]);
 
+  const maxAllDayCount = Math.max(0, ...days.map((d) => (buckets.allDay.get(d.toDateString()) || []).length));
+  const allDayHeight = ALL_DAY_BAND_H + maxAllDayCount * 22;
+
+  // "Now" indicator line position.
+  const nowLineTop = useMemo(() => {
+    const now = new Date();
+    const isThisWeek = days.some((d) => d.toDateString() === now.toDateString());
+    if (!isThisWeek) return null;
+    const minutes = now.getHours() * 60 + now.getMinutes();
+    return (minutes / 60) * HOUR_PX;
+  }, [days]);
+  const nowColIdx = useMemo(() => {
+    const now = new Date();
+    return days.findIndex((d) => d.toDateString() === now.toDateString());
+  }, [days]);
+
   return (
-    <div className="cal-week">
-      {days.map((d) => {
-        const key = d.toDateString();
-        const evs = eventsByDay.get(key) || [];
-        const isToday = key === today;
-        return (
-          <div key={key} className={`cal-day ${isToday ? "today" : ""}`}>
-            <div className="cal-day-head">
-              <span className="cal-day-name">{dayName(d)}</span>
-              <span className="cal-day-num">{d.getDate()}</span>
+    <div className="cal-week-v2">
+      {/* Sticky header row: empty corner + day names */}
+      <div className="cal-week-header">
+        <div className="cal-corner" />
+        {days.map((d) => {
+          const isToday = d.toDateString() === today;
+          return (
+            <div key={d.toDateString()} className={`cal-day-head-v2 ${isToday ? "today" : ""}`}>
+              <span className="cal-day-name-v2">{dayName(d)}</span>
+              <span className="cal-day-num-v2">{d.getDate()}</span>
             </div>
-            <div className="cal-day-list">
-              {evs.length === 0 ? (
-                <div className="cal-day-empty">— 没有日程 —</div>
-              ) : (
-                evs.map((ev) => <EventPill key={ev.id} ev={ev} />)
-              )}
+          );
+        })}
+      </div>
+
+      {/* All-day band */}
+      <div className="cal-allday-row" style={{ height: allDayHeight }}>
+        <div className="cal-allday-label">全天</div>
+        {days.map((d) => {
+          const evs = buckets.allDay.get(d.toDateString()) || [];
+          return (
+            <div key={d.toDateString()} className="cal-allday-cell">
+              {evs.map((ev) => (
+                <div key={ev.id} className="cal-allday-pill" title={ev.title || ""}>
+                  {ev.title || "(无标题)"}
+                </div>
+              ))}
             </div>
+          );
+        })}
+      </div>
+
+      {/* Scrollable body: hour ruler + day columns */}
+      <div className="cal-grid-scroll" ref={gridScrollRef}>
+        <div className="cal-grid-body" style={{ height: HOURS_TOTAL * HOUR_PX }}>
+          {/* Hour ruler */}
+          <div className="cal-ruler">
+            {Array.from({ length: HOURS_TOTAL }, (_, h) => (
+              <div key={h} className="cal-ruler-cell" style={{ height: HOUR_PX }}>
+                {h === 0 ? "" : `${String(h).padStart(2, "0")}:00`}
+              </div>
+            ))}
           </div>
-        );
-      })}
+          {/* Day columns */}
+          {days.map((d, dayIdx) => {
+            const evs = buckets.timed.get(d.toDateString()) || [];
+            const isToday = d.toDateString() === today;
+            return (
+              <div key={d.toDateString()} className={`cal-day-col ${isToday ? "today" : ""}`}>
+                {Array.from({ length: HOURS_TOTAL }, (_, h) => (
+                  <div
+                    key={h}
+                    className="cal-hour-cell"
+                    style={{ height: HOUR_PX }}
+                    onClick={() => onCellClick(d, h + FIRST_HOUR)}
+                    title={`新建事件 ${String(h).padStart(2, "0")}:00`}
+                  />
+                ))}
+                {evs.map((ev) => {
+                  const start = new Date(ev.startMs);
+                  const end = new Date(ev.endMs);
+                  const top = (start.getHours() * 60 + start.getMinutes()) / 60 * HOUR_PX;
+                  const durMin = Math.max(20, (ev.endMs - ev.startMs) / 60_000);
+                  const height = (durMin / 60) * HOUR_PX;
+                  return (
+                    <div
+                      key={ev.id}
+                      className="cal-event-block"
+                      style={{ top, height }}
+                      title={`${ev.title || "(无)"} ${fmtTime(ev.startMs)}–${fmtTime(ev.endMs)}${ev.location ? " @ " + ev.location : ""}`}
+                    >
+                      <div className="cal-event-time">{fmtTime(ev.startMs)}</div>
+                      <div className="cal-event-title">{ev.title || "(无标题)"}</div>
+                      {ev.location && <div className="cal-event-loc">📍 {ev.location}</div>}
+                    </div>
+                  );
+                })}
+                {nowLineTop !== null && nowColIdx === dayIdx && (
+                  <div className="cal-now-line" style={{ top: nowLineTop }} />
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }
 
-function EventPill({ ev }: { ev: CalEvent }) {
-  const time = ev.allDay
-    ? "全天"
-    : `${fmtTime(ev.startMs)} – ${fmtTime(ev.endMs)}`;
-  return (
-    <div className="cal-pill" title={ev.description || ev.title || ""}>
-      <div className="cal-pill-time">{time}</div>
-      <div className="cal-pill-title">{ev.title || "(无标题)"}</div>
-      {ev.location && <div className="cal-pill-loc">📍 {ev.location}</div>}
-    </div>
-  );
-}
+// ── Agenda (compact list view) ──────────────────────────────────────
 
 function Agenda({ events, accounts }: { events: CalEvent[]; accounts: MailAccount[] }) {
   const acctMap = useMemo(() => {
@@ -161,9 +284,7 @@ function Agenda({ events, accounts }: { events: CalEvent[]; accounts: MailAccoun
     return m;
   }, [accounts]);
 
-  if (events.length === 0) {
-    return <div className="cal-empty">本周没有日程。</div>;
-  }
+  if (events.length === 0) return <div className="cal-empty">本周没有日程。</div>;
   return (
     <div className="cal-agenda">
       {events.map((ev) => {
@@ -181,12 +302,6 @@ function Agenda({ events, accounts }: { events: CalEvent[]; accounts: MailAccoun
               </div>
               <div className="cal-agenda-title">{ev.title || "(无标题)"}</div>
               {ev.location && <div className="cal-agenda-loc">📍 {ev.location}</div>}
-              {ev.attendees.length > 0 && (
-                <div className="cal-agenda-att">
-                  与会: {ev.attendees.slice(0, 5).map((a) => a.name || a.email).join(", ")}
-                  {ev.attendees.length > 5 && ` (+${ev.attendees.length - 5})`}
-                </div>
-              )}
             </div>
           </div>
         );
@@ -195,9 +310,142 @@ function Agenda({ events, accounts }: { events: CalEvent[]; accounts: MailAccoun
   );
 }
 
+// ── New event modal ────────────────────────────────────────────────
+
+function NewEventModal({
+  accounts,
+  initialStart,
+  initialEnd,
+  onClose,
+  onCreated,
+}: {
+  accounts: MailAccount[];
+  initialStart: Date;
+  initialEnd: Date;
+  onClose: () => void;
+  onCreated: () => void;
+}) {
+  const [accountId, setAccountId] = useState(accounts[0]?.id || "");
+  const [title, setTitle] = useState("");
+  const [allDay, setAllDay] = useState(false);
+  const [startDate, setStartDate] = useState(toDateInput(initialStart));
+  const [startTime, setStartTime] = useState(toTimeInput(initialStart));
+  const [endDate, setEndDate] = useState(toDateInput(initialEnd));
+  const [endTime, setEndTime] = useState(toTimeInput(initialEnd));
+  const [location, setLocation] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, [onClose]);
+
+  async function onCreate() {
+    setError(null);
+    if (!title.trim()) { setError("标题不能为空"); return; }
+    if (!accountId) { setError("没选账号"); return; }
+    setCreating(true);
+    try {
+      const startMs = allDay
+        ? new Date(`${startDate}T00:00:00`).getTime()
+        : new Date(`${startDate}T${startTime}:00`).getTime();
+      const endMs = allDay
+        ? new Date(`${endDate}T00:00:00`).getTime()
+        : new Date(`${endDate}T${endTime}:00`).getTime();
+      if (isNaN(startMs) || isNaN(endMs) || endMs <= startMs) {
+        setError("起止时间无效（结束须晚于开始）");
+        setCreating(false);
+        return;
+      }
+      await api.createCalendarEvent({
+        accountId,
+        title: title.trim(),
+        startMs,
+        endMs,
+        allDay,
+        location: location.trim() || null,
+      });
+      window.dispatchEvent(new CustomEvent("salmon:toast", {
+        detail: { title: `✓ 已加日历: ${title.trim()}`, kind: "done" },
+      }));
+      onCreated();
+    } catch (e: any) {
+      setError(String(e));
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  return (
+    <div className="compose-backdrop" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="compose-modal" style={{ width: 560 }}>
+        <div className="compose-head">
+          <div className="compose-title">新建日历事件</div>
+          <button className="btn-ghost" onClick={onClose}>×</button>
+        </div>
+        <div className="compose-from">
+          <span className="compose-label">账号:</span>
+          <select value={accountId} onChange={(e) => setAccountId(e.target.value)}>
+            {accounts.map((a) => (
+              <option key={a.id} value={a.id}>{a.email} ({a.provider})</option>
+            ))}
+          </select>
+        </div>
+        <div className="compose-field">
+          <span className="compose-label">标题:</span>
+          <input
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            autoFocus
+            placeholder="例如：产品周会"
+          />
+        </div>
+        <div className="compose-field">
+          <span className="compose-label">全天:</span>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
+            <input type="checkbox" checked={allDay} onChange={(e) => setAllDay(e.target.checked)} />
+            全天事件
+          </label>
+        </div>
+        <div className="compose-field">
+          <span className="compose-label">开始:</span>
+          <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+          {!allDay && (
+            <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} style={{ marginLeft: 8 }} />
+          )}
+        </div>
+        <div className="compose-field">
+          <span className="compose-label">结束:</span>
+          <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+          {!allDay && (
+            <input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} style={{ marginLeft: 8 }} />
+          )}
+        </div>
+        <div className="compose-field">
+          <span className="compose-label">地点:</span>
+          <input type="text" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="可选" />
+        </div>
+        {error && <div className="compose-error">{error}</div>}
+        <div className="compose-foot">
+          <div style={{ flex: 1 }} />
+          <button className="btn" onClick={onClose} disabled={creating}>取消</button>
+          <button className="btn primary" onClick={onCreate} disabled={creating}>
+            {creating ? "创建中…" : "创建"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── helpers ────────────────────────────────────────────────────────
+
 function startOfWeek(d: Date): Date {
-  const day = d.getDay(); // 0=Sun
-  const diff = (day === 0 ? -6 : 1 - day); // make Monday start
+  const day = d.getDay();
+  const diff = (day === 0 ? -6 : 1 - day);
   const w = new Date(d);
   w.setHours(0, 0, 0, 0);
   w.setDate(w.getDate() + diff);
@@ -208,10 +456,25 @@ function addDays(d: Date, n: number): Date {
   r.setDate(r.getDate() + n);
   return r;
 }
+function nextRoundHour(d: Date): Date {
+  const r = new Date(d);
+  r.setMinutes(0, 0, 0);
+  r.setHours(r.getHours() + 1);
+  return r;
+}
 function fmtMD(d: Date): string { return `${d.getMonth() + 1}/${d.getDate()}`; }
 function fmtTime(ms: number): string {
   return new Date(ms).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" });
 }
 function dayName(d: Date): string {
   return ["周日", "周一", "周二", "周三", "周四", "周五", "周六"][d.getDay()];
+}
+function toDateInput(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+function toTimeInput(d: Date): string {
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }

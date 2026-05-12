@@ -509,19 +509,27 @@ async fn create_google_event(
             "end": { "date": end_date },
         })
     } else {
+        // Send dateTime with explicit "Z" + timeZone:UTC so Google never has
+        // to guess the offset. Without this the event sometimes lands at
+        // the wrong displayed hour for users who couldn't find it in their
+        // calendar UI.
         let start = chrono::DateTime::<chrono::Utc>::from_timestamp_millis(input.start_ms)
-            .map(|t| t.to_rfc3339())
+            .map(|t| t.format("%Y-%m-%dT%H:%M:%SZ").to_string())
             .unwrap_or_default();
         let end = chrono::DateTime::<chrono::Utc>::from_timestamp_millis(input.end_ms)
-            .map(|t| t.to_rfc3339())
+            .map(|t| t.format("%Y-%m-%dT%H:%M:%SZ").to_string())
             .unwrap_or(start.clone());
         serde_json::json!({
             "summary": input.title,
             "location": input.location,
-            "start": { "dateTime": start },
-            "end": { "dateTime": end },
+            "start": { "dateTime": start, "timeZone": "UTC" },
+            "end":   { "dateTime": end,   "timeZone": "UTC" },
         })
     };
+    eprintln!(
+        "[salmon][cal] create_google_event payload: {}",
+        serde_json::to_string(&body).unwrap_or_default()
+    );
     let url = format!("{}/calendars/primary/events", GOOGLE_CAL_BASE);
     let resp = reqwest::Client::new()
         .post(&url)
