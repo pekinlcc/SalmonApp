@@ -12,11 +12,12 @@ interface Props {
   cliStatus: CliInfo[];
   /** v0.9.0-alpha.1: top-level view. 'home' is Welcome Back; 'mail' / 'calendar'
    *  are stub pages until the OAuth flow + sync land. */
-  topView: "home" | "mail" | "calendar";
+  topView: "home" | "mail" | "calendar" | "tasks";
   onSelect: (id: string) => void;
   onHome: () => void;
   onOpenMail: () => void;
   onOpenCalendar: () => void;
+  onOpenTasks: () => void;
   onNewTopic: () => void;
   onOpenSearch: (query?: string) => void;
   onOpenSettings: () => void;
@@ -94,11 +95,19 @@ export function LeftSidebar(props: Props) {
       <button
         className={`home-btn ${selectedId === null && props.topView === "calendar" ? "active" : ""}`}
         onClick={props.onOpenCalendar}
-        title="日历 (alpha)"
+        title="日历"
       >
         <span className="home-icon">📅</span>
         <span>日历</span>
-        <span className="home-sub alpha-tag">alpha</span>
+      </button>
+
+      <button
+        className={`home-btn ${selectedId === null && props.topView === "tasks" ? "active" : ""}`}
+        onClick={props.onOpenTasks}
+        title="待办 (Google Tasks / Microsoft Todo)"
+      >
+        <span className="home-icon">📋</span>
+        <span>待办</span>
       </button>
 
       <button className="new-btn" onClick={props.onNewTopic}>

@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>SalmonApp · OAuth 配置指南</title>
+<style>
+  :root {
+    --salmon: #E8A082;
+    --salmon-dark: #B7493D;
+    --bg: #FAFAF9;
+    --panel: #FFFFFF;
+    --ink-900: #1B1F23;
+    --ink-700: #4A5057;
+    --ink-500: #6B7280;
+    --ink-100: #E5E7EB;
+    --code-bg: #F5F2EE;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+    line-height: 1.65;
+    color: var(--ink-900);
+    background: var(--bg);
+    margin: 0;
+    padding: 32px 16px 80px;
+  }
+  .wrap {
+    max-width: 820px;
+    margin: 0 auto;
+  }
+  h1 {
+    font-size: 28px;
+    margin: 0 0 6px;
+    color: var(--ink-900);
+  }
+  h1 .spark { color: var(--salmon); }
+  .lede {
+    color: var(--ink-500);
+    margin: 0 0 32px;
+    font-size: 14px;
+  }
+  h2 {
+    font-size: 19px;
+    margin: 36px 0 8px;
+    padding-bottom: 6px;
+    border-bottom: 2px solid var(--salmon);
+    display: inline-block;
+  }
+  h2 .badge {
+    display: inline-block;
+    margin-right: 8px;
+    padding: 2px 10px;
+    font-size: 13px;
+    border-radius: 999px;
+    background: var(--salmon);
+    color: white;
+    vertical-align: 2px;
+  }
+  h3 {
+    font-size: 15px;
+    margin: 22px 0 8px;
+    color: var(--ink-900);
+  }
+  p, li { font-size: 14.5px; }
+  ol, ul { padding-left: 22px; }
+  li { margin: 6px 0; }
+  code {
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-family: "SF Mono", Consolas, Menlo, monospace;
+  }
+  pre {
+    background: var(--code-bg);
+    padding: 12px 14px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-family: "SF Mono", Consolas, Menlo, monospace;
+    overflow-x: auto;
+    margin: 8px 0;
+    border-left: 3px solid var(--salmon);
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--ink-100);
+    border-radius: 10px;
+    padding: 18px 22px;
+    margin: 14px 0;
+  }
+  .panel.tldr { border-left: 4px solid var(--salmon); }
+  .panel.warn {
+    border-left: 4px solid #E8A82A;
+    background: #FFFBEF;
+  }
+  .panel.success {
+    border-left: 4px solid #5AA76C;
+    background: #F4FBF5;
+  }
+  .panel.note {
+    border-left: 4px solid #5B8DEF;
+    background: #F4F8FF;
+  }
+  .panel-title {
+    font-weight: 600;
+    font-size: 14px;
+    margin-bottom: 6px;
+    color: var(--ink-900);
+  }
+  .step {
+    display: flex;
+    gap: 12px;
+    margin: 12px 0;
+  }
+  .step-num {
+    flex-shrink: 0;
+    width: 26px;
+    height: 26px;
+    line-height: 26px;
+    text-align: center;
+    border-radius: 50%;
+    background: var(--salmon);
+    color: white;
+    font-weight: 600;
+    font-size: 13px;
+  }
+  .step-body { flex: 1; }
+  .step-body strong { color: var(--ink-900); }
+  a { color: var(--salmon-dark); }
+  kbd {
+    background: var(--code-bg);
+    border: 1px solid var(--ink-100);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 12px;
+    font-family: inherit;
+  }
+  .key-row {
+    background: #FFF6F1;
+    border: 1px dashed var(--salmon);
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin: 10px 0;
+    font-family: "SF Mono", Consolas, Menlo, monospace;
+    font-size: 13px;
+    color: var(--ink-900);
+  }
+  .key-row .label {
+    color: var(--salmon-dark);
+    font-weight: 600;
+  }
+  .toc {
+    background: var(--panel);
+    border: 1px solid var(--ink-100);
+    border-radius: 8px;
+    padding: 14px 22px;
+    margin-bottom: 24px;
+    font-size: 14px;
+  }
+  .toc h3 {
+    margin: 0 0 8px;
+    font-size: 13px;
+    color: var(--ink-500);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .toc ol { margin: 0; padding-left: 22px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1><span class="spark">✦</span> SalmonApp OAuth 配置</h1>
+  <p class="lede">把 Gmail / Outlook 接进 SalmonApp 一共三件事：① 注册 Google ② 注册 Microsoft ③ 凭据填进 <code>oauth_config.toml</code>。每个 ~15 分钟。</p>
+
+  <div class="panel tldr">
+    <div class="panel-title">TL;DR — 我最终要从你那里拿到这三个值</div>
+    <div class="key-row">
+      <span class="label">Google client_id:</span> <em>……..apps.googleusercontent.com</em><br>
+      <span class="label">Google client_secret:</span> <em>GOCSPX-………</em><br>
+      <span class="label">Microsoft client_id:</span> <em>……-……-……-……-……</em>
+    </div>
+    <p style="margin:6px 0 0;color:var(--ink-500);font-size:13px;">
+      Microsoft 不需要 secret（桌面公共客户端走 PKCE）。只想接 Gmail 就只给前两个；只想接 Outlook 就只给最后一个。
+    </p>
+  </div>
+
+  <div class="toc">
+    <h3>步骤</h3>
+    <ol>
+      <li><a href="#prep">准备：建配置文件</a></li>
+      <li><a href="#google">注册 Google（Gmail + Calendar + Contacts）</a></li>
+      <li><a href="#microsoft">注册 Microsoft（Outlook + Graph）</a></li>
+      <li><a href="#final">把凭据交给我 → 我填进 toml → 你重启 SalmonApp</a></li>
+    </ol>
+  </div>
+
+  <h2 id="prep"><span class="badge">0</span>准备：建配置文件</h2>
+  <p>在终端里跑这一行，把模板复制成真正会被加载的文件（已 <code>.gitignore</code>，不会被 commit）：</p>
+  <pre>cp "/home/bytedance/桌面/Salmon App/salmon/src-tauri/oauth_config.toml.example" \
+   "/home/bytedance/桌面/Salmon App/salmon/src-tauri/oauth_config.toml"</pre>
+
+  <h2 id="google"><span class="badge">1</span>Google · Gmail + Calendar + Contacts</h2>
+  <p style="color:var(--ink-500);font-size:13px;margin-top:-6px;">需要 Google 账号。个人 gmail.com 就行。</p>
+
+  <div class="step">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      打开 <a href="https://console.cloud.google.com/" target="_blank">console.cloud.google.com</a>，顶部下拉点 <strong>新建项目</strong>，名字随便取（例：<code>salmonapp-local</code>），点 Create。
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">2</div>
+    <div class="step-body">
+      左边菜单 <strong>APIs &amp; Services → Library</strong>，依次搜索并 Enable 这三个：
+      <ul>
+        <li><strong>Gmail API</strong></li>
+        <li><strong>Google Calendar API</strong></li>
+        <li><strong>People API</strong>（联系人用）</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">3</div>
+    <div class="step-body">
+      <strong>APIs &amp; Services → OAuth consent screen</strong>：
+      <ul>
+        <li>User Type 选 <strong>External</strong>（个人账号也能用）</li>
+        <li>App name: <code>SalmonApp</code></li>
+        <li>User support email / Developer contact: 填你自己的邮箱</li>
+        <li>下一步 Scopes 那一页直接 Save and continue，不用勾</li>
+        <li><strong>Test users</strong> 里 Add Users，把你自己的 Gmail 加进去（不发布给公众，只给你自己测）</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">4</div>
+    <div class="step-body">
+      <strong>APIs &amp; Services → Credentials → + Create Credentials → OAuth client ID</strong>：
+      <ul>
+        <li>Application type: <strong>Desktop app</strong>（一定要选 Desktop，不是 Web）</li>
+        <li>Name 随便</li>
+        <li>点 Create</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">5</div>
+    <div class="step-body">
+      弹出的对话框里有 <strong>Client ID</strong> 和 <strong>Client Secret</strong>，复制下来给我。后面随时能在 Credentials 列表点进去看。
+    </div>
+  </div>
+
+  <div class="panel success">
+    <div class="panel-title">这一步结束，你会有：</div>
+    <div class="key-row">
+      <span class="label">Google client_id:</span> 类似 <code>123456789012-abc...xyz.apps.googleusercontent.com</code><br>
+      <span class="label">Google client_secret:</span> 类似 <code>GOCSPX-AbCdEfGhIjKlMnOpQrStUv</code>
+    </div>
+  </div>
+
+  <h2 id="microsoft"><span class="badge">2</span>Microsoft · Outlook + Graph</h2>
+  <p style="color:var(--ink-500);font-size:13px;margin-top:-6px;">需要 Microsoft 账号（个人 outlook.com / 工作 Office365 都行）。</p>
+
+  <div class="step">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      打开 <a href="https://portal.azure.com/" target="_blank">portal.azure.com</a>，顶部搜索栏输入 <strong>App registrations</strong>，回车进去。
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">2</div>
+    <div class="step-body">
+      点 <strong>+ New registration</strong>：
+      <ul>
+        <li>Name: <code>SalmonApp</code></li>
+        <li>Supported account types：选 <strong>Accounts in any organizational directory and personal Microsoft accounts</strong>（第三项；这样个人 outlook.com 也能登）</li>
+        <li>Redirect URI：类型选 <strong>Public client/native (mobile &amp; desktop)</strong>，URI 填 <code>http://localhost</code>（Azure 会接受这个并放行动态端口）</li>
+        <li>点 Register</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">3</div>
+    <div class="step-body">
+      新建好的页面顶部就显示 <strong>Application (client) ID</strong>，复制下来给我，这就是 Microsoft 的 client_id。
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">4</div>
+    <div class="step-body">
+      左边 <strong>Authentication</strong> → 拉到底 <strong>Advanced settings</strong> → 找到 <strong>Allow public client flows</strong>，改成 <strong>Yes</strong>，点最下面 Save。
+      <div class="panel warn" style="margin-top:8px;">
+        <div class="panel-title">⚠️ 必须打开</div>
+        没开这个，PKCE 流会被 Azure 拒掉，登录到一半失败。
+      </div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">5</div>
+    <div class="step-body">
+      左边 <strong>API permissions</strong> → <strong>+ Add a permission → Microsoft Graph → Delegated permissions</strong>，勾上：
+      <ul>
+        <li><code>Mail.ReadWrite</code></li>
+        <li><code>Mail.Send</code></li>
+        <li><code>Calendars.ReadWrite</code></li>
+        <li><code>Contacts.Read</code></li>
+        <li><code>User.Read</code>（默认就在）</li>
+        <li><code>offline_access</code></li>
+      </ul>
+      点 Add permissions。个人账号下，"Grant admin consent" 不用点；工作账号需要管理员授权。
+    </div>
+  </div>
+
+  <div class="panel success">
+    <div class="panel-title">这一步结束，你会有：</div>
+    <div class="key-row">
+      <span class="label">Microsoft client_id:</span> 类似 <code>12345678-abcd-1234-abcd-1234567890ab</code>
+    </div>
+  </div>
+
+  <h2 id="final"><span class="badge">3</span>把凭据交给我 → 我填 toml → 你重启</h2>
+
+  <div class="step">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      把上面三个值（或只填你需要的那 provider）直接贴在 SalmonApp 聊天里给我，格式举例：
+      <pre>Google client_id: 123456-xxxx.apps.googleusercontent.com
+Google client_secret: GOCSPX-xxxxxxxxxxxxxxxx
+Microsoft client_id: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx</pre>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">2</div>
+    <div class="step-body">
+      我把这些值写进 <code>salmon/src-tauri/oauth_config.toml</code>。这个文件是 gitignored，不会进任何 commit。
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">3</div>
+    <div class="step-body">
+      你 <strong>关掉 SalmonApp 再重新打开</strong>（backend 只在启动时读 toml）。
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">4</div>
+    <div class="step-body">
+      点左侧栏 📧 邮件 → <strong>＋ 添加 Gmail / Outlook</strong>，系统浏览器会自动打开 OAuth 授权页，登录后 5 分钟内回到 SalmonApp 就好。
+    </div>
+  </div>
+
+  <div class="panel note">
+    <div class="panel-title">几个小提醒</div>
+    <ul style="margin:0;">
+      <li>同一组凭据可以重复用，加多个 Gmail / Outlook 账号都行。</li>
+      <li>只配 Google 就行（不想用 Outlook 的话），把 <code>[microsoft]</code> 留空即可。</li>
+      <li>token 存在本地 SQLite（<code>~/.local/share/app.salmonapp.desktop/salmon.db</code>），不会上传到任何服务器。</li>
+      <li>OAuth 配置改了之后一定要重启 SalmonApp 才生效。</li>
+    </ul>
+  </div>
+
+</div>
+</body>
+</html>

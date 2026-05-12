@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
-import type { Recommendation, Topic, UsageSummary } from "../lib/types";
+import { useMemo } from "react";
+import type { BriefingProgress, Recommendation, Topic, UsageSummary } from "../lib/types";
 import { relativeTime } from "../lib/format";
+import { BriefingFeed } from "./BriefingFeed";
 
 interface PendingPerm {
   id: string;
@@ -25,6 +26,12 @@ interface Props {
   onSelect: (id: string) => void;
   onNewTopic: () => void;
   usageSummary: UsageSummary | null;
+  // v0.9.1 — briefing pipeline state lives in App.tsx (survives navigation
+  // between home/topic views). BriefingFeed reads these as props.
+  briefingRunning: boolean;
+  briefingProgress: BriefingProgress | null;
+  briefingTick: number;
+  onRunBriefing: () => Promise<void> | void;
 }
 
 interface Row {
@@ -54,6 +61,10 @@ export function WelcomeBack({
   onNewTopic,
   usageSummary,
   runningIds,
+  briefingRunning,
+  briefingProgress,
+  briefingTick,
+  onRunBriefing,
 }: Props) {
   const rows: Row[] = useMemo(() => {
     const live = topics.filter((t) => !t.archived);
@@ -92,6 +103,15 @@ export function WelcomeBack({
 
   const totalLive = rows.length;
 
+  // v0.9.1 — single LLM-driven feed replaces the old four-block layout.
+  // The old Recommendations pipeline still produces rows in the
+  // `recommendations` table; BriefingFeed pulls them in via the
+  // orchestrator's topic-engine side. The `recommendations` prop is no
+  // longer rendered here directly — left in the signature to keep the
+  // parent code unchanged.
+  void recommendations; void recsLoading; void recsError; void onRefreshRecs;
+  void onDecideRec; void onAcceptRec;
+
   return (
     <div className="welcome">
       <div className="welcome-inner">
@@ -108,6 +128,18 @@ export function WelcomeBack({
           </div>
         </div>
 
+        {/* v0.9.1 LLM agent pipeline feed — replaces all the old blocks.
+            running/progress/refresh come from App.tsx so the indicator
+            survives navigating to a Topic and back. */}
+        <BriefingFeed
+          topics={topics}
+          onOpenTopic={onSelect}
+          running={briefingRunning}
+          progress={briefingProgress}
+          tick={briefingTick}
+          onRefresh={onRunBriefing}
+        />
+
         {usageSummary && (usageSummary.todayIn + usageSummary.todayOut + usageSummary.totalIn + usageSummary.totalOut) > 0 && (
           <section className="welcome-section">
             <div className="welcome-section-label">用量</div>
@@ -115,50 +147,25 @@ export function WelcomeBack({
           </section>
         )}
 
-        <section className="welcome-section">
-          <div className="welcome-section-head">
-            <div className="welcome-section-label">推荐</div>
-            <button
-              className="welcome-refresh-btn"
-              onClick={onRefreshRecs}
-              disabled={recsLoading}
-              title="重新让 Claude / Codex 给出建议"
-            >
-              {recsLoading ? "↻ 思考中…" : "↻ 刷新"}
-            </button>
-          </div>
-          {recsError && !recsLoading && (
-            <div className="welcome-recs-error">{recsError}</div>
-          )}
-          {!recsLoading && !recsError && recommendations.length === 0 && (
-            <div className="welcome-recs-empty">
-              暂无推荐。点"刷新"让 Claude / Codex 看看你最近聊了什么、可以做点什么。
-            </div>
-          )}
-          <RecommendationsList
-            recs={recommendations}
-            topics={topics}
-            onAccept={(r) => onAcceptRec(r)}
-            onIgnore={(r) => onDecideRec(r.id, "ignored")}
-          />
-        </section>
-
-        {attention.length > 0 && (
+        {/* The old Topic-status rows below the feed are kept as a compact
+            secondary list — sometimes the user wants to jump back into a
+            recent Topic without an AI suggestion. */}
+        {recents.length > 0 && (
           <section className="welcome-section">
-            <div className="welcome-section-label">需要处理</div>
+            <div className="welcome-section-label">最近 Topic</div>
             <div className="welcome-list">
-              {attention.map((r) => (
+              {recents.slice(0, 5).map((r) => (
                 <SessionRow key={r.topic.id} row={r} onClick={() => onSelect(r.topic.id)} />
               ))}
             </div>
           </section>
         )}
 
-        {recents.length > 0 && (
+        {attention.length > 0 && (
           <section className="welcome-section">
-            <div className="welcome-section-label">Recent</div>
+            <div className="welcome-section-label">需要处理（系统状态）</div>
             <div className="welcome-list">
-              {recents.map((r) => (
+              {attention.map((r) => (
                 <SessionRow key={r.topic.id} row={r} onClick={() => onSelect(r.topic.id)} />
               ))}
             </div>
@@ -196,114 +203,6 @@ function SessionRow({ row, onClick }: { row: Row; onClick: () => void }) {
       <span className="welcome-row-chev">›</span>
     </div>
   );
-}
-
-function RecommendationsList({
-  recs,
-  topics,
-  onAccept,
-  onIgnore,
-}: {
-  recs: Recommendation[];
-  topics: Topic[];
-  onAccept: (r: Recommendation) => void;
-  onIgnore: (r: Recommendation) => void;
-}) {
-  const [showOthers, setShowOthers] = useState(false);
-  const high = recs.filter((r) => r.priority === "high");
-  const others = recs.filter((r) => r.priority !== "high");
-  return (
-    <div className="welcome-recs-list">
-      {high.map((r) => (
-        <RecommendationCard
-          key={r.id}
-          rec={r}
-          topicTitle={r.topicId ? topics.find((t) => t.id === r.topicId)?.title : null}
-          onAccept={() => onAccept(r)}
-          onIgnore={() => onIgnore(r)}
-        />
-      ))}
-      {others.length > 0 && (
-        <details className="rec-others" open={showOthers} onToggle={(e) => setShowOthers((e.target as HTMLDetailsElement).open)}>
-          <summary className="rec-others-head">
-            <span className="caret">▸</span>
-            其他建议 <span className="rec-others-count">{others.length}</span>
-            <span className="rec-others-hint">单方推荐 · 双方未一致 high</span>
-          </summary>
-          <div className="rec-others-body">
-            {others.map((r) => (
-              <RecommendationCard
-                key={r.id}
-                rec={r}
-                topicTitle={r.topicId ? topics.find((t) => t.id === r.topicId)?.title : null}
-                onAccept={() => onAccept(r)}
-                onIgnore={() => onIgnore(r)}
-              />
-            ))}
-          </div>
-        </details>
-      )}
-    </div>
-  );
-}
-
-function RecommendationCard({
-  rec,
-  topicTitle,
-  onAccept,
-  onIgnore,
-}: {
-  rec: Recommendation;
-  topicTitle: string | null | undefined;
-  onAccept: () => void;
-  onIgnore: () => void;
-}) {
-  const sourceLabel = rec.sourceEngine === "claude" ? "Claude Code" : "Codex";
-  const sourceClass = rec.sourceEngine === "claude" ? "rec-src-cc" : "rec-src-cx";
-  const otherEngine = rec.sourceEngine === "claude" ? "Codex" : "Claude Code";
-  return (
-    <div className={`rec-card prio-${rec.priority}`}>
-      <div className="rec-head">
-        <span className={`rec-source ${sourceClass}`}>{sourceLabel}</span>
-        <span className={`rec-prio rec-prio-${rec.priority}`}>
-          {rec.priority === "high" ? "★ 高价值" : rec.priority === "medium" ? "中" : "弱"}
-        </span>
-        <span className="rec-rating-detail" title={`${sourceLabel} 自评 / ${otherEngine} 互评`}>
-          {labelVal(rec.selfValue)} · {otherEngine === "Codex" ? "↗ Codex" : "↗ Claude"} {labelVal(rec.peerValue)}
-        </span>
-        <span className="rec-time">{relativeTime(rec.generatedAt)}</span>
-      </div>
-      <div className="rec-title">{rec.title}</div>
-      <div className="rec-rationale">{rec.rationale}</div>
-      <div className="rec-meta">
-        {topicTitle && <span className="rec-topic">↳ Topic: {topicTitle}</span>}
-        <span className="rec-action">下一步: {rec.actionHint}</span>
-      </div>
-      {rec.payoff && (
-        <div className="rec-payoff">
-          <span className="rec-payoff-label">会换来</span>
-          <span className="rec-payoff-text">{rec.payoff}</span>
-        </div>
-      )}
-      <div className="rec-actions">
-        <button
-          className="btn primary"
-          onClick={onAccept}
-          title={rec.topicId ? `跳到该 Topic 并自动发送:"${rec.actionHint}"` : "标记同意"}
-        >
-          ✓ 同意 · 开干
-        </button>
-        <button className="btn" onClick={onIgnore} title="标记忽略,不发消息">× 忽略</button>
-      </div>
-    </div>
-  );
-}
-
-function labelVal(v: string | null): string {
-  if (v === "high") return "高";
-  if (v === "medium") return "中";
-  if (v === "low") return "弱";
-  return "—";
 }
 
 function statusRank(s: Row["status"]): number {
@@ -372,3 +271,4 @@ function compactTokens(n: number): string {
   if (n < 1_000_000) return `${Math.round(n / 1000)}k`;
   return `${(n / 1_000_000).toFixed(1)}M`;
 }
+

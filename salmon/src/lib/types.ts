@@ -124,6 +124,268 @@ export interface DailyUsage {
   totalOut: number;
 }
 
+// v0.9.0-alpha.2: Gmail integration types.
+export interface MailAccount {
+  id: string;
+  provider: "gmail" | "outlook" | string;
+  email: string;
+  displayName?: string | null;
+  addedAt: number;
+  lastSyncAt?: number | null;
+  lastSyncError?: string | null;
+  unreadCount: number;
+}
+
+export interface MailListItem {
+  id: string;
+  accountId: string;
+  threadId?: string | null;
+  fromEmail?: string | null;
+  fromName?: string | null;
+  subject?: string | null;
+  snippet?: string | null;
+  dateMs: number;
+  unread: boolean;
+  starred: boolean;
+  hasAttachments: boolean;
+}
+
+export interface EmailAddress {
+  email: string;
+  name?: string | null;
+}
+
+export interface MailMessageFull {
+  id: string;
+  accountId: string;
+  threadId?: string | null;
+  fromEmail?: string | null;
+  fromName?: string | null;
+  toEmails: EmailAddress[];
+  ccEmails: EmailAddress[];
+  subject?: string | null;
+  snippet?: string | null;
+  bodyText?: string | null;
+  bodyHtml?: string | null;
+  dateMs: number;
+  unread: boolean;
+  starred: boolean;
+  labels: string[];
+  hasAttachments: boolean;
+}
+
+export interface OauthStatus {
+  googleConfigured: boolean;
+  microsoftConfigured: boolean;
+}
+
+export interface MailSyncProgress {
+  accountId: string;
+  fetched: number;
+  total: number;
+  stage: "listing" | "fetching" | "done" | string;
+}
+
+// v0.9.0-alpha.3+: compose / draft.
+export interface ComposeInput {
+  accountId: string;
+  to: string[];
+  cc: string[];
+  bcc: string[];
+  subject: string;
+  bodyText: string;
+  bodyHtml: string | null;
+  attachmentPaths: string[];
+  replyToMessageId: string | null;
+}
+
+// v0.9.0-alpha.5: calendar.
+export interface CalAttendee {
+  email: string;
+  name?: string | null;
+  response?: string | null;
+}
+export interface CalEvent {
+  id: string;
+  accountId: string;
+  calendarId?: string | null;
+  startMs: number;
+  endMs: number;
+  allDay: boolean;
+  title?: string | null;
+  location?: string | null;
+  description?: string | null;
+  attendees: CalAttendee[];
+  organizer?: string | null;
+  recurrence?: string | null;
+  status?: string | null;
+  myResponse?: string | null;
+}
+
+// v0.9.0-alpha.6: contacts.
+export interface ContactRow {
+  id: string;
+  accountId: string;
+  email: string;
+  name?: string | null;
+  organization?: string | null;
+  isVip: boolean;
+  lastSeenMs?: number | null;
+  interactionCount: number;
+}
+
+// v0.9.0-alpha.6: home-feed briefing.
+export type FeedItem =
+  | {
+      kind: "Mail";
+      id: string;
+      accountId: string;
+      fromName?: string | null;
+      fromEmail?: string | null;
+      subject?: string | null;
+      snippet?: string | null;
+      dateMs: number;
+      isVip: boolean;
+      score: number;
+    }
+  | {
+      kind: "Event";
+      id: string;
+      accountId: string;
+      startMs: number;
+      endMs: number;
+      allDay: boolean;
+      title?: string | null;
+      location?: string | null;
+      score: number;
+    }
+  | {
+      kind: "Topic";
+      id: string;
+      title: string;
+      engine: string;
+      workdir: string;
+      updatedAt: number;
+      reason: string;
+      score: number;
+    }
+  | {
+      kind: "Recommendation";
+      id: string;
+      title: string;
+      rationale: string;
+      actionHint: string;
+      priority: string;
+      sourceEngine: string;
+      score: number;
+    };
+
+export interface BriefingFeed {
+  generatedAt: number;
+  items: FeedItem[];
+}
+
+// ============================================================================
+// v0.9.1 LLM-driven briefing pipeline (Roost / Pulse / Briefing / Cross-link)
+// ============================================================================
+
+export interface ActionStep {
+  kind: "reply" | "calendar" | "task" | "acknowledge";
+  detail: string;
+}
+
+export interface SuggestedAction {
+  label: string;
+  steps: ActionStep[];
+}
+
+export interface BriefItem {
+  id: string;
+  briefingId: string;
+  kind: "mail" | "topic" | "cross" | "event";
+  priority: "high" | "medium" | "low";
+  title: string;
+  summary?: string | null;
+  why?: string | null;
+  contactEmail?: string | null;
+  topicId?: string | null;
+  relatedMailIds: string[];
+  relatedTopicIds: string[];
+  relatedEventIds: string[];
+  suggestedActions: SuggestedAction[];
+  status: "pending" | "acted" | "ack" | "muted";
+  score: number;
+  createdAt: number;
+  decidedAt?: number | null;
+}
+
+export interface BriefingStatus {
+  currentBriefingId: string | null;
+  generatedAt: number | null;
+  overview: string | null;
+  engineAvailable: boolean;
+  engine: string | null;
+  rubricPath: string;
+}
+
+export interface BriefingRunResult {
+  briefingId: string;
+  itemCount: number;
+  overview: string;
+  usedLlm: boolean;
+}
+
+export interface BriefingProgress {
+  stage: "starting" | "roost" | "pulse" | "briefing" | "cross-link" | "done" | string;
+  current: number;
+  total: number;
+  note?: string | null;
+}
+
+export type StepResult =
+  | { kind: "Acknowledged"; message: string }
+  | { kind: "ReplyDrafted"; draft: string; replyToMailId: string }
+  | { kind: "EventCreated"; eventId: string; accountEmail: string; title: string; startMs: number; endMs: number; allDay: boolean; location?: string | null }
+  | { kind: "TaskCreated"; taskId: string; accountEmail: string; title: string; dueMs?: number | null; notes?: string | null }
+  | { kind: "Skipped"; reason: string };
+
+// v0.9.1: Tasks (Google Tasks + Microsoft Graph Todo)
+export interface Task {
+  id: string;
+  accountId: string;
+  listId?: string | null;
+  title: string;
+  notes?: string | null;
+  dueMs?: number | null;
+  completed: boolean;
+  completedAtMs?: number | null;
+  sourceKind: "manual" | "briefing" | "remote" | string;
+  sourceBriefItemId?: string | null;
+  createdAt: number;
+  updatedAt: number;
+}
+export interface CreateTaskInput {
+  accountId: string;
+  title: string;
+  notes?: string | null;
+  dueMs?: number | null;
+  sourceKind?: string | null;
+  sourceBriefItemId?: string | null;
+}
+export interface UpdateTaskInput {
+  id: string;
+  completed?: boolean | null;
+  title?: string | null;
+  notes?: string | null;
+  dueMs?: number | null;
+}
+
+export interface ExecuteStepInput {
+  itemId: string;
+  actionIndex: number;
+  stepIndices?: number[] | null;
+}
+
 export interface UsageSummary {
   todayIn: number;
   todayOut: number;

@@ -1,0 +1,500 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>SalmonApp · Tasks 放在哪里 · 4 个方案对比</title>
+<style>
+  :root {
+    --salmon: #E8A082;
+    --salmon-50: #FFF6F1;
+    --salmon-100: #FFE5D8;
+    --salmon-500: #E8A082;
+    --salmon-700: #B7493D;
+    --bg: #FAFAF9;
+    --panel: #FFFFFF;
+    --ink-900: #1B1F23;
+    --ink-700: #4A5057;
+    --ink-500: #6B7280;
+    --ink-300: #C8C2B7;
+    --ink-100: #E5E7EB;
+    --ink-50: #F0EEE9;
+    --cc: #6F44B4;
+    --cx: #2A5B98;
+    --event: #2A5B98;
+    --task: #D97757;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    margin: 0;
+    padding: 32px 24px 80px;
+    background: var(--bg);
+    color: var(--ink-900);
+    line-height: 1.55;
+  }
+  .wrap { max-width: 1240px; margin: 0 auto; }
+  h1 { font-size: 24px; margin: 0 0 6px; }
+  h1 .spark { color: var(--salmon); }
+  .lede { color: var(--ink-500); font-size: 14px; margin: 0 0 26px; }
+  h2 {
+    font-size: 17px;
+    margin: 32px 0 12px;
+    padding-bottom: 6px;
+    border-bottom: 2px solid var(--salmon);
+    display: inline-block;
+  }
+  h2 .badge {
+    display: inline-block;
+    margin-right: 8px;
+    padding: 2px 10px;
+    font-size: 12px;
+    border-radius: 999px;
+    background: var(--salmon);
+    color: white;
+    vertical-align: 2px;
+  }
+  .recommend {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 1px 8px;
+    font-size: 11px;
+    background: #5AA76C;
+    color: white;
+    border-radius: 999px;
+    vertical-align: 2px;
+  }
+  .frame {
+    background: var(--panel);
+    border: 1px solid var(--ink-100);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 18px rgba(0,0,0,0.04);
+    margin: 12px 0;
+  }
+  .chrome { display: flex; min-height: 480px; }
+  .rail {
+    width: 200px;
+    background: #F5F2EE;
+    padding: 14px 10px;
+    border-right: 1px solid var(--ink-100);
+    flex-shrink: 0;
+    font-size: 13px;
+  }
+  .rail .item {
+    display: flex; gap: 8px; align-items: center;
+    padding: 8px 10px;
+    border-radius: 6px;
+    color: var(--ink-700);
+  }
+  .rail .item.active {
+    background: var(--salmon-100);
+    color: var(--salmon-700);
+    font-weight: 600;
+  }
+  .rail .item .sub { font-size: 10px; color: var(--ink-500); margin-left: auto; }
+  .rail .item.task-tab {
+    background: #FFEFDF; color: var(--task); font-weight: 600;
+  }
+  .rail .group { margin-top: 14px; font-size: 10px; color: var(--ink-500); text-transform: uppercase; padding: 0 10px; letter-spacing: 0.5px; }
+  .rail .topic { font-size: 12px; color: var(--ink-700); padding: 5px 10px; border-radius: 4px; }
+  .rail .topic .pill { display: inline-block; padding: 0px 4px; font-size: 9px; border-radius: 3px; margin-right: 4px; }
+  .rail .topic .pill.cc { background: #ECE0FB; color: var(--cc); }
+
+  .body {
+    flex: 1; min-width: 0; padding: 18px 22px;
+    overflow-y: auto; max-height: 480px;
+  }
+  .head { display: flex; align-items: center; gap: 14px; padding-bottom: 10px; border-bottom: 1px solid var(--ink-100); margin-bottom: 14px; }
+  .head .title { font-size: 16px; font-weight: 600; }
+  .head .tabs { display: flex; gap: 4px; margin-left: 18px; }
+  .head .tab {
+    padding: 4px 12px; border-radius: 6px; font-size: 12.5px;
+    color: var(--ink-700); cursor: default;
+  }
+  .head .tab.active {
+    background: var(--salmon-100);
+    color: var(--salmon-700);
+    font-weight: 600;
+  }
+  .head .actions { margin-left: auto; display: flex; gap: 8px; }
+  .btn-sm {
+    padding: 4px 10px; font-size: 12px;
+    border-radius: 6px; border: 1px solid var(--ink-100);
+    background: white; color: var(--ink-700);
+  }
+  .btn-sm.primary { background: var(--salmon-700); color: white; border-color: var(--salmon-700); }
+
+  /* Calendar week mock */
+  .cal-week {
+    display: grid; grid-template-columns: repeat(7, 1fr);
+    gap: 1px; background: var(--ink-100); border-radius: 6px;
+    overflow: hidden;
+  }
+  .cal-day { background: white; min-height: 240px; }
+  .cal-day-head {
+    padding: 6px 8px; border-bottom: 1px solid var(--ink-100);
+    font-size: 11px; display: flex; justify-content: space-between;
+  }
+  .cal-day-name { color: var(--ink-500); }
+  .cal-day-num { font-weight: 600; }
+  .cal-day.today .cal-day-head { background: var(--salmon-50); color: var(--salmon-700); }
+  .cal-day-body {
+    padding: 4px;
+    display: flex; flex-direction: column; gap: 3px;
+  }
+  .ev-pill {
+    background: var(--salmon-50); border-left: 3px solid var(--salmon-500);
+    padding: 3px 5px; border-radius: 3px; font-size: 10.5px;
+  }
+  .ev-pill .ev-time { color: var(--salmon-700); font-weight: 600; font-size: 9.5px; }
+  .ev-pill.task {
+    background: #FFEFDF; border-left-color: var(--task);
+  }
+  .ev-pill.task .ev-time { color: var(--task); }
+  .ev-pill.task::before { content: "📋 "; }
+
+  /* Task list */
+  .tasks {
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .task-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px;
+    background: white;
+    border: 1px solid var(--ink-100);
+    border-radius: 8px;
+    font-size: 13px;
+  }
+  .task-row.done { opacity: 0.55; }
+  .task-row.done .task-title { text-decoration: line-through; color: var(--ink-500); }
+  .task-checkbox {
+    width: 18px; height: 18px;
+    border: 1.5px solid var(--ink-300, #c8c2b7);
+    border-radius: 4px;
+    flex-shrink: 0;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .task-checkbox.checked {
+    background: var(--task); border-color: var(--task); color: white;
+  }
+  .task-checkbox.checked::before { content: "✓"; font-size: 13px; }
+  .task-title { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .task-due { font-size: 11px; color: var(--ink-500); flex-shrink: 0; }
+  .task-due.overdue { color: var(--salmon-700); font-weight: 600; }
+  .task-source { font-size: 10px; color: var(--ink-500); padding: 1px 6px; background: var(--ink-50); border-radius: 4px; }
+
+  .legend { margin: 6px 0 0; font-size: 12.5px; color: var(--ink-500); }
+  .legend code { background: var(--ink-50); padding: 1px 4px; border-radius: 3px; }
+
+  .pros-cons { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 10px 0 18px; font-size: 13px; }
+  .pros, .cons {
+    padding: 10px 14px;
+    background: var(--panel);
+    border-radius: 8px;
+    border: 1px solid var(--ink-100);
+  }
+  .pros { border-left: 3px solid #5AA76C; }
+  .cons { border-left: 3px solid #B7493D; }
+  .pros .label, .cons .label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+  .pros .label { color: #5AA76C; }
+  .cons .label { color: #B7493D; }
+  .pros ul, .cons ul { margin: 4px 0 0; padding-left: 18px; }
+
+  .ask {
+    background: linear-gradient(90deg, #FFF6F1, #FFFBF0);
+    border: 1px solid var(--salmon-100);
+    border-radius: 10px;
+    padding: 14px 18px;
+    margin-top: 24px;
+    font-size: 14px;
+  }
+  .ask b { color: var(--salmon-700); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1><span class="spark">✦</span> Tasks/待办 应该放在哪里？</h1>
+  <p class="lede">
+    背景：Pulse 给的 suggestedAction 里包含 <code>task</code> 步骤（例 "提交报名表 5/11 前"）。
+    Google 那边有 Tasks 服务、Outlook 有 To Do —— 都能云端同步。问题是 UI 上放哪。下面 4 个方案。
+  </p>
+
+  <!-- ============== Option A ============== -->
+  <h2><span class="badge">A</span>日历视图加 "待办" 标签页 <span class="recommend">我推荐</span></h2>
+  <p class="legend">
+    在 CalendarView 顶部加两个标签：<code>📅 日程</code> / <code>📋 待办</code>。同一个视图，两种数据。
+    日程仍走 Google Calendar / Graph Events，待办走 Google Tasks / Graph Todo。共用账号 OAuth。
+  </p>
+
+  <div class="frame">
+    <div class="chrome">
+      <div class="rail">
+        <div class="item">✦ 首页</div>
+        <div class="item">📧 邮件 <span class="sub">12</span></div>
+        <div class="item active">📅 日历</div>
+        <div class="group">最近 Topic</div>
+        <div class="topic"><span class="pill cc">CC</span>SalmonApp v0.9</div>
+        <div class="topic"><span class="pill cc">CC</span>论文综述</div>
+      </div>
+      <div class="body">
+        <div class="head">
+          <div class="title">📅 日历</div>
+          <div class="tabs">
+            <div class="tab">📅 日程</div>
+            <div class="tab active">📋 待办 · 5</div>
+          </div>
+          <div class="actions">
+            <select class="btn-sm">
+              <option>全部账号</option>
+              <option>pekinlcc@gmail.com</option>
+            </select>
+            <button class="btn-sm primary">＋ 新建待办</button>
+            <button class="btn-sm">↻ 同步</button>
+          </div>
+        </div>
+
+        <div class="tasks">
+          <div class="task-row">
+            <div class="task-checkbox"></div>
+            <div class="task-title">提交 K 年级说明会在线报名表</div>
+            <span class="task-due overdue">5/11 · 已逾期 1 天</span>
+            <span class="task-source">📧 学校</span>
+          </div>
+          <div class="task-row">
+            <div class="task-checkbox"></div>
+            <div class="task-title">Q3 review 准备材料</div>
+            <span class="task-due">5/30</span>
+            <span class="task-source">📧 Bob</span>
+          </div>
+          <div class="task-row">
+            <div class="task-checkbox"></div>
+            <div class="task-title">回邮件确认 OAuth 设置 (Alice)</div>
+            <span class="task-due">今日</span>
+            <span class="task-source">✦ AI</span>
+          </div>
+          <div class="task-row done">
+            <div class="task-checkbox checked"></div>
+            <div class="task-title">登录 Google Cloud Console 注册 OAuth 客户端</div>
+            <span class="task-due">5/12</span>
+            <span class="task-source">✦ AI</span>
+          </div>
+          <div class="task-row done">
+            <div class="task-checkbox checked"></div>
+            <div class="task-title">买咖啡豆</div>
+            <span class="task-due">本周</span>
+            <span class="task-source">手动</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="pros-cons">
+    <div class="pros">
+      <div class="label">优点</div>
+      <ul>
+        <li>分类符合直觉：时间约束的东西都在"日历"下</li>
+        <li>账号共用 OAuth，加一个 scope 就行（<code>https://www.googleapis.com/auth/tasks</code>）</li>
+        <li>侧栏不增加新项，UI 不臃肿</li>
+        <li>Pulse 的 <code>task</code> 步骤可以直接创建到这里 + toast 提示</li>
+      </ul>
+    </div>
+    <div class="cons">
+      <div class="label">缺点</div>
+      <ul>
+        <li>"任务" 和 "事件" 在概念上有差别 — 一些用户可能想要明确区分</li>
+        <li>切 tab 略多一步</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ============== Option B ============== -->
+  <h2><span class="badge">B</span>左侧栏独立"待办"图标</h2>
+  <p class="legend">和邮件/日历平级的第 4 个顶级视图。</p>
+
+  <div class="frame">
+    <div class="chrome">
+      <div class="rail">
+        <div class="item">✦ 首页</div>
+        <div class="item">📧 邮件 <span class="sub">12</span></div>
+        <div class="item">📅 日历</div>
+        <div class="item task-tab">📋 待办 <span class="sub">5</span></div>
+        <div class="group">最近 Topic</div>
+        <div class="topic"><span class="pill cc">CC</span>SalmonApp v0.9</div>
+      </div>
+      <div class="body">
+        <div class="head">
+          <div class="title">📋 待办</div>
+          <div class="actions">
+            <select class="btn-sm"><option>全部账号</option></select>
+            <button class="btn-sm primary">＋ 新建待办</button>
+          </div>
+        </div>
+        <div class="tasks">
+          <div class="task-row">
+            <div class="task-checkbox"></div>
+            <div class="task-title">提交 K 年级说明会在线报名表</div>
+            <span class="task-due overdue">5/11 · 已逾期</span>
+            <span class="task-source">📧 学校</span>
+          </div>
+          <div class="task-row">
+            <div class="task-checkbox"></div>
+            <div class="task-title">Q3 review 准备材料</div>
+            <span class="task-due">5/30</span>
+            <span class="task-source">📧 Bob</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="pros-cons">
+    <div class="pros">
+      <div class="label">优点</div>
+      <ul>
+        <li>独立位置 — 一键直达，没切 tab 那一步</li>
+        <li>未读 badge 显眼</li>
+      </ul>
+    </div>
+    <div class="cons">
+      <div class="label">缺点</div>
+      <ul>
+        <li>侧栏增加一项，跟"邮件 + 日历"开始变长</li>
+        <li>跟日历事件强相关（带 due 日期的待办应该在日历上看到），分两个视图反而要来回切</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ============== Option C ============== -->
+  <h2><span class="badge">C</span>日历里直接混排（不分 tab）</h2>
+  <p class="legend">待办作为一种特殊的"事件"显示在周视图里。带 due 日期的任务出现在当天，没 due 的放在一个"无期限"折叠区。</p>
+
+  <div class="frame">
+    <div class="chrome">
+      <div class="rail">
+        <div class="item">✦ 首页</div>
+        <div class="item">📧 邮件 <span class="sub">12</span></div>
+        <div class="item active">📅 日历</div>
+        <div class="group">最近 Topic</div>
+      </div>
+      <div class="body">
+        <div class="head">
+          <div class="title">📅 日历 · 周视图</div>
+          <div class="actions"><button class="btn-sm">↻ 同步</button></div>
+        </div>
+        <div class="cal-week">
+          <div class="cal-day"><div class="cal-day-head"><span class="cal-day-name">周一</span><span class="cal-day-num">12</span></div></div>
+          <div class="cal-day"><div class="cal-day-head"><span class="cal-day-name">周二</span><span class="cal-day-num">13</span></div>
+            <div class="cal-day-body">
+              <div class="ev-pill task"><div class="ev-time">截止</div>提交报名表 (逾期 1d)</div>
+            </div>
+          </div>
+          <div class="cal-day today"><div class="cal-day-head"><span class="cal-day-name">周三</span><span class="cal-day-num">14</span></div>
+            <div class="cal-day-body">
+              <div class="ev-pill"><div class="ev-time">14:30</div>产品周会</div>
+              <div class="ev-pill task"><div class="ev-time">今日</div>回 Alice OAuth</div>
+            </div>
+          </div>
+          <div class="cal-day"><div class="cal-day-head"><span class="cal-day-name">周四</span><span class="cal-day-num">15</span></div>
+            <div class="cal-day-body">
+              <div class="ev-pill"><div class="ev-time">10:00</div>1:1 with Manager</div>
+            </div>
+          </div>
+          <div class="cal-day"><div class="cal-day-head"><span class="cal-day-name">周五</span><span class="cal-day-num">16</span></div></div>
+          <div class="cal-day"><div class="cal-day-head"><span class="cal-day-name">周六</span><span class="cal-day-num">17</span></div></div>
+          <div class="cal-day"><div class="cal-day-head"><span class="cal-day-name">周日</span><span class="cal-day-num">18</span></div></div>
+        </div>
+        <div style="margin-top: 14px; font-size: 12px; color: var(--ink-500);">
+          ─── 无截止日期的待办 (折叠 · 2) ▸
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="pros-cons">
+    <div class="pros">
+      <div class="label">优点</div>
+      <ul>
+        <li>真正的"时间一图"，事件 + 待办在同一时间轴上</li>
+        <li>逾期的待办视觉上一眼就能看到（在过去某天）</li>
+      </ul>
+    </div>
+    <div class="cons">
+      <div class="label">缺点</div>
+      <ul>
+        <li>"无期限"待办没好地方放（折叠区里容易被忽视）</li>
+        <li>勾选完成等交互在 day cell 里塞得拥挤</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ============== Option D ============== -->
+  <h2><span class="badge">D</span>首页加一个永久"待办"折叠区</h2>
+  <p class="legend">不开新视图，待办作为首页 BriefingFeed 下面一个独立分区。</p>
+
+  <div class="frame" style="padding: 20px;">
+    <div style="background: var(--salmon-50); border-radius: 8px; padding: 10px 14px; font-size: 12px; color: var(--ink-700); margin-bottom: 14px;">
+      <b>欢迎回来</b> · 3 件值得现在看 · 5 件未完成待办
+    </div>
+    <div style="font-size: 11px; color: var(--ink-500); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">
+      ─── 今日聚焦 (3) ───
+    </div>
+    <div style="padding: 12px; background: white; border: 1px solid var(--ink-100); border-radius: 8px; font-size: 13px; color: var(--ink-700); margin-bottom: 8px;">
+      📧 [其他 brief 卡片省略]
+    </div>
+    <div style="font-size: 11px; color: var(--ink-500); text-transform: uppercase; letter-spacing: 0.5px; margin: 18px 0 8px;">
+      ─── 📋 待办 (5) ───
+    </div>
+    <div class="tasks">
+      <div class="task-row">
+        <div class="task-checkbox"></div>
+        <div class="task-title">提交 K 年级说明会在线报名表</div>
+        <span class="task-due overdue">5/11 · 已逾期</span>
+      </div>
+      <div class="task-row">
+        <div class="task-checkbox"></div>
+        <div class="task-title">Q3 review 准备材料</div>
+        <span class="task-due">5/30</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="pros-cons">
+    <div class="pros">
+      <div class="label">优点</div>
+      <ul>
+        <li>一目了然：进 SalmonApp 第一眼就能看到 待办 + 今日聚焦</li>
+      </ul>
+    </div>
+    <div class="cons">
+      <div class="label">缺点</div>
+      <ul>
+        <li>首页越来越胖。混排原则是"AI 已经帮你按重要性排了" — 多一个清单反而稀释聚焦</li>
+        <li>没有时间维度，多于 5-6 个待办时首页会很拥挤</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ============== Decision ============== -->
+  <div class="ask">
+    <b>我的建议是 A</b> — 日历视图加 "📋 待办" tab。理由：
+    <ol style="margin: 8px 0 0;">
+      <li>有 due date 的待办本质上是"未来某天的待办事项" — 跟日历同源</li>
+      <li>侧栏不增项，整体克制</li>
+      <li>实现时复用 CalendarView 现有的账号选择 + 同步按钮基础设施</li>
+      <li>Pulse 的 <code>task</code> 步骤一键创建 → toast + Google Tasks / Graph Todo 云端同步</li>
+    </ol>
+    <p style="margin-top: 10px;">
+      你选哪个？A / B / C / D，或者你有别的想法？决定之后我立刻实现，<b>下次 build 你确认了再装</b>。
+    </p>
+    <p style="margin: 6px 0 0; color: var(--ink-500); font-size: 12px;">
+      实现时需要扩 OAuth scope（Google: <code>tasks</code>；Microsoft: <code>Tasks.ReadWrite</code>），
+      Gmail 用户要重新走一次 OAuth（点 "＋ 添加 Gmail" 重新登录）。
+    </p>
+  </div>
+
+</div>
+</body>
+</html>

@@ -20,3 +20,6 @@ dist/
 .DS_Store
 *.log
 *.swp
+
+# OAuth credentials — user fills locally, never committed
+salmon/src-tauri/oauth_config.toml

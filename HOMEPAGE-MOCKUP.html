@@ -1,0 +1,702 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>SalmonApp · v0.10 推荐架构 mockup（v2）</title>
+<style>
+  :root {
+    --salmon: #E8A082;
+    --salmon-50: #FFF6F1;
+    --salmon-100: #FFE5D8;
+    --salmon-500: #E8A082;
+    --salmon-700: #B7493D;
+    --bg: #FAFAF9;
+    --panel: #FFFFFF;
+    --ink-900: #1B1F23;
+    --ink-700: #4A5057;
+    --ink-500: #6B7280;
+    --ink-300: #C8C2B7;
+    --ink-100: #E5E7EB;
+    --ink-50: #F0EEE9;
+    --cc: #6F44B4;
+    --cx: #2A5B98;
+    --event: #2A5B98;
+    --rec: #8A6800;
+    --cross: #5AA76C;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    margin: 0;
+    padding: 36px 24px 100px;
+    background: var(--bg);
+    color: var(--ink-900);
+    line-height: 1.55;
+  }
+  .wrap { max-width: 1280px; margin: 0 auto; }
+  h1 { font-size: 24px; margin: 0 0 4px; }
+  h1 .spark { color: var(--salmon); }
+  .lede { color: var(--ink-500); font-size: 14px; margin: 0 0 28px; }
+  .lede em { color: var(--salmon-700); font-style: normal; font-weight: 600; }
+  h2 {
+    font-size: 17px;
+    margin: 38px 0 12px;
+    padding-bottom: 6px;
+    border-bottom: 2px solid var(--salmon);
+    display: inline-block;
+  }
+  h2 .badge {
+    display: inline-block;
+    margin-right: 8px;
+    padding: 2px 10px;
+    font-size: 12px;
+    border-radius: 999px;
+    background: var(--salmon);
+    color: white;
+    vertical-align: 2px;
+  }
+  /* ====== Pipeline diagram ====== */
+  .pipeline {
+    display: grid;
+    grid-template-columns: 220px 1fr 220px;
+    gap: 14px;
+    align-items: center;
+    margin: 18px 0 30px;
+  }
+  .pipe-block {
+    background: var(--panel);
+    border: 1px solid var(--ink-100);
+    border-radius: 10px;
+    padding: 14px 16px;
+    font-size: 13px;
+  }
+  .pipe-block .title { font-weight: 600; margin-bottom: 4px; }
+  .pipe-block .sub { color: var(--ink-500); font-size: 11.5px; }
+  .pipe-block.mail { border-left: 3px solid var(--salmon-500); }
+  .pipe-block.topic { border-left: 3px solid var(--cc); }
+  .pipe-block.cross { border-left: 3px solid var(--cross); background: #F4FBF5; }
+  .pipe-block.output { border-left: 3px solid var(--ink-700); }
+  .pipe-stages {
+    display: flex; gap: 8px; align-items: center;
+    flex-wrap: wrap;
+  }
+  .stage {
+    background: var(--panel);
+    border: 1px solid var(--ink-100);
+    padding: 8px 10px;
+    border-radius: 8px;
+    font-size: 12px;
+    text-align: center;
+    flex: 1; min-width: 90px;
+  }
+  .stage .name { font-weight: 600; }
+  .stage .desc { color: var(--ink-500); font-size: 10.5px; margin-top: 2px; }
+  .stage.mail { background: var(--salmon-50); }
+  .stage.topic { background: #F4ECFF; }
+  .stage.cross { background: #F4FBF5; }
+  .arrow { color: var(--ink-300); font-size: 18px; padding: 0 4px; }
+  .pipe-col {
+    display: flex; flex-direction: column; gap: 16px;
+  }
+
+  /* ====== App chrome (home preview) ====== */
+  .frame {
+    background: var(--panel);
+    border: 1px solid var(--ink-100);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 18px rgba(0,0,0,0.04);
+  }
+  .chrome { display: flex; min-height: 720px; }
+  .rail {
+    width: 200px;
+    background: #F5F2EE;
+    padding: 14px 10px;
+    border-right: 1px solid var(--ink-100);
+    flex-shrink: 0;
+    font-size: 13px;
+  }
+  .rail .item {
+    display: flex; gap: 8px; align-items: center;
+    padding: 8px 10px;
+    border-radius: 6px;
+    color: var(--ink-700);
+    cursor: default;
+  }
+  .rail .item.active {
+    background: var(--salmon-100);
+    color: var(--salmon-700);
+    font-weight: 600;
+  }
+  .rail .item .sub { font-size: 10px; color: var(--ink-500); margin-left: auto; }
+  .rail .group { margin-top: 14px; font-size: 10px; color: var(--ink-500); text-transform: uppercase; padding: 0 10px; letter-spacing: 0.5px; }
+  .rail .topic { font-size: 12px; color: var(--ink-700); padding: 5px 10px; border-radius: 4px; }
+  .rail .topic .pill { display: inline-block; padding: 0px 4px; font-size: 9px; border-radius: 3px; margin-right: 4px; }
+  .rail .topic .pill.cc { background: #ECE0FB; color: var(--cc); }
+  .rail .topic .pill.cx { background: #DEE8F8; color: var(--cx); }
+
+  .body {
+    flex: 1;
+    min-width: 0;
+    padding: 24px 28px;
+    overflow-y: auto;
+    max-height: 720px;
+  }
+  .greet { font-size: 22px; font-weight: 600; margin: 0 0 4px; }
+  .greet .spark { color: var(--salmon); }
+  .summary {
+    font-size: 13px; color: var(--ink-500); margin: 0 0 12px;
+  }
+  .summary b { color: var(--salmon-700); font-weight: 600; }
+
+  .ai-banner {
+    display: flex; align-items: center; gap: 8px;
+    background: linear-gradient(90deg, #FFF6F1, #FFFBF0);
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    color: var(--ink-700);
+    margin: 8px 0 18px;
+  }
+  .ai-banner .dot { width: 6px; height: 6px; border-radius: 50%; background: #5AA76C; }
+  .ai-banner .refresh-link { margin-left: auto; color: var(--salmon-700); cursor: pointer; }
+  .ai-banner b { color: var(--ink-900); }
+  .rubric-pill {
+    background: var(--ink-50);
+    padding: 1px 8px;
+    border-radius: 999px;
+    font-size: 10.5px;
+    color: var(--ink-700);
+  }
+
+  .feed { display: flex; flex-direction: column; gap: 8px; }
+  .card {
+    display: flex; gap: 10px;
+    padding: 12px 14px;
+    background: var(--panel);
+    border: 1px solid var(--ink-100);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: border-color 0.12s;
+  }
+  .card:hover { border-color: var(--salmon); }
+  .card.cross {
+    border: 1px solid var(--cross);
+    background: linear-gradient(180deg, #F4FBF5 0%, var(--panel) 60%);
+  }
+  .card.cross .cross-tag {
+    display: inline-block;
+    padding: 2px 8px;
+    background: var(--cross);
+    color: white;
+    font-size: 10px;
+    border-radius: 4px;
+    margin-bottom: 6px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+  .icon {
+    width: 30px; height: 30px;
+    border-radius: 8px;
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+  }
+  .icon.mail { background: var(--salmon-50); color: var(--salmon-700); }
+  .icon.event { background: #E8F2FF; color: var(--event); }
+  .icon.topic { background: #F4ECFF; color: var(--cc); }
+  .icon.rec { background: #FFF6DA; color: var(--rec); }
+  .icon.cross { background: linear-gradient(135deg, var(--salmon-50) 0%, #F4ECFF 100%); }
+
+  .card-body { flex: 1; min-width: 0; }
+  .card-title-row { display: flex; align-items: baseline; gap: 8px; }
+  .card-title {
+    font-size: 14px; font-weight: 600;
+    color: var(--ink-900);
+    flex: 1;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  .card-time {
+    font-size: 11px; color: var(--ink-500);
+    flex-shrink: 0;
+  }
+  .card-meta {
+    font-size: 11.5px; color: var(--ink-500); margin-top: 2px;
+    display: flex; align-items: center; gap: 8px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .type-tag {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .type-tag.mail { background: var(--salmon-100); color: var(--salmon-700); }
+  .type-tag.event { background: #DCE9FB; color: var(--event); }
+  .type-tag.topic-cc { background: #ECE0FB; color: var(--cc); }
+  .type-tag.topic-cx { background: #DEE8F8; color: var(--cx); }
+  .type-tag.rec { background: #FFF1B8; color: var(--rec); }
+  .card-snippet {
+    font-size: 12px; color: var(--ink-700); margin-top: 6px;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .why {
+    margin-top: 8px;
+    padding: 7px 10px;
+    background: #FFFBF0;
+    border-left: 3px solid #E8A82A;
+    font-size: 11.5px;
+    color: var(--ink-700);
+    border-radius: 4px;
+  }
+  .why b { color: var(--rec); }
+  .actions { margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap; }
+  .suggested-actions {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed var(--ink-100);
+  }
+  .suggested-actions .sa-label {
+    font-size: 10.5px;
+    color: var(--ink-500);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+  }
+  .btn {
+    padding: 4px 10px; border-radius: 4px;
+    font-size: 11.5px;
+    border: 1px solid var(--ink-100);
+    background: var(--panel);
+    color: var(--ink-700);
+    cursor: pointer;
+    line-height: 1.3;
+  }
+  .btn:hover { border-color: var(--salmon); }
+  .btn.primary { background: var(--salmon-700); color: white; border-color: var(--salmon-700); }
+  .btn .gear { color: var(--ink-300); margin-left: 4px; font-size: 9px; }
+  .vip { color: #E8A82A; margin-right: 4px; }
+
+  .legend { margin: 8px 0 0; font-size: 12px; color: var(--ink-500); }
+  .legend code { background: var(--ink-50); padding: 1px 4px; border-radius: 3px; }
+  .legend p { margin: 6px 0; }
+
+  .checklist {
+    background: var(--panel);
+    border: 1px solid var(--ink-100);
+    border-radius: 10px;
+    padding: 16px 22px;
+    margin: 18px 0;
+  }
+  .checklist h3 { margin-top: 0; font-size: 14px; }
+  .checklist ol { margin: 8px 0 0; padding-left: 20px; font-size: 14px; }
+  .checklist li { margin: 5px 0; line-height: 1.5; }
+
+  table.compare {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 13px;
+  }
+  table.compare th, table.compare td {
+    border: 1px solid var(--ink-100);
+    padding: 10px 12px;
+    text-align: left;
+    vertical-align: top;
+  }
+  table.compare th {
+    background: var(--ink-50);
+    font-weight: 600;
+  }
+  table.compare td code {
+    font-size: 11.5px;
+    background: var(--ink-50);
+    padding: 1px 4px;
+    border-radius: 3px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1><span class="spark">✦</span> v0.10 推荐架构 · 抄 ThunderClaw + 解决 Topic 问题</h1>
+  <p class="lede">
+    读完 <a href="https://github.com/pekinlcc/thunderclaw">ThunderClaw 源码</a>后改的方案 v2。<br>
+    核心：<em>两个引擎并行 + 一次轻量 Cross-link LLM 合并</em>，深层联动而不是朴素 interleave。
+  </p>
+
+  <!-- ========== Pipeline diagram ========== -->
+  <h2><span class="badge">1</span>Pipeline 架构</h2>
+  <p class="legend">
+    左侧是 ThunderClaw 那套（Roost / ContactPulse / MailBriefing），中间是 Cross-link 新增的合并层，右侧是输出。
+    现有的 Topic agent（已经在做 generate_recommendations）作为独立引擎接进来。
+  </p>
+
+  <div class="pipeline" style="grid-template-columns: 1fr;">
+    <div class="pipe-stages" style="margin-bottom: 18px;">
+
+      <div class="pipe-col" style="flex: 2;">
+        <div class="pipe-block mail">
+          <div class="title">📧 邮件 / 日历引擎（抄 ThunderClaw）</div>
+          <div class="sub">每次新邮件触发 / 每 5min / 用户切到首页</div>
+        </div>
+        <div class="pipe-stages">
+          <div class="stage mail">
+            <div class="name">Roost</div>
+            <div class="desc">按联系人聚合<br>邮件+日历</div>
+          </div>
+          <span class="arrow">→</span>
+          <div class="stage mail">
+            <div class="name">ContactPulse</div>
+            <div class="desc">每人一次 LLM<br>0..N 张卡</div>
+          </div>
+          <span class="arrow">→</span>
+          <div class="stage mail">
+            <div class="name">MailBriefing</div>
+            <div class="desc">全局 LLM<br>合并 / 去重 / 排序</div>
+          </div>
+        </div>
+
+        <div class="pipe-block topic" style="margin-top: 20px;">
+          <div class="title">💬 Topic 引擎（复用现有 generate_recommendations）</div>
+          <div class="sub">spawn claude/codex 看最近对话状态</div>
+        </div>
+        <div class="pipe-stages">
+          <div class="stage topic">
+            <div class="name">Snapshot</div>
+            <div class="desc">最近 14d 活跃 Topic<br>+ 待授权 / 错误 / 未读</div>
+          </div>
+          <span class="arrow">→</span>
+          <div class="stage topic">
+            <div class="name">TopicAdvisor</div>
+            <div class="desc">现有的 generate_<br>recommendations</div>
+          </div>
+        </div>
+      </div>
+
+      <span class="arrow" style="font-size:24px;">→</span>
+
+      <div class="pipe-col" style="flex: 1;">
+        <div class="pipe-block cross">
+          <div class="title">🔗 Cross-link（新）</div>
+          <div class="sub" style="margin-bottom:8px;">一次轻量 LLM 调用，看两侧输出的<br>人名 / 项目名 / 关键词 / 时间重叠</div>
+          <div class="stage cross">
+            <div class="name">Linker</div>
+            <div class="desc">合并强关联卡<br>独立卡也保留</div>
+          </div>
+        </div>
+      </div>
+
+      <span class="arrow" style="font-size:24px;">→</span>
+
+      <div class="pipe-col" style="flex: 1;">
+        <div class="pipe-block output">
+          <div class="title">📋 首页 Feed</div>
+          <div class="sub">混排 · 每条带<br>「为什么推荐」<br>+ suggestedActions</div>
+        </div>
+        <div class="pipe-block" style="font-size:11.5px; color:var(--ink-500); background:#FAFAF9;">
+          <div class="title" style="font-size:12px;">📝 rubric.md</div>
+          <div class="sub">所有 LLM 调用注入这份用户画像；ack/dismiss 反馈通过 Editor agent 学进去</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ========== Comparison table ========== -->
+  <h2><span class="badge">2</span>这套 vs 我之前那版 vs ThunderClaw 原版</h2>
+  <table class="compare">
+    <tr>
+      <th></th>
+      <th>当前 alpha.6（启发式）</th>
+      <th>我之前方案 A（单一 LLM 调用）</th>
+      <th>新方案 v2（双引擎 + Cross-link）</th>
+      <th>ThunderClaw 原版</th>
+    </tr>
+    <tr>
+      <td>聚合键</td>
+      <td>无</td>
+      <td>无（全塞一个 prompt）</td>
+      <td>邮件按联系人 / Topic 按对话</td>
+      <td>联系人</td>
+    </tr>
+    <tr>
+      <td>LLM 调用次数</td>
+      <td>0</td>
+      <td>1（每次刷新）</td>
+      <td>N+1+1（每联系人 + Briefing + Cross-link）+ 现有 TopicAdvisor</td>
+      <td>N+1（每联系人 + Briefing）</td>
+    </tr>
+    <tr>
+      <td>新邮件增量重算</td>
+      <td>—</td>
+      <td>全量重跑</td>
+      <td>只重算受影响的联系人 + Briefing + Cross-link</td>
+      <td>同左</td>
+    </tr>
+    <tr>
+      <td>跨邮件-Topic 关联</td>
+      <td>无</td>
+      <td>LLM 自己猜</td>
+      <td>Cross-link 专责，可解释</td>
+      <td>—（不涉及 Topic）</td>
+    </tr>
+    <tr>
+      <td>用户偏好学习</td>
+      <td>无</td>
+      <td>无</td>
+      <td>rubric.md + feedback.log</td>
+      <td>同左</td>
+    </tr>
+    <tr>
+      <td>回复正文生成</td>
+      <td>—</td>
+      <td>一起出</td>
+      <td>用户点动作时按需 spawn Writer agent</td>
+      <td>同左</td>
+    </tr>
+    <tr>
+      <td>suggestedActions</td>
+      <td>—</td>
+      <td>每张一条「打开 Topic」</td>
+      <td>2-4 个用户视角决定，含 step 数组</td>
+      <td>同左</td>
+    </tr>
+  </table>
+
+  <!-- ========== Home preview ========== -->
+  <h2><span class="badge">3</span>首页效果（Cross-link 卡 + 普通卡 + 兜底 acknowledge）</h2>
+  <p class="legend">
+    左侧是 SalmonApp 现有侧栏。右侧 feed 第一张是 <strong>Cross-link 卡</strong>（绿色边 + "📧+💬 关联"标签）：它把"Alice 的提问"和"你正在做的 Topic"合并成一张卡，
+    给出"一起处理"的复合 suggestedActions。剩下的是各引擎独立产出的普通卡。
+  </p>
+
+  <div class="frame">
+    <div class="chrome">
+      <div class="rail">
+        <div class="item active">✦ 首页 <span class="sub">总览</span></div>
+        <div class="item">📧 邮件 <span class="sub">12</span></div>
+        <div class="item">📅 日历</div>
+        <div class="group">最近 Topic</div>
+        <div class="topic"><span class="pill cc">CC</span>SalmonApp v0.9</div>
+        <div class="topic"><span class="pill cx">CX</span>API 重构</div>
+        <div class="topic"><span class="pill cc">CC</span>论文综述</div>
+      </div>
+
+      <div class="body">
+        <div class="greet"><span class="spark">✦</span> 欢迎回来</div>
+        <div class="summary">
+          <b>5 件值得现在看</b> · 含 1 个跨域关联 · 12 封未读 · 1 个会议 28 分钟后开始
+        </div>
+
+        <div class="ai-banner">
+          <span class="dot"></span>
+          <b>Claude</b> · 邮件 + Topic 都跑了一轮 ·
+          <span class="rubric-pill">📝 rubric v8 · 学到 3 条新模式</span>
+          <span class="refresh-link">↻ 28 分钟前 · 重新评估</span>
+        </div>
+
+        <div class="feed">
+
+          <!-- Cross-link card -->
+          <div class="card cross">
+            <div class="icon cross">🔗</div>
+            <div class="card-body">
+              <div class="cross-tag">📧 + 💬 关联</div>
+              <div class="card-title-row">
+                <div class="card-title">Alice 在问的 OAuth 文档，和 v0.9 Topic 卡在同一处</div>
+                <div class="card-time">17 分钟前 + 4 分钟前</div>
+              </div>
+              <div class="card-meta">
+                <span class="type-tag mail">邮件</span>
+                <span>alice@team.com · 已 2 次追问</span>
+                <span style="color:var(--ink-300);">·</span>
+                <span class="type-tag topic-cc">CC</span>
+                <span>SalmonApp v0.9 · 待授权</span>
+              </div>
+              <div class="card-snippet">
+                Alice 想知道 "Allow public client flows" 该开还是关；你的 v0.9 Topic 此刻 claude 也在等你授权 Edit calendar.rs ——
+                看上去就是同一个 OAuth 改动的两端。
+              </div>
+              <div class="why">
+                <b>↗ AI 解释（来自 Cross-link）：</b>
+                Alice 邮件主题含 "OAuth"，v0.9 Topic workdir = ~/Salmon App + 当前文件 oauth_config.rs，时间也是同一上午 ——
+                建议先在 Topic 里完成授权 + 确认结论，回 Alice 时直接贴最新的设置截图，一气呵成。
+              </div>
+              <div class="suggested-actions">
+                <div class="sa-label">AI 建议你怎么处理</div>
+                <div class="actions">
+                  <button class="btn primary">先去 Topic → 再回 Alice → ack <span class="gear">⚙ 3</span></button>
+                  <button class="btn">只回 Alice 简短先稳住</button>
+                  <button class="btn">只看 Topic 暂不回</button>
+                  <button class="btn">我已知晓</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Event card -->
+          <div class="card">
+            <div class="icon event">📅</div>
+            <div class="card-body">
+              <div class="card-title-row">
+                <div class="card-title">产品周会 — 演示 v0.9 邮件混排</div>
+                <div class="card-time">14:30 · 28 分钟后</div>
+              </div>
+              <div class="card-meta">
+                <span class="type-tag event">日历</span>
+                📍 Zoom · 与 Alice / Bob / +4
+              </div>
+              <div class="why">
+                <b>↗ AI 解释：</b>主题正好和你这个 Topic 里今早讨论的 v0.9 推荐机制对得上；上面的 Cross-link 卡里那条"先去 Topic"对你直接相关。
+              </div>
+              <div class="suggested-actions">
+                <div class="sa-label">AI 建议你怎么处理</div>
+                <div class="actions">
+                  <button class="btn primary">打开会议</button>
+                  <button class="btn">改成 hybrid · 我现场来</button>
+                  <button class="btn">推迟 15min</button>
+                  <button class="btn">我已知晓</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Plain mail card -->
+          <div class="card">
+            <div class="icon mail">📧</div>
+            <div class="card-body">
+              <div class="card-title-row">
+                <div class="card-title">
+                  Bob — Q3 产品 review 截止 5/30
+                </div>
+                <div class="card-time">2 小时前</div>
+              </div>
+              <div class="card-meta">
+                <span class="type-tag mail">邮件</span>
+                <span>bob@team.com · CEO 抄送</span>
+              </div>
+              <div class="card-snippet">
+                "提醒一下 Q3 review 准备材料 5/30 前提交，附件是模板。能不能 5/28 内部先过一遍？"
+              </div>
+              <div class="why">
+                <b>↗ AI 解释：</b>有具体截止 + CEO 抄送 + 提到"先过一遍"是协调要求 —— 不只是 ack 类。
+              </div>
+              <div class="suggested-actions">
+                <div class="sa-label">AI 建议你怎么处理</div>
+                <div class="actions">
+                  <button class="btn primary">确认 5/28 内部过 · 起草回信 <span class="gear">⚙ 2</span></button>
+                  <button class="btn">先加日历 deadline 5/30</button>
+                  <button class="btn">反问能不能延期</button>
+                  <button class="btn">我已知晓</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Plain Topic card -->
+          <div class="card">
+            <div class="icon topic">💬</div>
+            <div class="card-body">
+              <div class="card-title-row">
+                <div class="card-title">API 重构 — Codex 上次说要补单元测试</div>
+                <div class="card-time">3 天前</div>
+              </div>
+              <div class="card-meta">
+                <span class="type-tag topic-cx">CX</span>
+                ~/work/api-server · 未读 1 条 assistant
+              </div>
+              <div class="why">
+                <b>↗ AI 解释：</b>Codex 留了"补单元测试"待办，三天没动 —— 你的 rubric 里写过"超过 3 天没动的代码 Topic 优先恢复"。
+              </div>
+              <div class="suggested-actions">
+                <div class="sa-label">AI 建议你怎么处理</div>
+                <div class="actions">
+                  <button class="btn primary">恢复 Topic → 跑 npm test</button>
+                  <button class="btn">归档</button>
+                  <button class="btn">我已知晓</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Plain notification -->
+          <div class="card">
+            <div class="icon mail">📧</div>
+            <div class="card-body">
+              <div class="card-title-row">
+                <div class="card-title">GitHub — Pull request review requested</div>
+                <div class="card-time">5 小时前</div>
+              </div>
+              <div class="card-meta">
+                <span class="type-tag mail">邮件</span>
+                <span>noreply@github.com</span>
+              </div>
+              <div class="why">
+                <b>↗ AI 解释：</b>bot 通知，无 deadline；rubric 里这类默认归 "低优先"，可下班前统一处理。
+              </div>
+              <div class="suggested-actions">
+                <div class="sa-label">AI 建议你怎么处理</div>
+                <div class="actions">
+                  <button class="btn">打开 PR</button>
+                  <button class="btn">推迟到今晚</button>
+                  <button class="btn primary">我已知晓</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <div style="margin-top: 22px; padding-top: 14px; border-top: 1px solid var(--ink-100); display: flex; gap: 14px; font-size: 11.5px; color: var(--ink-500);">
+          <span>今日 24.3k tokens · 12k in · 12.3k out</span>
+          <span>·</span>
+          <span>12 个未读 / 3 个 Topic 待看</span>
+          <span style="margin-left:auto;">
+            <button class="btn primary">＋ 新建 Topic</button>
+          </span>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== Build plan ========== -->
+  <h2><span class="badge">4</span>实施成本（实话）</h2>
+  <div class="checklist">
+    <h3>v0.10 工程量分布（估算）</h3>
+    <ol>
+      <li><strong>Roost 阶段（~半天）</strong>：Rust，按联系人聚合本地 mail_messages + calendar_events。已经有 contacts 表打底，加一个 ContactBundle 结构。</li>
+      <li><strong>ContactPulse agent（~1 天）</strong>：复用现有 engine.rs 的 spawn 逻辑，每联系人一次 claude --print 子进程；JSON 输出 schema（items[] + suggestedActions + steps）。串行调用，进度事件 emit 给 FE。</li>
+      <li><strong>MailBriefing agent（~半天）</strong>：第二次 LLM 把所有联系人的 items 合并。</li>
+      <li><strong>Cross-link agent（~半天）</strong>：单次轻量调用，喂两侧输出 + 关键字提取（联系人邮箱 vs Topic 标题/workdir/最近消息）。</li>
+      <li><strong>Rubric 系统（~1 天）</strong>：~/.config/salmonapp/rubric.md 加载 + feedback.log append + Editor agent（10 条或 24h 触发）。</li>
+      <li><strong>Writer / Calendar Extractor / Task Extractor agents（~1 天）</strong>：用户点 step 时按需 spawn。</li>
+      <li><strong>FE 改写（~1.5 天）</strong>：home feed 改成 Cross-link 优先 + 单卡 suggestedActions + 内联回复审稿区 + step ⚙ 调整面板 + ack toast。</li>
+      <li><strong>Schema + DB（~半天）</strong>：briefings 表加 contact_bundles JSON + cross_links JSON，alpha schema 已留好不用迁。</li>
+      <li><strong>增量重算 + debounce（~半天）</strong>：新邮件到 → 受影响联系人 dirty → 30 秒后 trigger pipeline。</li>
+    </ol>
+    <p style="font-size: 13px; color: var(--ink-500); margin: 12px 0 0;">
+      <strong>总计 ~ 6 天实打实的工程</strong>（v0.10 alpha.1 → alpha.5），中间需要你给 OAuth 测过 / 给我反馈 prompt 写得对不对 / rubric 看着合不合理。
+      不是一晚上能搞完的。
+    </p>
+  </div>
+
+  <h2><span class="badge">5</span>需要你决定的</h2>
+  <div class="checklist">
+    <ol>
+      <li><strong>架构定下来吗？</strong>双引擎 + Cross-link + rubric ← 这个方向 OK 我就开始。</li>
+      <li><strong>v0.9 alpha.6 当前的简易实现要保留吗？</strong>建议保留 — 作为 LLM 没跑出来时的兜底（rubric 文件丢了 / CLI 没登录 / 离线状态都用得上）。</li>
+      <li><strong>分版本节奏：</strong>我打算 v0.10.alpha.1 = Roost + ContactPulse + 单卡 UI，v0.10.alpha.2 = Briefing，v0.10.alpha.3 = Cross-link + Topic 引擎接进来，v0.10.alpha.4 = Writer/Extractors + suggestedActions step 一键执行，v0.10.alpha.5 = rubric.md + feedback loop。每个 alpha 出 .deb 给你试。</li>
+      <li><strong>命名：</strong>沿用 ThunderClaw 的 Roost / Pulse / Briefing，还是 SalmonApp 重起一套名（比如 Net / School / Catch）？反正都是内部 module 名，不进 UI。</li>
+    </ol>
+  </div>
+
+</div>
+</body>
+</html>

@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { CliInfo, ComposerSendMode, FileEntry, Message, Recommendation, SearchResult, Topic, UsageSummary, WorkdirCheck } from "./types";
+import type { BriefingFeed, BriefingRunResult, BriefingStatus, BriefItem, CalEvent, CliInfo, ComposeInput, ComposerSendMode, ContactRow, CreateTaskInput, ExecuteStepInput, FileEntry, MailAccount, MailListItem, MailMessageFull, Message, OauthStatus, Recommendation, SearchResult, StepResult, Task, Topic, UpdateTaskInput, UsageSummary, WorkdirCheck } from "./types";
 
 export const api = {
   detectClis: () => invoke<{ clis: CliInfo[] }>("detect_clis"),
@@ -69,4 +69,72 @@ export const api = {
     invoke<void>("set_topic_turn_duration", { topicId, durationMs }),
   getUsageSummary: () => invoke<UsageSummary>("get_usage_summary"),
   getAppDataDir: () => invoke<string>("get_app_data_dir"),
+  // ── v0.9.0-alpha.2: mail ────────────────────────────────────────────
+  getOauthStatus: () => invoke<OauthStatus>("get_oauth_status"),
+  listMailAccounts: () => invoke<MailAccount[]>("list_mail_accounts"),
+  startGmailOauth: () => invoke<MailAccount>("start_gmail_oauth"),
+  syncMailAccount: (accountId: string) =>
+    invoke<number>("sync_mail_account", { accountId }),
+  listInboxMessages: (accountId: string, limit?: number) =>
+    invoke<MailListItem[]>("list_inbox_messages", { accountId, limit: limit ?? null }),
+  getMailMessage: (messageId: string) =>
+    invoke<MailMessageFull>("get_mail_message", { messageId }),
+  deleteMailAccount: (accountId: string) =>
+    invoke<void>("delete_mail_account", { accountId }),
+  // ── v0.9.0-alpha.3: send / draft / mark-read ────────────────────────
+  startOutlookOauth: () => invoke<MailAccount>("start_outlook_oauth"),
+  sendMail: (input: ComposeInput) =>
+    invoke<string>("send_mail", { input }),
+  saveMailDraft: (input: ComposeInput, draftId?: string | null) =>
+    invoke<string>("save_mail_draft", { input, draftId: draftId ?? null }),
+  markMailRead: (messageId: string, read: boolean) =>
+    invoke<void>("mark_mail_read", { messageId, read }),
+  // ── v0.9.0-alpha.5: calendar ────────────────────────────────────────
+  syncCalendar: (accountId: string) =>
+    invoke<number>("sync_calendar", { accountId }),
+  listCalendarEvents: (startMs: number, endMs: number) =>
+    invoke<CalEvent[]>("list_calendar_events", { startMs, endMs }),
+  createCalendarEvent: (input: {
+    accountId: string;
+    title: string;
+    startMs: number;
+    endMs: number;
+    allDay: boolean;
+    location: string | null;
+  }) => invoke<CalEvent>("create_calendar_event", { input }),
+  // ── v0.9.1: Tasks ───────────────────────────────────────────────────
+  syncTasks: (accountId: string) =>
+    invoke<number>("sync_tasks", { accountId }),
+  listTasks: (accountId?: string | null, includeCompleted?: boolean) =>
+    invoke<Task[]>("list_tasks", {
+      accountId: accountId ?? null,
+      includeCompleted: includeCompleted ?? true,
+    }),
+  createTask: (input: CreateTaskInput) =>
+    invoke<Task>("create_task", { input }),
+  updateTask: (input: UpdateTaskInput) =>
+    invoke<Task>("update_task", { input }),
+  deleteTask: (taskId: string) =>
+    invoke<void>("delete_task", { taskId }),
+  // ── v0.9.0-alpha.6: contacts ────────────────────────────────────────
+  syncContacts: (accountId: string) =>
+    invoke<number>("sync_contacts", { accountId }),
+  listContacts: (accountId?: string | null) =>
+    invoke<ContactRow[]>("list_contacts", { accountId: accountId ?? null }),
+  setContactVip: (contactId: string, vip: boolean) =>
+    invoke<void>("set_contact_vip", { contactId, vip }),
+  // ── v0.9.0-alpha.6: home feed (heuristic, kept as fallback) ────────
+  buildHomeFeed: () => invoke<BriefingFeed>("build_home_feed"),
+  // ── v0.9.1: LLM briefing pipeline ───────────────────────────────────
+  getBriefingStatus: () => invoke<BriefingStatus>("get_briefing_status"),
+  runBriefing: () => invoke<BriefingRunResult>("run_briefing"),
+  listBriefItems: (briefingId?: string | null) =>
+    invoke<BriefItem[]>("list_brief_items", { briefingId: briefingId ?? null }),
+  executeActionStep: (input: ExecuteStepInput) =>
+    invoke<StepResult[]>("execute_action_step", { input }),
+  decideBriefItem: (itemId: string, status: "acted" | "ack" | "muted" | "pending") =>
+    invoke<void>("decide_brief_item", { itemId, status }),
+  getRubric: () => invoke<string>("get_rubric"),
+  setRubric: (content: string) => invoke<void>("set_rubric", { content }),
+  maybeEditRubric: () => invoke<boolean>("maybe_edit_rubric"),
 };

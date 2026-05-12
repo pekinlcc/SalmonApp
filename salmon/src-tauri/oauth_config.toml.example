@@ -1,0 +1,16 @@
+# SalmonApp OAuth credentials.
+#
+# Copy this file to `oauth_config.toml` (in the same directory) and fill in
+# the values you got from Google Cloud Console and Microsoft Azure.
+# See repo-root OAUTH-SETUP.md for the registration walkthrough.
+#
+# The real `oauth_config.toml` is .gitignored — your client secret will NOT
+# be committed.
+
+[google]
+client_id = "PASTE-YOUR-GOOGLE-CLIENT-ID.apps.googleusercontent.com"
+client_secret = "PASTE-YOUR-GOOGLE-CLIENT-SECRET"
+
+[microsoft]
+client_id = "PASTE-YOUR-MICROSOFT-APPLICATION-ID"
+# Microsoft desktop public clients don't use a secret — PKCE only.

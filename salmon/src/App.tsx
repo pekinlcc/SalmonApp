@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { ask } from "@tauri-apps/plugin-dialog";
-import type { Block, ChatLayout, CliInfo, ComposerSendMode, Message, Recommendation, StreamEvent, ToolCall, Topic, UiMessage, UsageSummary } from "./lib/types";
+import type { Block, BriefingProgress, ChatLayout, CliInfo, ComposerSendMode, Message, Recommendation, StreamEvent, ToolCall, Topic, UiMessage, UsageSummary } from "./lib/types";
 import { api } from "./lib/api";
 import { notify, setNotifySoundEnabled, type NotifyOpts, type ToastEvent } from "./lib/notify";
 import { LeftSidebar } from "./components/LeftSidebar";
@@ -15,6 +15,7 @@ import { SettingsDialog } from "./components/SettingsDialog";
 import { WelcomeBack } from "./components/WelcomeBack";
 import { MailView } from "./components/MailView";
 import { CalendarView } from "./components/CalendarView";
+import { TasksView } from "./components/TasksView";
 import { Toasts } from "./components/Toasts";
 import { SearchDialog } from "./components/SearchDialog";
 
@@ -47,6 +48,71 @@ export default function App() {
     window.addEventListener("salmon:open-settings", handler);
     return () => window.removeEventListener("salmon:open-settings", handler);
   }, []);
+  // v0.9.1: briefing pipeline state lives HERE (not in BriefingFeed)
+  // because BriefingFeed unmounts when the user navigates to a Topic;
+  // the LLM pipeline keeps running in the backend and the in-flight
+  // indicator needs to survive that navigation.
+  const [briefingRunning, setBriefingRunning] = useState(false);
+  const [briefingProgress, setBriefingProgress] = useState<BriefingProgress | null>(null);
+  const [briefingTick, setBriefingTick] = useState(0); // bump → tells BriefingFeed to re-read items
+  useEffect(() => {
+    let un: UnlistenFn | undefined;
+    listen<BriefingProgress>("salmon-briefing-progress", (e) => {
+      setBriefingProgress(e.payload);
+      if (e.payload.stage === "starting") {
+        setBriefingRunning(true);
+      } else if (e.payload.stage === "done") {
+        setBriefingRunning(false);
+        setBriefingTick((n) => n + 1);
+      }
+    }).then((u) => { un = u; });
+    return () => { un?.(); };
+  }, []);
+  const runBriefing = useCallback(async () => {
+    setBriefingRunning(true);
+    setBriefingProgress({ stage: "starting", current: 0, total: 0, note: null });
+    try {
+      await api.runBriefing();
+    } catch (e: any) {
+      api.debugLog(`runBriefing failed: ${e}`);
+    } finally {
+      // Don't blindly setBriefingRunning(false) — the salmon-briefing-progress
+      // listener flips that on stage='done'. The await above resolves *with*
+      // the done event in normal flow; in error paths setRunning above is
+      // an extra safety net.
+      setBriefingRunning(false);
+    }
+  }, []);
+
+  // v0.9.0-alpha.6: home-feed cards dispatch open-mail / open-calendar
+  // so cards in the briefing can deep-link into the right top-level view.
+  useEffect(() => {
+    const openMail = () => { setSelectedId(null); setSelectedTool(null); setTopView("mail"); };
+    const openCal = () => { setSelectedId(null); setSelectedTool(null); setTopView("calendar"); };
+    // v0.9.1: BriefingFeed dispatches salmon:open-compose-reply with
+    //   detail = { replyToMailId, bodyText }
+    // We switch to mail view AND stash the payload so MailView, which
+    // doesn't exist yet at this instant, can pick it up on mount. An
+    // earlier version dispatched the same event from inside MailView's
+    // useEffect — but the event had already fired before MailView mounted,
+    // so the listener silently missed it.
+    const openCompose = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      setSelectedId(null);
+      setSelectedTool(null);
+      setTopView("mail");
+      setPendingComposeReply(detail || null);
+    };
+    window.addEventListener("salmon:open-mail", openMail);
+    window.addEventListener("salmon:open-calendar", openCal);
+    window.addEventListener("salmon:open-compose-reply", openCompose);
+    return () => {
+      window.removeEventListener("salmon:open-mail", openMail);
+      window.removeEventListener("salmon:open-calendar", openCal);
+      window.removeEventListener("salmon:open-compose-reply", openCompose);
+    };
+  }, []);
+  const [pendingComposeReply, setPendingComposeReply] = useState<{ replyToMailId: string; bodyText?: string } | null>(null);
   const [searchInitialQuery, setSearchInitialQuery] = useState("");
   const [showSearch, setShowSearch] = useState(false);
   const [workdirOkByTopic, setWorkdirOkByTopic] = useState<Record<string, boolean>>({});
@@ -88,6 +154,27 @@ export default function App() {
   const dismissToast = useCallback((id: string) => {
     setToasts((cur) => cur.filter((t) => t.id !== id));
   }, []);
+
+  // v0.9.1: BriefingFeed (and other components) push toasts via a custom
+  // DOM event so they don't have to prop-drill the pushToast callback.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { title?: string; body?: string; kind?: string } | undefined;
+      if (!detail?.title) return;
+      const kind = (detail.kind && ["permission","done","error","crash","recs","info"].includes(detail.kind))
+        ? (detail.kind as any) : "info";
+      pushToast({
+        id: `t-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        topicId: null,
+        kind,
+        title: detail.title,
+        body: detail.body || "",
+        createdAt: Date.now(),
+      });
+    };
+    window.addEventListener("salmon:toast", handler);
+    return () => window.removeEventListener("salmon:toast", handler);
+  }, [pushToast]);
 
   // Window focus drives whether notify() emits a system banner or an in-app
   // toast. Keep a ref alongside state so event-handler callbacks defined
@@ -237,7 +324,7 @@ export default function App() {
   // behaviour). 'mail' / 'calendar' show empty-state placeholders until
   // OAuth + sync land in alpha.2+. 'topic' means a CLI topic is open via
   // selectedId. Setting selectedId implicitly switches to 'topic'.
-  type TopView = "home" | "mail" | "calendar";
+  type TopView = "home" | "mail" | "calendar" | "tasks";
   const [topView, setTopView] = useState<TopView>("home");
 
   const [messagesByTopic, setMessagesByTopic] = useState<Record<string, UiMessage[]>>({});
@@ -1003,6 +1090,7 @@ export default function App() {
         onHome={() => { setSelectedId(null); setSelectedTool(null); setTopView("home"); refreshUsageSummary(); }}
         onOpenMail={() => { setSelectedId(null); setSelectedTool(null); setTopView("mail"); }}
         onOpenCalendar={() => { setSelectedId(null); setSelectedTool(null); setTopView("calendar"); }}
+        onOpenTasks={() => { setSelectedId(null); setSelectedTool(null); setTopView("tasks"); }}
         onNewTopic={() => setShowNew(true)}
         onOpenSearch={openSearch}
         onOpenSettings={() => { setShowSettings(true); refreshUsageSummary(); }}
@@ -1015,9 +1103,14 @@ export default function App() {
         <>
           <section className="middle">
             {topView === "mail" ? (
-              <MailView />
+              <MailView
+                pendingComposeReply={pendingComposeReply}
+                onConsumeComposeReply={() => setPendingComposeReply(null)}
+              />
             ) : topView === "calendar" ? (
               <CalendarView />
+            ) : topView === "tasks" ? (
+              <TasksView />
             ) : (
               <WelcomeBack
                 topics={topics}
@@ -1035,6 +1128,10 @@ export default function App() {
                 onSelect={onSelect}
                 onNewTopic={() => setShowNew(true)}
                 usageSummary={usageSummary}
+                briefingRunning={briefingRunning}
+                briefingProgress={briefingProgress}
+                briefingTick={briefingTick}
+                onRunBriefing={runBriefing}
               />
             )}
           </section>

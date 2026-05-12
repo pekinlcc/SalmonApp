@@ -4,6 +4,31 @@ mod commands;
 mod permission_bridge;
 mod platform;
 mod types;
+mod oauth;
+mod oauth_config;
+mod gmail;
+mod gmail_send;
+mod microsoft;
+mod graph;
+mod graph_send;
+mod mail_sync;
+mod mail_commands;
+mod calendar;
+mod contacts;
+mod briefing;
+// v0.9.1 agent pipeline
+mod llm;
+mod rubric;
+mod roost;
+mod pulse;
+mod briefing_llm;
+mod cross_link;
+mod writer;
+mod event_extractor;
+mod task_extractor;
+mod tasks;
+mod briefing_orchestrator;
+mod briefing_commands;
 
 use std::sync::Arc;
 use parking_lot::Mutex;
@@ -13,6 +38,8 @@ pub struct AppState {
     pub db: Arc<Mutex<db::Db>>,
     pub engine: Arc<engine::EngineRegistry>,
     pub bridge: permission_bridge::PermissionBridge,
+    pub oauth_cfg: oauth_config::OauthConfig,
+    pub oauth_broker: oauth::OauthBroker,
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -54,10 +81,14 @@ pub fn run() {
             )
             .expect("start permission bridge");
             let engine = engine::EngineRegistry::new(app_handle, bridge.clone());
+            let oauth_cfg = oauth_config::OauthConfig::load();
+            let oauth_broker = oauth::OauthBroker::new();
             app.manage(AppState {
                 db: Arc::new(Mutex::new(db)),
                 engine: Arc::new(engine),
                 bridge,
+                oauth_cfg,
+                oauth_broker,
             });
             Ok(())
         })
@@ -101,6 +132,37 @@ pub fn run() {
             commands::set_topic_turn_duration,
             commands::get_usage_summary,
             commands::get_app_data_dir,
+            mail_commands::get_oauth_status,
+            mail_commands::list_mail_accounts,
+            mail_commands::start_gmail_oauth,
+            mail_commands::start_outlook_oauth,
+            mail_commands::sync_mail_account,
+            mail_commands::list_inbox_messages,
+            mail_commands::get_mail_message,
+            mail_commands::delete_mail_account,
+            mail_commands::send_mail,
+            mail_commands::save_mail_draft,
+            mail_commands::mark_mail_read,
+            mail_commands::sync_calendar,
+            mail_commands::list_calendar_events,
+            mail_commands::create_calendar_event,
+            mail_commands::sync_tasks,
+            mail_commands::list_tasks,
+            mail_commands::create_task,
+            mail_commands::update_task,
+            mail_commands::delete_task,
+            mail_commands::sync_contacts,
+            mail_commands::list_contacts,
+            mail_commands::set_contact_vip,
+            mail_commands::build_home_feed,
+            briefing_commands::get_briefing_status,
+            briefing_commands::run_briefing,
+            briefing_commands::list_brief_items,
+            briefing_commands::execute_action_step,
+            briefing_commands::decide_brief_item,
+            briefing_commands::get_rubric,
+            briefing_commands::set_rubric,
+            briefing_commands::maybe_edit_rubric,
         ])
         .run(tauri::generate_context!())
         .expect("error while running SalmonApp");

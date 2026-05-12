@@ -10,6 +10,16 @@ pub struct Db {
 }
 
 impl Db {
+    /// Read-only connection accessor. mail_commands.rs and other newer
+    /// modules use this for ad-hoc queries instead of growing the
+    /// Db API one helper at a time.
+    pub fn conn(&self) -> &Connection {
+        &self.conn
+    }
+    pub fn conn_mut(&mut self) -> &mut Connection {
+        &mut self.conn
+    }
+
     pub fn open(path: &Path) -> Result<Self> {
         let conn = Connection::open(path)?;
         conn.execute_batch(
@@ -198,6 +208,81 @@ impl Db {
                 generated_at INTEGER NOT NULL,
                 scope        TEXT NOT NULL,                    -- 'today' | 'week'
                 items_json   TEXT NOT NULL
+            );
+
+            -- v0.9.1: AI agent pipeline (Roost → Pulse → Briefing → Cross-link)
+            -- writes its output here. One row per "thing the user might want
+            -- to look at now". status='pending' until the user acts.
+            CREATE TABLE IF NOT EXISTS brief_items (
+                id                  TEXT PRIMARY KEY,
+                briefing_id         TEXT NOT NULL,             -- groups rows from one pipeline run
+                kind                TEXT NOT NULL,             -- 'mail' | 'topic' | 'cross' | 'event'
+                priority            TEXT NOT NULL,             -- high | medium | low
+                title               TEXT NOT NULL,
+                summary             TEXT,
+                why                 TEXT,                       -- AI explanation
+                contact_email       TEXT,                       -- primary contact (mail/cross)
+                topic_id            TEXT,                       -- primary Topic (topic/cross)
+                related_mail_ids    TEXT,                       -- JSON array
+                related_topic_ids   TEXT,                       -- JSON array
+                related_event_ids   TEXT,                       -- JSON array
+                suggested_actions   TEXT NOT NULL,              -- JSON: [{label, steps:[{kind,detail}]}]
+                status              TEXT NOT NULL DEFAULT 'pending',
+                score               REAL NOT NULL DEFAULT 0,
+                created_at          INTEGER NOT NULL,
+                decided_at          INTEGER
+            );
+            CREATE INDEX IF NOT EXISTS idx_brief_briefing
+                ON brief_items(briefing_id, score DESC);
+            CREATE INDEX IF NOT EXISTS idx_brief_status
+                ON brief_items(status, created_at DESC);
+
+            -- v0.9.1: feedback log. Append-only journal of user processing
+            -- decisions, consumed by the Editor agent to update rubric.md.
+            CREATE TABLE IF NOT EXISTS feedback_log (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                ts          INTEGER NOT NULL,
+                kind        TEXT NOT NULL,                      -- 'ack' | 'mute' | 'act' | 'manual_edit'
+                item_id     TEXT,
+                item_title  TEXT,
+                detail      TEXT,                                -- JSON context blob
+                consumed    INTEGER NOT NULL DEFAULT 0
+            );
+            CREATE INDEX IF NOT EXISTS idx_feedback_unconsumed
+                ON feedback_log(consumed, ts);
+
+            -- v0.9.1.B: tasks. Cached locally + synced through to Google
+            -- Tasks / Microsoft Graph Todo. Source kind tracks where the
+            -- row came from so the FE can show a small badge (✦ AI for
+            -- briefing-generated tasks, etc).
+            CREATE TABLE IF NOT EXISTS tasks (
+                id                       TEXT PRIMARY KEY,         -- remote id (Google task id / Graph todo id)
+                account_id               TEXT NOT NULL,
+                list_id                  TEXT,                      -- remote list id ('@default' for Google, GUID for Graph)
+                title                    TEXT NOT NULL,
+                notes                    TEXT,
+                due_ms                   INTEGER,
+                completed                INTEGER NOT NULL DEFAULT 0,
+                completed_at_ms          INTEGER,
+                source_kind              TEXT NOT NULL DEFAULT 'remote',  -- 'manual' | 'briefing' | 'remote'
+                source_brief_item_id     TEXT,
+                created_at               INTEGER NOT NULL,
+                updated_at               INTEGER NOT NULL,
+                FOREIGN KEY (account_id) REFERENCES mail_accounts(id) ON DELETE CASCADE
+            );
+            CREATE INDEX IF NOT EXISTS idx_tasks_account_status
+                ON tasks(account_id, completed, due_ms);
+
+            -- v0.9.1: track which run is the "current" briefing the FE
+            -- should display. One row keyed by 'current'.
+            CREATE TABLE IF NOT EXISTS briefing_state (
+                key             TEXT PRIMARY KEY,
+                briefing_id     TEXT NOT NULL,
+                generated_at    INTEGER NOT NULL,
+                overview        TEXT,
+                rubric_version  INTEGER NOT NULL DEFAULT 1,
+                rubric_mtime_ms INTEGER,
+                feedback_consumed_id INTEGER NOT NULL DEFAULT 0
             );
             "#,
         )?;

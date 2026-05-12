@@ -14,7 +14,7 @@ import {
   requestPermission,
 } from "@tauri-apps/plugin-notification";
 
-export type NotifyKind = "permission" | "done" | "error" | "crash" | "recs";
+export type NotifyKind = "permission" | "done" | "error" | "crash" | "recs" | "info";
 
 export interface NotifyOpts {
   /** Null = not tied to a topic (e.g. recommendations roundup). */

@@ -13,6 +13,7 @@ const TIMEOUT_BY_KIND: Record<NotifyKind, number> = {
   error: 8_000,
   crash: 8_000,
   recs: 5_000,
+  info: 4_000,
 };
 
 const ICON_BY_KIND: Record<NotifyKind, string> = {
@@ -21,6 +22,7 @@ const ICON_BY_KIND: Record<NotifyKind, string> = {
   error: "⚠",
   crash: "✕",
   recs: "✦",
+  info: "ℹ",
 };
 
 export function Toasts({ toasts, onDismiss, onClick }: Props) {
