@@ -13,6 +13,8 @@ import { Onboarding } from "./components/Onboarding";
 import { PromptDialog } from "./components/PromptDialog";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { WelcomeBack } from "./components/WelcomeBack";
+import { MailView } from "./components/MailView";
+import { CalendarView } from "./components/CalendarView";
 import { Toasts } from "./components/Toasts";
 import { SearchDialog } from "./components/SearchDialog";
 
@@ -32,6 +34,19 @@ export default function App() {
   const [notifySoundEnabled, setNotifySoundEnabledState] = useState<boolean>(true);
   const [composerSendMode, setComposerSendMode] = useState<ComposerSendMode>("modEnter");
   const [showSettings, setShowSettings] = useState(false);
+  const [settingsInitialTab, setSettingsInitialTab] = useState<string | undefined>(undefined);
+  // Stub views (MailView / CalendarView) dispatch a "salmon:open-settings"
+  // custom event so they can prompt the user without taking a callback
+  // through three layers of props. detail is the rail-item key to land on.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      setSettingsInitialTab(typeof detail === "string" ? detail : undefined);
+      setShowSettings(true);
+    };
+    window.addEventListener("salmon:open-settings", handler);
+    return () => window.removeEventListener("salmon:open-settings", handler);
+  }, []);
   const [searchInitialQuery, setSearchInitialQuery] = useState("");
   const [showSearch, setShowSearch] = useState(false);
   const [workdirOkByTopic, setWorkdirOkByTopic] = useState<Record<string, boolean>>({});
@@ -218,6 +233,12 @@ export default function App() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showNew, setShowNew] = useState(false);
   const [renamingTopicId, setRenamingTopicId] = useState<string | null>(null);
+  // v0.9.0-alpha.1: top-level view. 'home' shows Welcome Back (existing
+  // behaviour). 'mail' / 'calendar' show empty-state placeholders until
+  // OAuth + sync land in alpha.2+. 'topic' means a CLI topic is open via
+  // selectedId. Setting selectedId implicitly switches to 'topic'.
+  type TopView = "home" | "mail" | "calendar";
+  const [topView, setTopView] = useState<TopView>("home");
 
   const [messagesByTopic, setMessagesByTopic] = useState<Record<string, UiMessage[]>>({});
   const [logsByTopic, setLogsByTopic] = useState<Record<string, string[]>>({});
@@ -977,8 +998,11 @@ export default function App() {
         runningIds={runningIds}
         spawningId={spawningId}
         cliStatus={cliStatus}
-        onSelect={onSelect}
-        onHome={() => { setSelectedId(null); setSelectedTool(null); refreshUsageSummary(); }}
+        topView={topView}
+        onSelect={(id) => { setTopView("home"); onSelect(id); }}
+        onHome={() => { setSelectedId(null); setSelectedTool(null); setTopView("home"); refreshUsageSummary(); }}
+        onOpenMail={() => { setSelectedId(null); setSelectedTool(null); setTopView("mail"); }}
+        onOpenCalendar={() => { setSelectedId(null); setSelectedTool(null); setTopView("calendar"); }}
         onNewTopic={() => setShowNew(true)}
         onOpenSearch={openSearch}
         onOpenSettings={() => { setShowSettings(true); refreshUsageSummary(); }}
@@ -990,23 +1014,29 @@ export default function App() {
       {!selectedTopic ? (
         <>
           <section className="middle">
-            <WelcomeBack
-              topics={topics}
-              lastReadAt={lastReadAt}
-              pendingPermByTopic={pendingPermByTopic}
-              errorByTopic={errorByTopic}
-              workdirOkByTopic={workdirOkByTopic}
-              runningIds={runningIds}
-              recommendations={recommendations}
-              recsLoading={recsLoading}
-              recsError={recsError}
-              onRefreshRecs={generateRecs}
-              onDecideRec={onDecideRec}
-              onAcceptRec={onAcceptRec}
-              onSelect={onSelect}
-              onNewTopic={() => setShowNew(true)}
-              usageSummary={usageSummary}
-            />
+            {topView === "mail" ? (
+              <MailView />
+            ) : topView === "calendar" ? (
+              <CalendarView />
+            ) : (
+              <WelcomeBack
+                topics={topics}
+                lastReadAt={lastReadAt}
+                pendingPermByTopic={pendingPermByTopic}
+                errorByTopic={errorByTopic}
+                workdirOkByTopic={workdirOkByTopic}
+                runningIds={runningIds}
+                recommendations={recommendations}
+                recsLoading={recsLoading}
+                recsError={recsError}
+                onRefreshRecs={generateRecs}
+                onDecideRec={onDecideRec}
+                onAcceptRec={onAcceptRec}
+                onSelect={onSelect}
+                onNewTopic={() => setShowNew(true)}
+                usageSummary={usageSummary}
+              />
+            )}
           </section>
         </>
       ) : (
@@ -1118,7 +1148,8 @@ export default function App() {
           onChangeComposerSendMode={onChangeComposerSendMode}
           onChangeDefaultEngine={onChangeDefaultEngine}
           onChangeNotifySound={onChangeNotifySound}
-          onClose={() => setShowSettings(false)}
+          initialTab={settingsInitialTab}
+          onClose={() => { setShowSettings(false); setSettingsInitialTab(undefined); }}
         />
       )}
 

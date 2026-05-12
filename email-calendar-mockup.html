@@ -1,0 +1,767 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<title>SalmonApp v0.9 · 邮件 + 日历 + 联系人 · 混合推荐首页</title>
+<style>
+  :root {
+    --salmon-50: #FFF1ED; --salmon-100: #FFD9CD; --salmon-300: #FFA68A;
+    --salmon-500: #FA8072; --salmon-600: #E5685A; --salmon-700: #B7493D;
+    --blue-50: #EEF5FF; --blue-500: #4275E0; --blue-700: #2C56B5;
+    --orange-500: #d97706;
+    --green-500: #16a34a;
+    --ink-900: #1B1F23; --ink-700: #3A4047; --ink-500: #6B7280;
+    --ink-300: #B7BDC4; --ink-100: #E6E8EB; --ink-50: #F5F6F7;
+    --bg: #FAFAF9; --panel: #FFFFFF;
+    --shadow: 0 1px 0 rgba(16,18,20,0.04), 0 4px 18px rgba(16,18,20,0.04);
+    --radius: 10px; --radius-sm: 6px;
+    --mono: ui-monospace, "JetBrains Mono", "SF Mono", Menlo, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Inter", "PingFang SC", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 24px; background: #ECECE9; font-family: var(--sans); color: var(--ink-900); font-size: 13px; line-height: 1.55; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  h2 { font-size: 14px; color: var(--ink-500); font-weight: 500; margin: 0 0 24px; }
+  .doc-section { margin-bottom: 44px; }
+  .doc-section > h3 { font-size: 12px; color: var(--ink-500); letter-spacing: .08em; text-transform: uppercase; margin: 0 0 8px; }
+  .doc-note { font-size: 12px; color: var(--ink-500); margin: 6px 0 14px; max-width: 800px; }
+  code { font-family: var(--mono); font-size: 11px; background: var(--ink-50); padding: 1px 5px; border-radius: 3px; }
+
+  /* App shell */
+  .app { display: grid; grid-template-columns: 240px 1fr; height: 700px; background: var(--bg); border-radius: 12px; overflow: hidden; box-shadow: var(--shadow); border: 1px solid var(--ink-100); }
+  .sidebar { background: #F7F5F3; border-right: 1px solid var(--ink-100); display: flex; flex-direction: column; }
+  .left-head { padding: 14px 14px 8px; display: flex; align-items: center; gap: 8px; }
+  .logo { width: 24px; height: 24px; border-radius: 7px; background: linear-gradient(135deg, var(--salmon-500), var(--salmon-700)); color: white; font-weight: 700; font-size: 13px; display: flex; align-items: center; justify-content: center; }
+  .name { font-weight: 600; }
+  .ver { color: var(--ink-500); font-size: 11px; margin-left: auto; }
+
+  .nav-item { margin: 4px 12px 2px; padding: 8px 10px; border: 1px solid var(--ink-100); background: white; border-radius: 6px; font-size: 12.5px; color: var(--ink-700); display: flex; align-items: center; gap: 8px; cursor: pointer; }
+  .nav-item .icon { width: 18px; text-align: center; font-size: 14px; }
+  .nav-item .badge { margin-left: auto; background: var(--salmon-500); color: white; font-size: 10px; padding: 1px 6px; border-radius: 8px; font-weight: 600; }
+  .nav-item .badge.muted { background: var(--ink-100); color: var(--ink-700); }
+  .nav-item.active { background: var(--salmon-50); border-color: var(--salmon-300); color: var(--salmon-700); }
+  .nav-item.home { border-left: 3px solid var(--salmon-500); padding-left: 8px; }
+  .nav-section { font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-500); padding: 14px 16px 4px; }
+
+  .topic-row { padding: 7px 10px; margin: 1px 8px; border-radius: 6px; font-size: 12.5px; color: var(--ink-700); display: flex; align-items: center; gap: 6px; }
+  .pill { font-size: 9.5px; font-weight: 600; padding: 1px 5px; border-radius: 3px; flex-shrink: 0; }
+  .pill-cc { background: #FFE4DA; color: #B7493D; }
+  .pill-cx { background: #E6F0FF; color: #2F5BB7; }
+  .pill-mail { background: #E6F4EA; color: #16763e; }
+  .pill-cal { background: #EFE8FB; color: #5a3eaf; }
+  .pill-people { background: #FFF1C8; color: #886000; }
+
+  .foot { border-top: 1px solid var(--ink-100); padding: 8px 12px; display: flex; align-items: center; gap: 10px; font-size: 11px; color: var(--ink-500); margin-top: auto; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: #4ade80; }
+  .gear { margin-left: auto; cursor: pointer; font-size: 14px; }
+
+  .main { display: flex; flex-direction: column; min-width: 0; }
+  .main-head { padding: 14px 22px; border-bottom: 1px solid var(--ink-100); background: var(--panel); display: flex; align-items: center; gap: 12px; }
+  .main-title { font-size: 16px; font-weight: 600; }
+  .main-sub { color: var(--ink-500); font-size: 12px; }
+  .main-action { margin-left: auto; font-size: 12px; color: var(--salmon-700); cursor: pointer; }
+
+  /* ─── Home: mixed feed ─── */
+  .home-body { padding: 20px 28px; overflow-y: auto; }
+  .home-greeting { font-size: 22px; font-weight: 600; margin-bottom: 4px; }
+  .home-greeting-sub { color: var(--ink-500); font-size: 13px; margin-bottom: 18px; }
+
+  .feed-card {
+    background: var(--panel); border: 1px solid var(--ink-100);
+    border-radius: 8px; padding: 14px 16px; margin-bottom: 8px;
+    display: flex; gap: 12px; align-items: flex-start;
+  }
+  .feed-card.high { border-left: 3px solid #dc2626; }
+  .feed-card.med { border-left: 3px solid var(--orange-500); }
+  .feed-card.normal { border-left: 3px solid var(--ink-300); }
+  .feed-card.now { border-left: 3px solid var(--salmon-500); background: linear-gradient(90deg, var(--salmon-50), white 40%); }
+  .feed-icon { font-size: 18px; flex-shrink: 0; line-height: 1; }
+  .feed-body { flex: 1; min-width: 0; }
+  .feed-title { font-weight: 600; font-size: 14px; margin-bottom: 4px; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+  .feed-title .tag { font-size: 10px; padding: 1px 6px; border-radius: 3px; font-weight: 600; color: white; }
+  .feed-title .tag.high { background: #dc2626; }
+  .feed-title .tag.med { background: var(--orange-500); }
+  .feed-title .tag.now { background: var(--salmon-500); }
+  .feed-sources { color: var(--ink-500); font-size: 11px; margin-bottom: 8px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .feed-summary { font-size: 12.5px; color: var(--ink-700); margin-bottom: 10px; line-height: 1.55; }
+  .feed-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+  .btn-primary { background: var(--salmon-500); color: white; border: 0; padding: 5px 12px; font-size: 11.5px; border-radius: 4px; cursor: pointer; font-weight: 600; font-family: inherit; }
+  .btn-ghost { background: transparent; color: var(--ink-700); border: 1px solid var(--ink-100); padding: 4px 10px; font-size: 11.5px; border-radius: 4px; cursor: pointer; font-family: inherit; }
+  .btn-ghost:hover { border-color: var(--salmon-300); }
+
+  .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 24px; }
+  .stat-card { background: var(--panel); border: 1px solid var(--ink-100); border-radius: 8px; padding: 12px 14px; }
+  .stat-label { font-size: 10.5px; color: var(--ink-500); letter-spacing: .04em; text-transform: uppercase; }
+  .stat-val { font-size: 20px; font-weight: 700; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .stat-sub { font-size: 11px; color: var(--ink-500); margin-top: 4px; }
+
+  .section-label { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-500); margin: 24px 0 8px; font-weight: 600; }
+
+  /* ─── Mail view ─── */
+  .mail-grid { display: grid; grid-template-columns: 200px 320px 1fr; flex: 1; min-height: 0; }
+  .mail-accounts { background: #F7F5F3; border-right: 1px solid var(--ink-100); padding: 12px 0; overflow-y: auto; }
+  .account-block { padding: 6px 14px; font-size: 11px; color: var(--ink-500); text-transform: uppercase; letter-spacing: .05em; }
+  .folder-row { padding: 6px 14px; font-size: 12.5px; color: var(--ink-700); display: flex; align-items: center; gap: 6px; cursor: pointer; border-left: 3px solid transparent; }
+  .folder-row:hover { background: rgba(0,0,0,.03); }
+  .folder-row.active { background: var(--salmon-50); border-left-color: var(--salmon-500); color: var(--salmon-700); font-weight: 600; }
+  .folder-row .count { margin-left: auto; color: var(--ink-500); font-size: 10.5px; font-weight: 500; }
+  .acct-row { padding: 8px 14px; font-size: 12px; display: flex; align-items: center; gap: 6px; font-weight: 600; }
+
+  .mail-list { border-right: 1px solid var(--ink-100); background: #FCFCFB; overflow-y: auto; }
+  .mail-item { padding: 10px 14px; border-bottom: 1px solid var(--ink-100); cursor: pointer; font-size: 12px; }
+  .mail-item.unread { background: #FFFAF6; }
+  .mail-item.selected { background: var(--salmon-50); box-shadow: inset 2px 0 0 var(--salmon-500); }
+  .mi-row { display: flex; align-items: baseline; gap: 8px; }
+  .mi-from { font-weight: 600; color: var(--ink-900); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mi-time { color: var(--ink-500); font-size: 10.5px; flex-shrink: 0; }
+  .mi-subj { color: var(--ink-700); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mi-snip { color: var(--ink-500); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+  .mi-pri { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: var(--salmon-500); vertical-align: 2px; margin-right: 4px; }
+
+  .mail-reader { padding: 18px 24px; overflow-y: auto; background: var(--panel); }
+  .mr-toolbar { display: flex; gap: 6px; margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--ink-100); }
+  .mr-toolbar button { padding: 5px 12px; border: 1px solid var(--ink-100); background: white; border-radius: 4px; cursor: pointer; font-size: 11.5px; color: var(--ink-700); font-family: inherit; }
+  .mr-toolbar button:hover { border-color: var(--salmon-300); color: var(--salmon-700); }
+  .mr-subj { font-size: 18px; font-weight: 600; margin-bottom: 8px; }
+  .mr-meta { display: flex; gap: 12px; color: var(--ink-500); font-size: 11.5px; padding-bottom: 12px; border-bottom: 1px solid var(--ink-100); margin-bottom: 14px; align-items: center; }
+  .mr-meta .avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--salmon-500); color: white; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 12px; }
+  .mr-ai { background: var(--salmon-50); border-left: 3px solid var(--salmon-300); padding: 10px 12px; border-radius: 0 4px 4px 0; margin-bottom: 14px; }
+  .mr-ai-head { font-size: 10.5px; font-weight: 600; color: var(--salmon-700); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 4px; }
+  .mr-ai-body { font-size: 12.5px; color: var(--ink-700); line-height: 1.6; }
+  .mr-body p { margin: 0 0 10px; }
+  .mr-attachments { margin: 14px 0; padding: 8px 10px; background: var(--ink-50); border-radius: 6px; font-size: 12px; }
+
+  /* ─── Compose ─── */
+  .compose-modal { width: 640px; background: var(--panel); border-radius: 10px; box-shadow: var(--shadow); border: 1px solid var(--ink-100); margin: 14px auto; }
+  .compose-head { padding: 12px 16px; border-bottom: 1px solid var(--ink-100); display: flex; align-items: center; gap: 10px; }
+  .compose-title { font-weight: 600; font-size: 14px; }
+  .compose-fields { padding: 10px 16px; border-bottom: 1px solid var(--ink-100); }
+  .compose-field { display: flex; gap: 10px; padding: 6px 0; font-size: 12.5px; border-bottom: 1px solid var(--ink-50); }
+  .compose-field .lbl { color: var(--ink-500); width: 40px; }
+  .compose-field input { border: 0; outline: 0; font-size: 12.5px; flex: 1; font-family: inherit; }
+  .compose-body { padding: 14px 16px; min-height: 200px; font-size: 13px; line-height: 1.7; color: var(--ink-900); }
+  .compose-ai-suggest { background: var(--salmon-50); border-left: 3px solid var(--salmon-300); padding: 10px 12px; margin: 8px 16px; border-radius: 0 4px 4px 0; font-size: 12px; color: var(--ink-700); }
+  .compose-foot { padding: 10px 16px; border-top: 1px solid var(--ink-100); display: flex; align-items: center; gap: 8px; }
+
+  /* ─── Calendar ─── */
+  .cal-grid { display: grid; grid-template-columns: 280px 1fr; flex: 1; min-height: 0; }
+  .cal-today-pane { border-right: 1px solid var(--ink-100); padding: 14px 16px; background: #FCFCFB; overflow-y: auto; }
+  .cal-section-label { font-size: 10.5px; text-transform: uppercase; color: var(--ink-500); letter-spacing: .08em; margin: 8px 0 6px; font-weight: 600; }
+  .event-card { background: var(--panel); border: 1px solid var(--ink-100); border-left: 3px solid var(--blue-500); border-radius: 4px; padding: 8px 10px; margin-bottom: 6px; }
+  .event-card.now { border-left-color: var(--salmon-500); background: #FFFAF6; }
+  .event-time { font-size: 11px; color: var(--ink-500); font-variant-numeric: tabular-nums; }
+  .event-title { font-weight: 600; font-size: 12.5px; }
+  .event-loc { color: var(--ink-500); font-size: 11px; margin-top: 2px; }
+  .event-ai { font-size: 11px; color: var(--salmon-700); margin-top: 4px; padding-top: 4px; border-top: 1px dashed var(--ink-100); }
+  .event-attendees { font-size: 10.5px; color: var(--ink-500); margin-top: 4px; }
+
+  .cal-week { padding: 14px 22px; background: var(--panel); overflow-y: auto; }
+  .week-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .week-day { padding: 8px; min-height: 110px; background: #FCFCFB; border: 1px solid var(--ink-100); border-radius: 4px; }
+  .week-day.today { background: var(--salmon-50); border-color: var(--salmon-300); }
+  .week-day-head { font-size: 10.5px; color: var(--ink-500); text-transform: uppercase; margin-bottom: 4px; display: flex; justify-content: space-between; }
+  .week-event { font-size: 10.5px; background: var(--blue-50); color: var(--blue-700); padding: 2px 4px; border-radius: 3px; margin-bottom: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .week-event.salmon { background: var(--salmon-50); color: var(--salmon-700); }
+  .week-event.purple { background: #EFE8FB; color: #5a3eaf; }
+
+  /* ─── Contacts (嵌在邮件视图里 + 独立访问) ─── */
+  .contact-row { padding: 8px 14px; display: flex; align-items: center; gap: 10px; font-size: 12px; cursor: pointer; border-bottom: 1px solid var(--ink-100); }
+  .contact-row:hover { background: var(--ink-50); }
+  .contact-avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--ink-100); color: var(--ink-700); display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 11.5px; flex-shrink: 0; }
+  .contact-avatar.vip { background: var(--salmon-500); color: white; }
+  .contact-info { flex: 1; min-width: 0; }
+  .contact-name { font-weight: 600; font-size: 12.5px; }
+  .contact-email { color: var(--ink-500); font-size: 11px; }
+  .contact-meta { color: var(--ink-500); font-size: 10.5px; }
+  .contact-vip-star { color: #f59e0b; font-size: 14px; }
+
+  /* ─── Login ─── */
+  .login-card { width: 480px; background: var(--panel); padding: 30px 32px; border-radius: 12px; box-shadow: var(--shadow); border: 1px solid var(--ink-100); margin: 12px auto; }
+  .login-title { font-size: 18px; font-weight: 600; margin-bottom: 6px; }
+  .login-sub { color: var(--ink-500); font-size: 12.5px; margin-bottom: 18px; }
+  .provider-btn { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--ink-100); border-radius: 6px; background: var(--panel); cursor: pointer; width: 100%; font-family: inherit; font-size: 13px; margin-bottom: 8px; text-align: left; }
+  .provider-btn:hover { border-color: var(--salmon-300); }
+  .provider-btn .pico { width: 32px; height: 32px; border-radius: 6px; color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; flex-shrink: 0; }
+  .provider-btn.g .pico { background: #4285F4; }
+  .provider-btn.o .pico { background: #0078D4; }
+  .privacy-note { font-size: 11px; color: var(--ink-500); margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--ink-100); }
+  .privacy-note ul { padding-left: 18px; margin: 6px 0 0; }
+</style>
+</head>
+<body>
+
+<h1>SalmonApp v0.9 · 邮件 + 日历 + 联系人 · 混合推荐首页（第二版）</h1>
+<h2>基于你的三个反馈重做：(1) 首页是主战场 (2) 不留半残一次到位 (3) 联系人也同步</h2>
+
+<!-- ─────────────── (A) 新侧栏 ─────────────── -->
+<div class="doc-section">
+  <h3>(A) 侧栏 — 首页在最上面，邮件/日历紧跟，联系人嵌进邮件里</h3>
+  <p class="doc-note">
+    联系人不做侧栏一级入口（独立访问频次低），而是嵌进邮件视图里作"按人聚合"切换 + Settings 里的搜索。
+    侧栏从上到下：✦ 首页（主战场） · 📧 邮件 · 📅 日历 · CLI Topics 列表。
+  </p>
+  <div class="app" style="height: 480px;">
+    <div class="sidebar">
+      <div class="left-head">
+        <div class="logo">S</div>
+        <div class="name">SalmonApp</div>
+        <div class="ver">v0.9.0</div>
+      </div>
+      <div class="nav-item home active"><span class="icon">✦</span> 首页 <span class="badge">5</span></div>
+      <div class="nav-item"><span class="icon">📧</span> 邮件 <span class="badge muted">12</span></div>
+      <div class="nav-item"><span class="icon">📅</span> 日历 <span class="badge muted">3</span></div>
+      <div class="nav-item" style="border-style: dashed;"><span class="icon">＋</span> 新建 Topic</div>
+      <div class="nav-section">CLI Topics · 11</div>
+      <div class="topic-row"><span class="pill pill-cc">CC</span> 取消开机密钥</div>
+      <div class="topic-row"><span class="pill pill-cx">CX</span> 飞书日历</div>
+      <div class="topic-row"><span class="pill pill-cc">CC</span> ThunderClaw</div>
+      <div class="topic-row" style="color: var(--ink-300);">…</div>
+      <div class="foot"><span class="dot"></span> Claude <span class="dot"></span> Codex <span class="gear">⚙</span></div>
+    </div>
+    <div class="main">
+      <div class="main-head">
+        <span class="main-title">✦ 早安，今天 5/8 周四</span>
+        <span class="main-sub">2 邮箱 · 14 未读 · 3 个日程 · 11 Topics</span>
+      </div>
+      <div style="padding: 30px; color: var(--ink-500); font-size: 13px;">↓ 首页内容详见 (B)</div>
+    </div>
+  </div>
+</div>
+
+<!-- ─────────────── (B) 首页混合推荐 ─────────────── -->
+<div class="doc-section">
+  <h3>(B) 首页 = 邮件 + 日历 + 联系人 + Topic 的混合 AI 推荐流</h3>
+  <p class="doc-note">
+    每张卡片标注信号来源（可能引用多个）。点 [打开邮件] / [打开日历] / [继续对话] 跳到对应视图。<br/>
+    底部 4 列 stats 是诊断信息，不抢主视觉。下面再有"今日完整邮件/日程清单"section 给想要全量过一遍的用户。
+  </p>
+  <div class="app">
+    <div class="sidebar">
+      <div class="left-head"><div class="logo">S</div><div class="name">SalmonApp</div><div class="ver">v0.9</div></div>
+      <div class="nav-item home active"><span class="icon">✦</span> 首页 <span class="badge">5</span></div>
+      <div class="nav-item"><span class="icon">📧</span> 邮件 <span class="badge muted">12</span></div>
+      <div class="nav-item"><span class="icon">📅</span> 日历 <span class="badge muted">3</span></div>
+      <div class="nav-section">CLI Topics</div>
+      <div class="topic-row"><span class="pill pill-cc">CC</span> 取消开机密钥</div>
+      <div class="topic-row" style="color: var(--ink-300);">…</div>
+      <div class="foot"><span class="dot"></span> Claude <span class="dot"></span> Codex <span class="gear">⚙</span></div>
+    </div>
+    <div class="main">
+      <div class="main-head">
+        <span class="main-title">✦ 首页</span>
+        <span class="main-action">↻ 重新分析</span>
+      </div>
+      <div class="home-body">
+        <div class="home-greeting">早安，今天 5/8 周四</div>
+        <div class="home-greeting-sub">AI 帮你筛了 5 件值得处理的，下面排序按时效性 + 重要性。</div>
+
+        <!-- card 1: 邮件 + 日历 跨源 -->
+        <div class="feed-card high">
+          <div class="feed-icon">🔴</div>
+          <div class="feed-body">
+            <div class="feed-title">
+              BASIS 嘉年华截止 · 5/12 23:59
+              <span class="tag high">高</span>
+            </div>
+            <div class="feed-sources">
+              来源：<span class="pill pill-mail">📧 邮件</span> #abc <span class="pill pill-cal">📅 事件</span> 5/9 · BASIS K 年级说明会 <span class="pill pill-people">👤 vip</span> info-bsz@basis.cn
+            </div>
+            <div class="feed-summary">
+              报名 deadline 5/12 周一晚 23:59。AI 已根据日历找到 5/9 周五 10:00 有学校线上说明会 —— 建议先听完再回执，那场会大概率提到入校牌的事。
+            </div>
+            <div class="feed-actions">
+              <button class="btn-primary">打开邮件</button>
+              <button class="btn-ghost">起草回复</button>
+              <button class="btn-ghost">5/9 议程</button>
+              <button class="btn-ghost">× 忽略</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- card 2: 日历正在进行 -->
+        <div class="feed-card now">
+          <div class="feed-icon">🟠</div>
+          <div class="feed-body">
+            <div class="feed-title">
+              14:00 SalmonApp 周回顾
+              <span class="tag now">进行中</span>
+            </div>
+            <div class="feed-sources">
+              来源：<span class="pill pill-cal">📅 事件</span> · 参会人 3 人 · 议程未填
+            </div>
+            <div class="feed-summary">
+              当前正在开会。AI 注意到这周有 v0.9 邮件功能 PRD 讨论但没生成议程 —— 要不要现在生成一份初稿丢进去？
+            </div>
+            <div class="feed-actions">
+              <button class="btn-primary">生成议程</button>
+              <button class="btn-ghost">打开日历</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- card 3: 邮件 + 联系人 -->
+        <div class="feed-card med">
+          <div class="feed-icon">🟡</div>
+          <div class="feed-body">
+            <div class="feed-title">
+              HSBC 信用卡续卡确认
+              <span class="tag med">中</span>
+            </div>
+            <div class="feed-sources">
+              来源：<span class="pill pill-mail">📧 邮件</span> 3 封 · 最早 4/28 · <span class="pill pill-people">👤 VIP</span> cards@hsbc.com
+            </div>
+            <div class="feed-summary">
+              过去 10 天 3 封通知邮件累积。续卡需主动点链接确认，否则下月底自动停发。
+            </div>
+            <div class="feed-actions">
+              <button class="btn-primary">打开邮件</button>
+              <button class="btn-ghost">× 忽略 7 天</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- card 4: CLI Topic -->
+        <div class="feed-card normal">
+          <div class="feed-icon">💬</div>
+          <div class="feed-body">
+            <div class="feed-title">
+              ThunderClaw v0.4 集成思路
+              <span class="tag" style="background: var(--ink-300); color: var(--ink-700);">低</span>
+            </div>
+            <div class="feed-sources">
+              来源：<span class="pill pill-cc">CC</span> Topic "ThunderClaw" · 上次活动 2 天前
+            </div>
+            <div class="feed-summary">
+              你上次留了个未做完的"邮件 AI 流水线移植"的想法，配合 v0.9 邮件功能正好可以合并。
+            </div>
+            <div class="feed-actions">
+              <button class="btn-primary">继续对话</button>
+              <button class="btn-ghost">× 忽略</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- card 5: 联系人触发 -->
+        <div class="feed-card normal">
+          <div class="feed-icon">👤</div>
+          <div class="feed-body">
+            <div class="feed-title">
+              老婆 — 嘉年华待办还没同步
+              <span class="tag" style="background: var(--ink-300); color: var(--ink-700);">低</span>
+            </div>
+            <div class="feed-sources">
+              来源：<span class="pill pill-people">👤 VIP</span> wife@xxx.com · <span class="pill pill-cal">📅</span> 今晚 16:30 1:1 <span class="pill pill-mail">📧</span> 关联邮件 #abc
+            </div>
+            <div class="feed-summary">
+              今晚 16:30 你跟她有 1:1 — 嘉年华报名她还不知道，建议会前同步给她。
+            </div>
+            <div class="feed-actions">
+              <button class="btn-ghost">打开邮件</button>
+              <button class="btn-ghost">查看 16:30 事件</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- stats footer -->
+        <div class="stats-row">
+          <div class="stat-card"><div class="stat-label">今日 token</div><div class="stat-val">12.4k</div><div class="stat-sub">本周 78k</div></div>
+          <div class="stat-card"><div class="stat-label">未读邮件</div><div class="stat-val">14</div><div class="stat-sub">3 个 VIP</div></div>
+          <div class="stat-card"><div class="stat-label">今日事件</div><div class="stat-val">3</div><div class="stat-sub">下一个 16:30</div></div>
+          <div class="stat-card"><div class="stat-label">活跃 Topics</div><div class="stat-val">11</div><div class="stat-sub">2 个未读</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ─────────────── (C) 邮件视图（完整） ─────────────── -->
+<div class="doc-section">
+  <h3>(C) 邮件视图 — 3 栏完整客户端</h3>
+  <p class="doc-note">
+    左栏：账号 / 文件夹切换（支持多账号 Gmail + Outlook 并存）。中栏：邮件列表，AI 标记重点的有红点。右栏：阅读 + 工具栏（回复 / 转发 / 归档 / 删除 / 标星）+ AI 摘要。右上发件按钮调出 Compose modal（见下）。
+  </p>
+  <div class="app">
+    <div class="sidebar">
+      <div class="left-head"><div class="logo">S</div><div class="name">SalmonApp</div><div class="ver">v0.9</div></div>
+      <div class="nav-item home"><span class="icon">✦</span> 首页 <span class="badge">5</span></div>
+      <div class="nav-item active"><span class="icon">📧</span> 邮件 <span class="badge">12</span></div>
+      <div class="nav-item"><span class="icon">📅</span> 日历 <span class="badge muted">3</span></div>
+      <div class="nav-section">CLI Topics</div>
+      <div class="topic-row" style="color: var(--ink-300);">…</div>
+      <div class="foot"><span class="dot"></span> Claude <span class="dot"></span> Codex <span class="gear">⚙</span></div>
+    </div>
+    <div class="main">
+      <div class="main-head">
+        <span class="main-title">📧 邮件</span>
+        <span class="main-sub">已选: BASIS Shenzhen ECE</span>
+        <button class="btn-primary" style="margin-left: auto;">✎ 写邮件</button>
+        <span class="main-action" style="margin-left: 10px;">↻</span>
+      </div>
+      <div class="mail-grid">
+        <div class="mail-accounts">
+          <div class="acct-row">📧 user@gmail.com</div>
+          <div class="folder-row active">📥 收件箱 <span class="count">12</span></div>
+          <div class="folder-row">⭐ 标星 <span class="count">3</span></div>
+          <div class="folder-row">📤 已发送 <span class="count">228</span></div>
+          <div class="folder-row">📝 草稿 <span class="count">2</span></div>
+          <div class="folder-row">🗑 已删除</div>
+
+          <div class="acct-row" style="margin-top: 14px;">📧 work@outlook.com</div>
+          <div class="folder-row">📥 收件箱 <span class="count">5</span></div>
+          <div class="folder-row">📤 已发送</div>
+
+          <div class="account-block">视图</div>
+          <div class="folder-row"><span style="opacity:.7">👥</span> 按联系人聚合</div>
+          <div class="folder-row"><span style="opacity:.7">🔎</span> 全文搜索</div>
+          <div class="folder-row"><span style="opacity:.7">＋</span> 加账号</div>
+        </div>
+
+        <div class="mail-list">
+          <div class="mail-item unread selected">
+            <div class="mi-row"><span class="mi-from"><span class="mi-pri"></span>BASIS Shenzhen ECE</span><span class="mi-time">5/8 17:42</span></div>
+            <div class="mi-subj">K 年级升学课程说明会</div>
+            <div class="mi-snip">BASIS International School Shenzhen 邀请您…</div>
+          </div>
+          <div class="mail-item unread">
+            <div class="mi-row"><span class="mi-from"><span class="mi-pri"></span>HSBC Banking</span><span class="mi-time">5/6 10:30</span></div>
+            <div class="mi-subj">Card renewal action required</div>
+            <div class="mi-snip">Your Visa card ending 4231 expires…</div>
+          </div>
+          <div class="mail-item">
+            <div class="mi-row"><span class="mi-from">moomoo 总市值简报</span><span class="mi-time">5/6 09:15</span></div>
+            <div class="mi-subj">今日三大指数收涨</div>
+          </div>
+          <div class="mail-item">
+            <div class="mi-row"><span class="mi-from">GitHub</span><span class="mi-time">5/5 22:14</span></div>
+            <div class="mi-subj">[pekinlcc/SalmonApp] v0.8.2 Release</div>
+          </div>
+          <div class="mail-item">
+            <div class="mi-row"><span class="mi-from">LinkedIn</span><span class="mi-time">5/5 18:00</span></div>
+            <div class="mi-subj">3 people viewed your profile</div>
+          </div>
+          <div class="mail-item" style="color: var(--ink-300);">… 还有 145 封</div>
+        </div>
+
+        <div class="mail-reader">
+          <div class="mr-toolbar">
+            <button>↩ 回复</button>
+            <button>↪ 全部回复</button>
+            <button>➡ 转发</button>
+            <button>⭐ 标星</button>
+            <button>📁 归档</button>
+            <button>🗑 删除</button>
+            <button>✨ AI 起草回复</button>
+          </div>
+          <div class="mr-subj">K 年级升学课程说明会</div>
+          <div class="mr-meta">
+            <div class="avatar">B</div>
+            <div>
+              <div style="font-weight: 600; color: var(--ink-900);">BASIS Shenzhen ECE &lt;info-bsz@basis.cn&gt;</div>
+              <div>给我 · 5/8 17:42 · <span style="color: var(--salmon-700);">⭐ VIP 联系人</span></div>
+            </div>
+          </div>
+          <div class="mr-ai">
+            <div class="mr-ai-head">✦ AI 摘要 · 高优先级 · 截止 5/12</div>
+            <div class="mr-ai-body">
+              <b>要做</b>：5/12 23:59 前通过 form 回复是否参加 5/25 嘉年华，并选是否要补办家长入校牌。<br/>
+              <b>关联</b>：日历 5/9 10:00 有 BASIS 线上说明会；建议先听完再回复。<br/>
+              <b>建议回复</b>：「我们一家三口参加，无需补办入校牌（去年办的还在有效期）。」
+            </div>
+          </div>
+          <div class="mr-attachments">📎 附件：<b>K_年级嘉年华_报名细则.pdf</b> (245 KB) <span style="color: var(--salmon-700); cursor:pointer; margin-left: 6px;">下载</span></div>
+          <div class="mr-body">
+            <p>各位 BASIS 国际幼儿园 K 年级家长：</p>
+            <p>学校将于 5 月 25 日（周日）17:40–18:40 在大剧院召开 K 年级升学课程说明会，并提供线上链接。</p>
+            <p>请于 5/12 周一晚 23:59 前通过此 <span style="color: var(--salmon-700); text-decoration: underline;">报名表</span> 回复…</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ─────────────── (D) Compose modal ─────────────── -->
+<div class="doc-section">
+  <h3>(D) 发件 / 回复 — Compose modal</h3>
+  <p class="doc-note">
+    点 "✎ 写邮件" / "↩ 回复" / "✨ AI 起草" 后弹出。AI 起草建议条在中间，用户可一键采纳或忽略。富文本：粗体 / 列表 / 链接 / 行内图片 / 附件（拖拽进来）。绝不自动发，"发送"始终需要点击。
+  </p>
+  <div class="compose-modal">
+    <div class="compose-head">
+      <span class="compose-title">↩ 回复 · K 年级升学课程说明会</span>
+      <button class="btn-ghost" style="margin-left: auto;">— 最小化</button>
+      <button class="btn-ghost">× 关闭</button>
+    </div>
+    <div class="compose-fields">
+      <div class="compose-field"><span class="lbl">从</span><input value="user@gmail.com" /></div>
+      <div class="compose-field"><span class="lbl">至</span><input value="info-bsz@basis.cn" /></div>
+      <div class="compose-field"><span class="lbl">主题</span><input value="Re: K 年级升学课程说明会" /></div>
+    </div>
+    <div class="compose-ai-suggest">
+      <div style="font-size: 10.5px; color: var(--salmon-700); font-weight: 600; text-transform: uppercase; margin-bottom: 4px;">✨ AI 起草建议</div>
+      <div>"我们一家三口参加，无需补办入校牌（去年办的还在有效期）。期待 5/25 在大剧院见。"</div>
+      <div style="margin-top: 8px;"><button class="btn-primary">采纳</button> <button class="btn-ghost">重新生成</button> <button class="btn-ghost">忽略</button></div>
+    </div>
+    <div class="compose-body" contenteditable>
+      <p>Hi 老师，</p>
+      <p>(此处采纳 AI 建议后会自动填入)</p>
+      <p>谢谢。</p>
+    </div>
+    <div class="compose-foot">
+      <button class="btn-primary">发送</button>
+      <button class="btn-ghost">📎 附件</button>
+      <button class="btn-ghost">💾 存草稿</button>
+      <span style="margin-left: auto; color: var(--ink-500); font-size: 11px;">草稿已自动保存 · 2 秒前</span>
+    </div>
+  </div>
+</div>
+
+<!-- ─────────────── (E) 日历完整 ─────────────── -->
+<div class="doc-section">
+  <h3>(E) 日历 — Agenda + 周视图 + 完整 CRUD</h3>
+  <p class="doc-note">
+    左侧今日 + 明日 agenda（按时间排），右侧本周。点空白处或事件呼出建/改 modal。RSVP（参加 / 不参加 / 暂定）就地切换。多日历支持 —— Gmail / Outlook 各自的多个日历用色块区分。
+  </p>
+  <div class="app">
+    <div class="sidebar">
+      <div class="left-head"><div class="logo">S</div><div class="name">SalmonApp</div><div class="ver">v0.9</div></div>
+      <div class="nav-item home"><span class="icon">✦</span> 首页 <span class="badge">5</span></div>
+      <div class="nav-item"><span class="icon">📧</span> 邮件 <span class="badge muted">12</span></div>
+      <div class="nav-item active"><span class="icon">📅</span> 日历 <span class="badge">3</span></div>
+      <div class="nav-section">CLI Topics</div>
+      <div class="topic-row" style="color: var(--ink-300);">…</div>
+      <div class="foot"><span class="dot"></span> Claude <span class="dot"></span> Codex <span class="gear">⚙</span></div>
+    </div>
+    <div class="main">
+      <div class="main-head">
+        <span class="main-title">📅 日历</span>
+        <span class="main-sub">5/8 周四 · 2 日历账号</span>
+        <button class="btn-primary" style="margin-left: auto;">＋ 新建事件</button>
+        <span class="main-action" style="margin-left: 10px;">↻</span>
+      </div>
+      <div class="cal-grid">
+        <div class="cal-today-pane">
+          <div class="cal-section-label">今日</div>
+          <div class="event-card now">
+            <div class="event-time">▶ 进行中 · 14:00–15:00</div>
+            <div class="event-title">SalmonApp 周回顾</div>
+            <div class="event-loc">📍 Zoom · zoom.us/j/123</div>
+            <div class="event-attendees">3 人 · 你 ✓ · 同事 A ✓ · 同事 B ?</div>
+            <div class="event-ai">✦ 议程未填 · 一键生成</div>
+          </div>
+          <div class="event-card">
+            <div class="event-time">16:30–17:30</div>
+            <div class="event-title">和老婆 1:1 — 暑期规划</div>
+            <div class="event-ai">✦ 建议提前 10 分钟整理 BASIS 嘉年华待办</div>
+          </div>
+          <div class="event-card">
+            <div class="event-time">19:00–20:00</div>
+            <div class="event-title">健身房</div>
+          </div>
+          <div class="cal-section-label">明日</div>
+          <div class="event-card">
+            <div class="event-time">10:00–10:30</div>
+            <div class="event-title">BASIS K 年级线上说明会</div>
+            <div class="event-attendees">RSVP: <button class="btn-ghost" style="padding:2px 6px; font-size: 10px;">参加</button> <button class="btn-ghost" style="padding:2px 6px; font-size: 10px;">不参加</button> <button class="btn-ghost" style="padding:2px 6px; font-size: 10px;">暂定</button></div>
+            <div class="event-ai">✦ 邮件回执还没填 · 5/12 截止</div>
+          </div>
+        </div>
+        <div class="cal-week">
+          <div class="cal-section-label">本周 · 月视图切换 →</div>
+          <div class="week-grid">
+            <div class="week-day"><div class="week-day-head"><span>一</span><span>5/5</span></div></div>
+            <div class="week-day"><div class="week-day-head"><span>二</span><span>5/6</span></div></div>
+            <div class="week-day"><div class="week-day-head"><span>三</span><span>5/7</span></div><div class="week-event">10:00 1:1 经理</div><div class="week-event purple">15:00 体检</div></div>
+            <div class="week-day today">
+              <div class="week-day-head"><span>四 · 今日</span><span>5/8</span></div>
+              <div class="week-event salmon">14:00 周回顾</div>
+              <div class="week-event">16:30 1:1</div>
+              <div class="week-event">19:00 健身</div>
+            </div>
+            <div class="week-day"><div class="week-day-head"><span>五</span><span>5/9</span></div><div class="week-event">10:00 BASIS 说明会</div></div>
+            <div class="week-day"><div class="week-day-head"><span>六</span><span>5/10</span></div></div>
+            <div class="week-day"><div class="week-day-head"><span>日</span><span>5/11</span></div><div class="week-event">15:00 球场</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ─────────────── (F) 联系人 嵌进邮件 ─────────────── -->
+<div class="doc-section">
+  <h3>(F) 联系人 — 邮件视图里的"按联系人聚合"切换</h3>
+  <p class="doc-note">
+    左栏点"按联系人聚合"后，中栏变成 contacts list。点一个人 → 右栏是和 ta 的所有往来邮件 + 共享日历事件。
+    联系人 VIP 标记由 AI 自动初判（频次 + 你常回复），用户可手动改。AI 用这个标记来给推荐打分。
+  </p>
+  <div class="app" style="height: 540px;">
+    <div class="sidebar">
+      <div class="left-head"><div class="logo">S</div><div class="name">SalmonApp</div><div class="ver">v0.9</div></div>
+      <div class="nav-item home"><span class="icon">✦</span> 首页</div>
+      <div class="nav-item active"><span class="icon">📧</span> 邮件</div>
+      <div class="nav-item"><span class="icon">📅</span> 日历</div>
+      <div class="nav-section">CLI Topics</div>
+      <div class="topic-row" style="color: var(--ink-300);">…</div>
+      <div class="foot"><span class="dot"></span> Claude <span class="dot"></span> Codex <span class="gear">⚙</span></div>
+    </div>
+    <div class="main">
+      <div class="main-head">
+        <span class="main-title">📧 邮件 · 按联系人</span>
+        <input placeholder="搜索联系人..." style="margin-left: 12px; padding: 5px 10px; border: 1px solid var(--ink-100); border-radius: 4px; flex: 0 0 240px;" />
+      </div>
+      <div class="mail-grid">
+        <div class="mail-accounts">
+          <div class="acct-row">📧 user@gmail.com</div>
+          <div class="folder-row">📥 收件箱</div>
+          <div class="folder-row active">👥 按联系人聚合</div>
+          <div class="folder-row">🔎 全文搜索</div>
+        </div>
+        <div class="mail-list" style="padding: 0;">
+          <div class="contact-row" style="background: var(--salmon-50); box-shadow: inset 2px 0 0 var(--salmon-500);">
+            <div class="contact-avatar vip">B</div>
+            <div class="contact-info">
+              <div class="contact-name">BASIS Shenzhen ECE <span class="contact-vip-star">★</span></div>
+              <div class="contact-email">info-bsz@basis.cn</div>
+            </div>
+            <div class="contact-meta">12 封 · 2h 前</div>
+          </div>
+          <div class="contact-row">
+            <div class="contact-avatar vip">H</div>
+            <div class="contact-info">
+              <div class="contact-name">HSBC Banking <span class="contact-vip-star">★</span></div>
+              <div class="contact-email">cards@hsbc.com</div>
+            </div>
+            <div class="contact-meta">8 封 · 2d 前</div>
+          </div>
+          <div class="contact-row">
+            <div class="contact-avatar vip">W</div>
+            <div class="contact-info">
+              <div class="contact-name">老婆 <span class="contact-vip-star">★</span></div>
+              <div class="contact-email">wife@gmail.com</div>
+            </div>
+            <div class="contact-meta">45 封 · 3h 前</div>
+          </div>
+          <div class="contact-row">
+            <div class="contact-avatar">G</div>
+            <div class="contact-info">
+              <div class="contact-name">GitHub</div>
+              <div class="contact-email">noreply@github.com</div>
+            </div>
+            <div class="contact-meta">88 封 · 6h 前</div>
+          </div>
+          <div class="contact-row">
+            <div class="contact-avatar">M</div>
+            <div class="contact-info">
+              <div class="contact-name">moomoo 简报</div>
+              <div class="contact-email">briefing@moomoo.com</div>
+            </div>
+            <div class="contact-meta">31 封 · 1d 前</div>
+          </div>
+          <div class="contact-row" style="color: var(--ink-300);">… 还有 248 个</div>
+        </div>
+        <div class="mail-reader">
+          <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 14px;">
+            <div style="width: 48px; height: 48px; border-radius: 50%; background: var(--salmon-500); color: white; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 18px;">B</div>
+            <div style="flex:1;">
+              <div style="font-size: 16px; font-weight: 600;">BASIS Shenzhen ECE <span class="contact-vip-star">★</span></div>
+              <div style="color: var(--ink-500); font-size: 12px;">info-bsz@basis.cn · 12 封往来 · VIP</div>
+            </div>
+            <button class="btn-ghost">取消 VIP</button>
+            <button class="btn-primary">写信给 ta</button>
+          </div>
+
+          <div class="mr-ai">
+            <div class="mr-ai-head">✦ AI 关于这位联系人的备忘</div>
+            <div class="mr-ai-body">
+              你和 BASIS 的往来邮件 80% 是 RSVP 类。从 2024 年开始的报名都按时回复过（除了这一次还没回的嘉年华）。日历里有 4 个 BASIS 相关事件。
+            </div>
+          </div>
+
+          <div class="cal-section-label">共享的日历事件 (3)</div>
+          <div class="event-card">
+            <div class="event-time">5/9 10:00 · 明日</div>
+            <div class="event-title">BASIS K 年级线上说明会</div>
+          </div>
+          <div class="event-card">
+            <div class="event-time">5/25 17:40 · 17 天后</div>
+            <div class="event-title">BASIS K 年级嘉年华</div>
+          </div>
+
+          <div class="cal-section-label">最近邮件 (5/12 显示完整列表)</div>
+          <div class="mail-item">
+            <div class="mi-row"><span class="mi-from">5/8 17:42</span></div>
+            <div class="mi-subj">K 年级升学课程说明会</div>
+          </div>
+          <div class="mail-item">
+            <div class="mi-row"><span class="mi-from">5/2 09:30</span></div>
+            <div class="mi-subj">五月新生欢迎包</div>
+          </div>
+          <div class="mail-item">
+            <div class="mi-row"><span class="mi-from">4/28 11:15</span></div>
+            <div class="mi-subj">K 年级春季公开课预告</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ─────────────── (G) 登录 — 双 provider ─────────────── -->
+<div class="doc-section">
+  <h3>(G) 首次添加账号 — Gmail / Outlook 二选一（v0.9 都做）</h3>
+  <p class="doc-note">第一次进 📧 邮件 / 📅 日历 时弹出。OAuth 走系统浏览器（更安全且能用上你已登录的会话）。</p>
+  <div class="login-card">
+    <div class="login-title">添加邮箱账号</div>
+    <div class="login-sub">通过 OAuth 安全访问。refresh token 加密存在本机 keyring，邮件正文只发给你本地的 claude / codex CLI 做分析，不离开本机。</div>
+    <button class="provider-btn g">
+      <span class="pico">G</span>
+      <div style="flex:1;">
+        <div style="font-weight: 600;">Gmail · Google Workspace</div>
+        <div style="font-size: 11px; color: var(--ink-500);">读 / 写 / 草稿 / 日历 / 联系人 · 全部能力</div>
+      </div>
+      <span style="font-size: 14px;">→</span>
+    </button>
+    <button class="provider-btn o">
+      <span class="pico">O</span>
+      <div style="flex:1;">
+        <div style="font-weight: 600;">Outlook · Microsoft 365</div>
+        <div style="font-size: 11px; color: var(--ink-500);">读 / 写 / 草稿 / 日历 / 联系人 · 全部能力</div>
+      </div>
+      <span style="font-size: 14px;">→</span>
+    </button>
+    <div class="privacy-note">
+      🔒 凭据加密存储 · 邮件正文不离开本机 · 你可以随时在 设置 → 账号 移除
+      <ul>
+        <li>需授权 scope：Gmail (mail + drafts + send), Calendar (read/write), Contacts (read)</li>
+        <li>同样的对 Outlook / Graph (Mail.ReadWrite, Mail.Send, Calendars.ReadWrite, Contacts.Read)</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- 决策点 -->
+<div class="doc-section">
+  <h3>需要你拍板的（精简到 7 个）</h3>
+  <ol style="font-size: 12.5px; color: var(--ink-700); line-height: 1.85; max-width: 760px;">
+    <li><b>OAuth client ID</b>：我帮你注册 SalmonApp 在 Google + Microsoft 各一个？还是 BYO？</li>
+    <li><b>首次同步范围</b>：最近 <b>90 天 + 1000 封邮件</b> 起 OK 吗？太少 AI 上下文不够，太多首次同步慢。</li>
+    <li><b>富文本编辑器</b>：<code>tiptap</code>（推荐 · 轻）vs <code>lexical</code>（重 · Meta 出）。</li>
+    <li><b>AI token 消耗</b>：每日 briefing 预估 50-100k tokens。要不要在 设置 → 用量 拆分"AI 自动消耗" vs "对话消耗"两列？</li>
+    <li><b>联系人 UI 入口</b>：嵌在邮件视图里（推荐）vs 独立一级导航？</li>
+    <li><b>多账号同 provider</b>：v0.9 是否支持加多个 Gmail / 多个 Outlook？还是每个 provider 限 1 个？</li>
+    <li><b>开发预算</b>：5-6 个月内 v0.8.x CLI 线只接 hotfix，不接新功能。OK 吗？</li>
+  </ol>
+</div>
+
+<div class="doc-section">
+  <h3>下一步</h3>
+  <p class="doc-note">
+    答完上面 7 个 → 我注册 OAuth client → 设 schema → 动代码。<br/>
+    开发期会推 <code>v0.9.0-alpha.N</code> dev build 到 GitHub Releases，你能装上日常用反馈。<br/>
+    第 6 周左右有第一个可日用的 M1（Gmail 读 + Calendar 读 + 雏形 UI），第 20 周左右 v0.9.0 正式 ship。
+  </p>
+</div>
+
+</body>
+</html>

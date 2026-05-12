@@ -89,6 +89,116 @@ impl Db {
             );
             CREATE INDEX IF NOT EXISTS idx_rec_status
                 ON recommendations(status, generated_at DESC);
+
+            -- v0.9.0-alpha.1: scaffold for mail + calendar + contacts integration.
+            -- Tables are created up-front so subsequent alphas only add columns
+            -- (cheap migrations) rather than introducing entirely new tables.
+
+            CREATE TABLE IF NOT EXISTS mail_accounts (
+                id                TEXT PRIMARY KEY,
+                provider          TEXT NOT NULL,              -- 'gmail' | 'outlook'
+                email             TEXT NOT NULL,
+                display_name      TEXT,
+                oauth_refresh_enc BLOB,                       -- AES-encrypted; key in OS keyring
+                oauth_access      TEXT,
+                oauth_expires_at  INTEGER,
+                added_at          INTEGER NOT NULL,
+                last_sync_at      INTEGER,
+                last_sync_error   TEXT
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_mail_accounts_email
+                ON mail_accounts(provider, email);
+
+            CREATE TABLE IF NOT EXISTS mail_messages (
+                id              TEXT PRIMARY KEY,             -- provider message id
+                account_id      TEXT NOT NULL,
+                thread_id       TEXT,
+                from_email      TEXT,
+                from_name       TEXT,
+                to_emails       TEXT,                         -- JSON array of {email, name}
+                cc_emails       TEXT,
+                subject         TEXT,
+                snippet         TEXT,
+                body_text       TEXT,                         -- NULL until full fetch
+                body_html       TEXT,
+                date_ms         INTEGER NOT NULL,
+                unread          INTEGER NOT NULL DEFAULT 1,
+                starred         INTEGER NOT NULL DEFAULT 0,
+                labels          TEXT,                         -- JSON
+                has_attachments INTEGER NOT NULL DEFAULT 0,
+                FOREIGN KEY (account_id) REFERENCES mail_accounts(id) ON DELETE CASCADE
+            );
+            CREATE INDEX IF NOT EXISTS idx_mail_account_date
+                ON mail_messages(account_id, date_ms DESC);
+            CREATE INDEX IF NOT EXISTS idx_mail_thread
+                ON mail_messages(thread_id);
+            CREATE INDEX IF NOT EXISTS idx_mail_from
+                ON mail_messages(account_id, from_email);
+
+            CREATE TABLE IF NOT EXISTS mail_attachments (
+                id          TEXT PRIMARY KEY,
+                message_id  TEXT NOT NULL,
+                filename    TEXT,
+                mime_type   TEXT,
+                size_bytes  INTEGER,
+                local_path  TEXT,                              -- NULL until downloaded
+                FOREIGN KEY (message_id) REFERENCES mail_messages(id) ON DELETE CASCADE
+            );
+
+            CREATE TABLE IF NOT EXISTS mail_drafts (
+                id           TEXT PRIMARY KEY,
+                account_id   TEXT NOT NULL,
+                to_emails    TEXT,
+                cc_emails    TEXT,
+                bcc_emails   TEXT,
+                subject      TEXT,
+                body         TEXT,
+                reply_to_id  TEXT,                              -- mail_messages.id if reply
+                attachments  TEXT,                              -- JSON local paths
+                updated_at   INTEGER NOT NULL,
+                FOREIGN KEY (account_id) REFERENCES mail_accounts(id) ON DELETE CASCADE
+            );
+
+            CREATE TABLE IF NOT EXISTS calendar_events (
+                id           TEXT PRIMARY KEY,
+                account_id   TEXT NOT NULL,
+                calendar_id  TEXT,                              -- multiple calendars per account
+                start_ms     INTEGER NOT NULL,
+                end_ms       INTEGER NOT NULL,
+                all_day      INTEGER NOT NULL DEFAULT 0,
+                title        TEXT,
+                location     TEXT,
+                description  TEXT,
+                attendees    TEXT,                              -- JSON [{email, name, response}]
+                organizer    TEXT,
+                recurrence   TEXT,                              -- RRULE string
+                status       TEXT,                              -- confirmed | tentative | cancelled
+                my_response  TEXT,                              -- accepted | declined | tentative | needsAction
+                FOREIGN KEY (account_id) REFERENCES mail_accounts(id) ON DELETE CASCADE
+            );
+            CREATE INDEX IF NOT EXISTS idx_cal_start
+                ON calendar_events(start_ms);
+
+            CREATE TABLE IF NOT EXISTS contacts (
+                id                TEXT PRIMARY KEY,
+                account_id        TEXT NOT NULL,
+                email             TEXT NOT NULL,
+                name              TEXT,
+                organization      TEXT,
+                is_vip            INTEGER NOT NULL DEFAULT 0,  -- AI-inferred or user-toggled
+                last_seen_ms      INTEGER,
+                interaction_count INTEGER NOT NULL DEFAULT 0,
+                FOREIGN KEY (account_id) REFERENCES mail_accounts(id) ON DELETE CASCADE
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_contact_email
+                ON contacts(account_id, email);
+
+            CREATE TABLE IF NOT EXISTS briefings (
+                id           TEXT PRIMARY KEY,
+                generated_at INTEGER NOT NULL,
+                scope        TEXT NOT NULL,                    -- 'today' | 'week'
+                items_json   TEXT NOT NULL
+            );
             "#,
         )?;
         Ok(Self { conn })

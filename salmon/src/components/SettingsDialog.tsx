@@ -14,14 +14,17 @@ interface Props {
   onChangeComposerSendMode: (mode: ComposerSendMode) => void;
   onChangeDefaultEngine: (engine: string) => void;
   onChangeNotifySound: (enabled: boolean) => void;
+  /** When set, settings opens on this tab instead of the default 用量. */
+  initialTab?: string;
   onClose: () => void;
 }
 
-type Tab = "usage" | "preferences" | "about";
+type Tab = "usage" | "preferences" | "accounts" | "about";
 
 const TABS: Array<{ key: Tab; icon: string; label: string }> = [
   { key: "usage", icon: "📊", label: "用量" },
   { key: "preferences", icon: "⚙", label: "偏好" },
+  { key: "accounts", icon: "🔑", label: "账号" },
   { key: "about", icon: "ℹ", label: "关于" },
 ];
 
@@ -36,11 +39,14 @@ export function SettingsDialog({
   onChangeComposerSendMode,
   onChangeDefaultEngine,
   onChangeNotifySound,
+  initialTab,
   onClose,
 }: Props) {
   // Default landing on 用量 — that's the "thing the user opened settings to
   // glance at quickly" in 9 cases out of 10. Preferences is a rarer click.
-  const [tab, setTab] = useState<Tab>("usage");
+  const validInitial = (initialTab === "usage" || initialTab === "preferences" ||
+    initialTab === "accounts" || initialTab === "about") ? initialTab : "usage";
+  const [tab, setTab] = useState<Tab>(validInitial);
 
   return (
     <div className="modal-bg" onClick={onClose}>
@@ -76,6 +82,7 @@ export function SettingsDialog({
               onChangeNotifySound={onChangeNotifySound}
             />
           )}
+          {tab === "accounts" && <AccountsTab />}
           {tab === "about" && <AboutTab cliStatus={cliStatus} />}
         </section>
       </div>
@@ -340,6 +347,64 @@ function PreferencesTab({
           </button>
         </label>
       </section>
+    </>
+  );
+}
+
+/**
+ * v0.9.0-alpha.1 placeholder. Until alpha.2 wires OAuth, this tab is a
+ * static screen explaining what's coming + linking to the OAuth setup
+ * guide that ships in the repo. Real account management UI lands once
+ * the auth backend is in.
+ */
+function AccountsTab() {
+  return (
+    <>
+      <h3>邮箱账号</h3>
+      <div className="sub">
+        v0.9 将集成 Gmail + Outlook，做完整邮件 / 日历 / 联系人客户端 + AI 推荐。
+        当前是 alpha.1 基建版 —— 认证流程在 alpha.2 上线。
+      </div>
+
+      <div className="empty-feature" style={{ padding: "30px 24px" }}>
+        <div className="empty-icon">🔑</div>
+        <div className="empty-title">还没有邮箱账号</div>
+        <div className="empty-sub">
+          要先在 Google Cloud 和 Microsoft Azure 注册 OAuth 应用，
+          拿到 client ID + secret。仓库根目录的 <code>OAUTH-SETUP.md</code>
+          一步步带你做。
+        </div>
+
+        <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+          <button className="provider-btn" disabled style={{ opacity: 0.6, cursor: "not-allowed" }}>
+            <span className="pico" style={{ background: "#4285F4" }}>G</span>
+            <div style={{ flex: 1, textAlign: "left" }}>
+              <div style={{ fontWeight: 600 }}>+ 添加 Gmail</div>
+              <div style={{ fontSize: 11, color: "var(--ink-500)" }}>alpha.2 上线</div>
+            </div>
+          </button>
+          <button className="provider-btn" disabled style={{ opacity: 0.6, cursor: "not-allowed" }}>
+            <span className="pico" style={{ background: "#0078D4" }}>O</span>
+            <div style={{ flex: 1, textAlign: "left" }}>
+              <div style={{ fontWeight: 600 }}>+ 添加 Outlook</div>
+              <div style={{ fontSize: 11, color: "var(--ink-500)" }}>alpha.4 上线</div>
+            </div>
+          </button>
+        </div>
+
+        <div className="empty-roadmap">
+          <h4>路线图（约 5-6 个月单人）</h4>
+          <ul>
+            <li><b>alpha.1 当前</b> — 侧栏 / 视图 / DB schema / 设置基建</li>
+            <li>alpha.2 — Gmail OAuth + 邮件 read</li>
+            <li>alpha.3 — 邮件写 / 草稿 / 附件</li>
+            <li>alpha.4 — Outlook 接入</li>
+            <li>alpha.5 — 日历完整 CRUD（两家）</li>
+            <li>alpha.6 — 联系人 + 多账号 + AI 混合 briefing</li>
+            <li>v0.9.0 正式版 — Polish + ship</li>
+          </ul>
+        </div>
+      </div>
     </>
   );
 }

@@ -915,6 +915,93 @@ button { font-family: inherit; }
 }
 .toggle-label { font-size: 13px; color: var(--ink-900); }
 
+/* v0.9.0-alpha.1: nav alpha tag (邮件 / 日历 features still scaffolding) */
+.home-sub.alpha-tag {
+  background: #FFFAE3;
+  color: #8A6700;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-weight: 600;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+
+/* Empty-feature placeholder (MailView, CalendarView, AccountsTab). Wide,
+   centred, with a roadmap footer so the user understands "this isn't broken,
+   it's scheduled". */
+.empty-feature {
+  padding: 60px 32px;
+  text-align: center;
+  max-width: 560px;
+  margin: 0 auto;
+}
+.empty-icon {
+  font-size: 48px;
+  line-height: 1;
+  margin-bottom: 12px;
+}
+.empty-title {
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.empty-sub {
+  font-size: 13px;
+  color: var(--ink-500);
+  line-height: 1.7;
+  margin-bottom: 18px;
+}
+.empty-sub code { font-family: var(--mono); font-size: 11.5px; background: var(--ink-50); padding: 1px 5px; border-radius: 3px; }
+.empty-actions { display: flex; gap: 8px; justify-content: center; margin-bottom: 24px; }
+.empty-roadmap {
+  margin-top: 24px;
+  padding: 14px 18px;
+  background: var(--panel);
+  border: 1px solid var(--ink-100);
+  border-radius: var(--radius-sm);
+  text-align: left;
+}
+.empty-roadmap h4 {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-500);
+  margin: 0 0 8px;
+  font-weight: 600;
+}
+.empty-roadmap ul {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 12.5px;
+  color: var(--ink-700);
+  line-height: 1.8;
+}
+
+/* Provider button (Gmail / Outlook add) — used in AccountsTab. */
+.provider-btn {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px;
+  background: var(--panel);
+  border: 1px solid var(--ink-100);
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  flex: 1;
+}
+.provider-btn:hover { border-color: var(--salmon-300); }
+.provider-btn .pico {
+  width: 28px; height: 28px;
+  border-radius: 6px;
+  color: white;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
 /* Settings → 用量 table */
 .usage-summary-row {
   display: flex; gap: 18px; flex-wrap: wrap;
