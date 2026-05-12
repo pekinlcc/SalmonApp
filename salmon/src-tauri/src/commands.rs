@@ -447,6 +447,27 @@ pub fn set_chat_layout(state: State<'_, AppState>, layout: String) -> Result<(),
 }
 
 #[tauri::command]
+pub fn get_notify_sound(state: State<'_, AppState>) -> Result<bool, String> {
+    let v = state
+        .db
+        .lock()
+        .get_setting("notify_sound")
+        .map_err(map_err)?;
+    // Default ON when never set. "0" disables, anything else (including
+    // legacy missing rows) keeps the chime.
+    Ok(v.as_deref() != Some("0"))
+}
+
+#[tauri::command]
+pub fn set_notify_sound(state: State<'_, AppState>, enabled: bool) -> Result<(), String> {
+    state
+        .db
+        .lock()
+        .set_setting("notify_sound", if enabled { "1" } else { "0" })
+        .map_err(map_err)
+}
+
+#[tauri::command]
 pub fn get_composer_send_mode(state: State<'_, AppState>) -> Result<String, String> {
     let v = state
         .db

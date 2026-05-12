@@ -900,6 +900,21 @@ button { font-family: inherit; }
 .usage-bar.today { fill: var(--salmon-500); }
 .usage-bar:hover { fill: var(--salmon-700); }
 
+/* Generic toggle row inside Settings sections. Used by 通知声音 etc. */
+.toggle-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px;
+  background: var(--panel);
+  border: 1px solid var(--ink-100);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.toggle-row input[type="checkbox"] {
+  accent-color: var(--salmon-500);
+  width: 16px; height: 16px;
+}
+.toggle-label { font-size: 13px; color: var(--ink-900); }
+
 /* Settings → 用量 table */
 .usage-summary-row {
   display: flex; gap: 18px; flex-wrap: wrap;

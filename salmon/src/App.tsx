@@ -3,7 +3,7 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { ask } from "@tauri-apps/plugin-dialog";
 import type { Block, ChatLayout, CliInfo, ComposerSendMode, Message, Recommendation, StreamEvent, ToolCall, Topic, UiMessage, UsageSummary } from "./lib/types";
 import { api } from "./lib/api";
-import { notify, type NotifyOpts, type ToastEvent } from "./lib/notify";
+import { notify, setNotifySoundEnabled, type NotifyOpts, type ToastEvent } from "./lib/notify";
 import { LeftSidebar } from "./components/LeftSidebar";
 import { ChatStream } from "./components/ChatStream";
 import { Composer } from "./components/Composer";
@@ -29,6 +29,7 @@ export default function App() {
   const [topics, setTopics] = useState<Topic[]>([]);
   const [defaultEngine, setDefaultEngine] = useState<string>("claude");
   const [chatLayout, setChatLayout] = useState<ChatLayout>("thinking");
+  const [notifySoundEnabled, setNotifySoundEnabledState] = useState<boolean>(true);
   const [composerSendMode, setComposerSendMode] = useState<ComposerSendMode>("modEnter");
   const [showSettings, setShowSettings] = useState(false);
   const [searchInitialQuery, setSearchInitialQuery] = useState("");
@@ -256,6 +257,11 @@ export default function App() {
       const mode = await api.getComposerSendMode();
       if (mode === "modEnter" || mode === "enter") setComposerSendMode(mode);
     } catch {}
+    try {
+      const snd = await api.getNotifySound();
+      setNotifySoundEnabledState(snd);
+      setNotifySoundEnabled(snd);
+    } catch {}
     return { clis: det.clis, topics: ts };
   }, []);
 
@@ -274,6 +280,16 @@ export default function App() {
       await api.setDefaultEngine(engine);
     } catch (e) {
       api.debugLog(`set_default_engine failed: ${e}`);
+    }
+  }, []);
+
+  const onChangeNotifySound = useCallback(async (enabled: boolean) => {
+    setNotifySoundEnabledState(enabled);
+    setNotifySoundEnabled(enabled);
+    try {
+      await api.setNotifySound(enabled);
+    } catch (e) {
+      api.debugLog(`set_notify_sound failed: ${e}`);
     }
   }, []);
 
@@ -1097,9 +1113,11 @@ export default function App() {
           defaultEngine={defaultEngine}
           cliStatus={cliStatus}
           usageSummary={usageSummary}
+          notifySoundEnabled={notifySoundEnabled}
           onChangeChatLayout={onChangeChatLayout}
           onChangeComposerSendMode={onChangeComposerSendMode}
           onChangeDefaultEngine={onChangeDefaultEngine}
+          onChangeNotifySound={onChangeNotifySound}
           onClose={() => setShowSettings(false)}
         />
       )}

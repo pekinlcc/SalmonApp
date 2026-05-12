@@ -9,9 +9,11 @@ interface Props {
   defaultEngine: string;
   cliStatus: CliInfo[];
   usageSummary: UsageSummary | null;
+  notifySoundEnabled: boolean;
   onChangeChatLayout: (layout: ChatLayout) => void;
   onChangeComposerSendMode: (mode: ComposerSendMode) => void;
   onChangeDefaultEngine: (engine: string) => void;
+  onChangeNotifySound: (enabled: boolean) => void;
   onClose: () => void;
 }
 
@@ -29,9 +31,11 @@ export function SettingsDialog({
   defaultEngine,
   cliStatus,
   usageSummary,
+  notifySoundEnabled,
   onChangeChatLayout,
   onChangeComposerSendMode,
   onChangeDefaultEngine,
+  onChangeNotifySound,
   onClose,
 }: Props) {
   // Default landing on 用量 — that's the "thing the user opened settings to
@@ -65,9 +69,11 @@ export function SettingsDialog({
               composerSendMode={composerSendMode}
               defaultEngine={defaultEngine}
               cliStatus={cliStatus}
+              notifySoundEnabled={notifySoundEnabled}
               onChangeChatLayout={onChangeChatLayout}
               onChangeComposerSendMode={onChangeComposerSendMode}
               onChangeDefaultEngine={onChangeDefaultEngine}
+              onChangeNotifySound={onChangeNotifySound}
             />
           )}
           {tab === "about" && <AboutTab cliStatus={cliStatus} />}
@@ -167,17 +173,21 @@ function PreferencesTab({
   composerSendMode,
   defaultEngine,
   cliStatus,
+  notifySoundEnabled,
   onChangeChatLayout,
   onChangeComposerSendMode,
   onChangeDefaultEngine,
+  onChangeNotifySound,
 }: {
   chatLayout: ChatLayout;
   composerSendMode: ComposerSendMode;
   defaultEngine: string;
   cliStatus: CliInfo[];
+  notifySoundEnabled: boolean;
   onChangeChatLayout: (layout: ChatLayout) => void;
   onChangeComposerSendMode: (mode: ComposerSendMode) => void;
   onChangeDefaultEngine: (engine: string) => void;
+  onChangeNotifySound: (enabled: boolean) => void;
 }) {
   return (
     <>
@@ -304,6 +314,31 @@ function PreferencesTab({
             </div>
           </label>
         </div>
+      </section>
+
+      <section className="settings-section">
+        <div className="settings-section-title">通知声音</div>
+        <div className="settings-section-desc">
+          任务完成时播放一声短促的提示音。系统静音 / 关闭时无效；这里也能整体关闭。
+        </div>
+        <label className="toggle-row">
+          <input
+            type="checkbox"
+            checked={notifySoundEnabled}
+            onChange={(e) => onChangeNotifySound(e.target.checked)}
+          />
+          <span className="toggle-label">完成时播放提示音</span>
+          <button
+            type="button"
+            className="btn"
+            style={{ marginLeft: "auto", padding: "4px 10px", fontSize: 11.5 }}
+            onClick={() => {
+              import("../lib/notify").then((m) => m.playChime()).catch(() => {});
+            }}
+          >
+            试听
+          </button>
+        </label>
       </section>
     </>
   );

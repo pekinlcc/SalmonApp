@@ -37,6 +37,64 @@ const COOLDOWN_MS = 5000;
 const lastByKey = new Map<string, number>();
 let permCache: boolean | null = null;
 
+// Sound-on-task-complete preference. Default ON; App.tsx loads the
+// persisted value from the DB at mount and pushes updates through
+// setNotifySoundEnabled() so this module stays a one-way data sink.
+let soundEnabled = true;
+export function setNotifySoundEnabled(enabled: boolean) {
+  soundEnabled = enabled;
+}
+
+// Lazy-init shared AudioContext. The OS-level "is sound allowed?" gate is
+// fundamentally outside the WebView, so we just try to play and let the
+// audio stack drop the buffer if the user has the system muted. Auto-play
+// policies require a user gesture before resume(), but a SalmonApp session
+// involves at least one click well before any task completes, so by then
+// the context is usable.
+let audioCtx: AudioContext | null = null;
+function ensureAudioCtx(): AudioContext | null {
+  try {
+    if (!audioCtx) {
+      const Ctor: typeof AudioContext | undefined =
+        (window as any).AudioContext || (window as any).webkitAudioContext;
+      if (!Ctor) return null;
+      audioCtx = new Ctor();
+    }
+    if (audioCtx.state === "suspended") {
+      audioCtx.resume().catch(() => {});
+    }
+    return audioCtx;
+  } catch {
+    return null;
+  }
+}
+
+/** Play a brief two-tone "ding" via Web Audio. No asset bundling. */
+export function playChime() {
+  const ctx = ensureAudioCtx();
+  if (!ctx) return;
+  const start = ctx.currentTime;
+  const note = (freq: number, offset: number, dur: number, peak: number) => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.value = freq;
+    osc.connect(gain).connect(ctx.destination);
+    // Envelope: 20ms attack → hold → 80ms fade. Avoids click artefacts
+    // at start/stop and gives the chime a soft tail.
+    const t = start + offset;
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(peak, t + 0.02);
+    gain.gain.linearRampToValueAtTime(peak, t + dur - 0.08);
+    gain.gain.linearRampToValueAtTime(0, t + dur);
+    osc.start(t);
+    osc.stop(t + dur);
+  };
+  // Ascending major sixth, ~340ms total. Friendly, not alarmy.
+  note(660, 0, 0.14, 0.16);
+  note(880, 0.16, 0.20, 0.16);
+}
+
 async function ensurePermission(): Promise<boolean> {
   if (permCache === true) return true;
   try {
@@ -65,6 +123,13 @@ export async function notify(
   const last = lastByKey.get(key) ?? 0;
   if (now - last < COOLDOWN_MS) return;
   lastByKey.set(key, now);
+
+  // Chime fires for completed tasks regardless of focus — same cue
+  // whether the user has the window in front or is doing something else
+  // and just needs to know the agent is back.
+  if (opts.kind === "done" && soundEnabled) {
+    try { playChime(); } catch { /* no-op */ }
+  }
 
   if (isWindowFocused) {
     pushToast({

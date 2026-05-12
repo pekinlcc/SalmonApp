@@ -37,6 +37,9 @@ export const api = {
   getDefaultEngine: () => invoke<string>("get_default_engine"),
   setDefaultEngine: (engine: string) =>
     invoke<void>("set_default_engine", { engine }),
+  getNotifySound: () => invoke<boolean>("get_notify_sound"),
+  setNotifySound: (enabled: boolean) =>
+    invoke<void>("set_notify_sound", { enabled }),
   getChatLayout: () => invoke<string>("get_chat_layout"),
   setChatLayout: (layout: string) =>
     invoke<void>("set_chat_layout", { layout }),
