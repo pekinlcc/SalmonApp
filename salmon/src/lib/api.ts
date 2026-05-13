@@ -63,6 +63,8 @@ export const api = {
   setDangerMode: (id: string, danger: boolean) =>
     invoke<void>("set_danger_mode", { id, danger }),
   runningTopics: () => invoke<string[]>("running_topics"),
+  resetTopicSession: (id: string) =>
+    invoke<void>("reset_topic_session", { id }),
   debugLog: (message: string) => invoke<void>("debug_log", { message }),
   getHomeDir: () => invoke<string>("get_home_dir"),
   addTopicUsage: (topicId: string, inputTokens: number, outputTokens: number) =>

@@ -1748,6 +1748,20 @@ pub fn running_topics(state: State<'_, AppState>) -> Result<Vec<String>, String>
     Ok(state.engine.running_ids())
 }
 
+/// Recover from a corrupt CLI session. Clears the stored session_id and
+/// kills the running subprocess so the next message spawns `claude -p`
+/// (or `codex exec`) without --resume. Triggered by the user from the
+/// error banner when Claude Code's session jsonl gets pinned to a bad
+/// `previous_message_id` (which makes every retry fail with the same
+/// 400 forever). Salmon's persisted messages stay; only the CLI-side
+/// conversation context is forgotten.
+#[tauri::command]
+pub fn reset_topic_session(state: State<'_, AppState>, id: String) -> Result<(), String> {
+    state.db.lock().clear_session_id(&id).map_err(map_err)?;
+    state.engine.close(&id);
+    Ok(())
+}
+
 #[tauri::command]
 pub fn debug_log(message: String) {
     eprintln!("[fe] {message}");

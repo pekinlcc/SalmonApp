@@ -132,6 +132,7 @@ pub fn run() {
             commands::decide_recommendation,
             commands::set_danger_mode,
             commands::running_topics,
+            commands::reset_topic_session,
             commands::debug_log,
             commands::get_home_dir,
             commands::save_pasted_image,

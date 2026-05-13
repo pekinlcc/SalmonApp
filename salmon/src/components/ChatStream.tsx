@@ -20,6 +20,7 @@ interface Props {
   onDelete?: () => void;
   onRetryTopic?: () => void;
   onRefreshClis?: () => void;
+  onResetSession?: () => void;
   onApprovePermission: (id: string, allow: boolean) => void;
   onSelectTool: (t: ToolCall) => void;
 }
@@ -251,6 +252,7 @@ export function ChatStream(props: Props) {
           engine={topic.engine}
           onRetryTopic={props.onRetryTopic}
           onRefreshClis={props.onRefreshClis}
+          onResetSession={props.onResetSession}
         />
       )}
 
@@ -331,24 +333,50 @@ function ErrorRecoveryBanner({
   engine,
   onRetryTopic,
   onRefreshClis,
+  onResetSession,
 }: {
   message: string;
   engine: string;
   onRetryTopic?: () => void;
   onRefreshClis?: () => void;
+  onResetSession?: () => void;
 }) {
   const loginCmd = engine === "claude" ? "claude /login" : "codex login";
   const low = message.toLowerCase();
   const looksAuth = low.includes("login") || low.includes("auth") || low.includes("not logged");
+  // Claude Code's session jsonl pins a non-msg_ id after a mid-stream socket
+  // drop, and every subsequent --resume on that sid fails with the same 400.
+  // The only fix is to forget the sid; retrying the topic alone re-spawns
+  // with --resume and reproduces the error.
+  const looksSessionCorrupt =
+    low.includes("previous_message_id") ||
+    low.includes("starts with `msg_`") ||
+    low.includes("starts with 'msg_'");
   const copyLogin = async () => {
     try {
       await navigator.clipboard.writeText(loginCmd);
     } catch {}
   };
+  const confirmReset = () => {
+    if (!onResetSession) return;
+    const ok = confirm(
+      "会话状态损坏(CLI 端的 previous_message_id 已失效)。\n\n" +
+      "重置后:\n" +
+      "  · Salmon 里的消息全部保留\n" +
+      "  · 但 CLI 会忘掉这一轮的上下文,下条消息从空白开始\n\n" +
+      "继续重置吗?"
+    );
+    if (ok) onResetSession();
+  };
   return (
     <div className="banner error recover-banner">
       <div className="recover-message">{message}</div>
       <div className="recover-actions">
+        {looksSessionCorrupt && onResetSession && (
+          <button className="btn" onClick={confirmReset} title="清空 CLI 会话(消息保留)">
+            重置会话(开新一轮)
+          </button>
+        )}
         <button className="btn" onClick={onRetryTopic}>重新启动 Topic</button>
         <button className="btn" onClick={onRefreshClis}>重新检测 CLI</button>
         {looksAuth && (

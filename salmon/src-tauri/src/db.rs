@@ -403,6 +403,22 @@ impl Db {
         Ok(())
     }
 
+    /// Drop the cached Claude/Codex session id so the next prompt starts
+    /// a fresh session (no --resume). Recovery for the
+    /// `diagnostics.previous_message_id` 400 — once the CLI's session jsonl
+    /// gets a non-`msg_` id pinned in it (typically after a mid-stream socket
+    /// drop), every retry on the same sid keeps failing. Forgetting the sid
+    /// is the only way out; we keep Salmon's stored messages so the user
+    /// doesn't lose the visible thread.
+    pub fn clear_session_id(&mut self, id: &str) -> Result<()> {
+        let now = Utc::now().timestamp_millis();
+        self.conn.execute(
+            "UPDATE topics SET session_id=NULL, updated_at=? WHERE id=?",
+            params![now, id],
+        )?;
+        Ok(())
+    }
+
     pub fn set_danger_mode(&mut self, id: &str, danger: bool) -> Result<()> {
         self.conn.execute(
             "UPDATE topics SET danger_mode=? WHERE id=?",

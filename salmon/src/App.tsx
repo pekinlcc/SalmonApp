@@ -870,6 +870,29 @@ export default function App() {
     }
   }, []);
 
+  // Recovery from a corrupt CLI session (typical trigger: the
+  // `diagnostics.previous_message_id` 400 after a mid-stream socket drop).
+  // Drops the cached session_id + kills the running subprocess in the
+  // backend, then re-spawns without --resume. Topic messages are kept.
+  const onResetSession = useCallback(async (id: string) => {
+    setErrorByTopic((er) => ({ ...er, [id]: null }));
+    setSpawningId(id);
+    try {
+      await api.resetTopicSession(id);
+      setRunningIds((s) => {
+        const n = new Set(s);
+        n.delete(id);
+        return n;
+      });
+      await api.openTopic(id);
+      setRunningIds((s) => new Set(s).add(id));
+    } catch (e: any) {
+      setErrorByTopic((er) => ({ ...er, [id]: String(e) }));
+    } finally {
+      setSpawningId((cur) => (cur === id ? null : cur));
+    }
+  }, []);
+
   // Single dispatch point for every "the user might want to know" event.
   // Suppresses a notification when the user is already looking at the
   // relevant context: a topic-tied event whose topicId matches the open
@@ -1197,6 +1220,7 @@ export default function App() {
               }}
               onRetryTopic={() => onRetryTopic(selectedTopic.id)}
               onRefreshClis={() => { void refresh(); }}
+              onResetSession={() => onResetSession(selectedTopic.id)}
               onApprovePermission={onApprove}
               onSelectTool={setSelectedTool}
             />

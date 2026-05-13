@@ -498,6 +498,22 @@ fn handle_stream_event(
                         match btype {
                             "text" => {
                                 if let Some(text) = block.get("text").and_then(|x| x.as_str()) {
+                                    // Claude Code wraps API failures (auth, rate limit, 400,
+                                    // socket drops) as a fake "assistant" text block. Re-route
+                                    // to Error so the user sees the recovery banner instead of
+                                    // a poisoned conversation entry — and we don't write the
+                                    // error string into the DB as a real assistant reply.
+                                    if text.trim_start().starts_with("API Error:") {
+                                        let _ = app.emit(
+                                            "salmon-stream",
+                                            StreamEvent::Error {
+                                                topic_id: topic_id.to_string(),
+                                                message: text.trim().to_string(),
+                                            },
+                                        );
+                                        eprintln!("[salmon] routed API Error to banner: {}", text.trim());
+                                        continue;
+                                    }
                                     let mid = msg
                                         .get("id")
                                         .and_then(|x| x.as_str())
