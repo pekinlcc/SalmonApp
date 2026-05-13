@@ -1,6 +1,6 @@
 [package]
 name = "salmonapp"
-version = "0.11.1"
+version = "1.0.0"
 description = "SalmonApp — desktop client driving local Claude Code / Codex CLI (Linux + macOS)"
 authors = ["SalmonApp"]
 edition = "2021"
@@ -45,7 +45,10 @@ urlencoding = "2"
 
 [profile.release]
 panic = "abort"
-codegen-units = 1
-lto = true
+# v0.11.1 — fat LTO + codegen-units=1 让链接阶段瞬间吃 6-10GB RAM，
+# 在 30GB 桌面上叠加 Chrome/SalmonApp 会触发 OOM 把桌面会话杀掉。
+# 改为 thin LTO + 16 个 codegen unit：链接峰值 ~2GB，二进制只大几 MB。
+codegen-units = 16
+lto = "thin"
 opt-level = "s"
 strip = true

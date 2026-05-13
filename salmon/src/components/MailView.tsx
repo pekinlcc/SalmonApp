@@ -125,7 +125,12 @@ export function MailView({ pendingComposeReply, onConsumeComposeReply }: MailVie
         if (e.payload.accountId === selectedAccountIdRef.current) {
           reloadMessages(e.payload.accountId);
         }
-        reloadAccounts();
+        // Refresh just the accounts list (unread counts etc.) — do NOT
+        // call reloadAccounts here. That callback closes over
+        // selectedAccountId === null (this effect runs once at mount)
+        // and would re-set the selection to a[0].id on every sync, yanking
+        // the user back to the first account whenever any sync finished.
+        api.listMailAccounts().then(setAccounts).catch(() => {});
       }
     }).then((u) => { un = u; });
     return () => { un?.(); };

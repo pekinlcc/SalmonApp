@@ -370,6 +370,14 @@ export default function App() {
   const selectedIdRef = useRef<string | null>(null);
   selectedIdRef.current = selectedId;
 
+  // handleStream is closed over in a mount-time listener (line ~470).
+  // Reading `topics` directly from that closure would always give the
+  // initial empty array — every notification then falls back to the
+  // "Topic" placeholder instead of the real title. Mirror topics into
+  // a ref the same way selectedIdRef is mirrored.
+  const topicsRefForStream = useRef<Topic[]>([]);
+  topicsRefForStream.current = topics;
+
   const selectedTopic = useMemo(
     () => topics.find((t) => t.id === selectedId) || null,
     [topics, selectedId]
@@ -643,7 +651,7 @@ export default function App() {
           ...p,
           [e.topicId]: { id: e.requestId, tool: e.tool, input: e.input, command: e.command },
         }));
-        const topic = topics.find((t) => t.id === e.topicId);
+        const topic = topicsRefForStream.current.find((t) => t.id === e.topicId);
         const detail = e.tool === "Bash" && e.command
           ? `Bash: ${truncate(e.command, 80)}`
           : `工具: ${e.tool}`;
@@ -658,7 +666,7 @@ export default function App() {
       case "error": {
         setErrorByTopic((er) => ({ ...er, [e.topicId]: e.message }));
         setBusyByTopic((b) => ({ ...b, [e.topicId]: false }));
-        const topic = topics.find((t) => t.id === e.topicId);
+        const topic = topicsRefForStream.current.find((t) => t.id === e.topicId);
         fireNotify({
           topicId: e.topicId,
           kind: "error",
@@ -740,7 +748,7 @@ export default function App() {
         }
         // Distinguish clean exit from crash. null/0 = success per Unix
         // convention; engine drivers signal interruption with non-zero.
-        const topic = topics.find((t) => t.id === e.topicId);
+        const topic = topicsRefForStream.current.find((t) => t.id === e.topicId);
         const ok = e.code === null || e.code === 0;
         fireNotify({
           topicId: e.topicId,
@@ -1134,8 +1142,16 @@ export default function App() {
   // on relevant events (mail-sync done, briefing done, etc).
   const briefBadgeCount = recommendations.filter((r) => r.status === "pending").length;
 
+  // v0.11: layout columns are IconRail(56) + [LeftSidebar(260)] + middle(1fr) + [RightPane(380)].
+  // LeftSidebar only renders for topic view; RightPane only when a topic is selected.
+  // Modifier classes drive grid-template-columns in styles.css.
+  const hasLeftSidebar = topView === "topic" || !!selectedTopic;
+  const layoutClasses = ["app", "v11"];
+  if (!hasLeftSidebar) layoutClasses.push("no-left");
+  if (!selectedTopic) layoutClasses.push("no-right");
+  else if (rightCollapsed) layoutClasses.push("right-collapsed");
   return (
-    <div className={`app v11 ${!selectedTopic ? "no-right" : rightCollapsed ? "right-collapsed" : ""}`}>
+    <div className={layoutClasses.join(" ")}>
       <IconRail
         view={(selectedTopic ? "topic" : topView) as any}
         unreadMail={unreadMailBadge}

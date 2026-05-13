@@ -98,6 +98,21 @@ export function TasksView() {
   const pending = useMemo(() => tasks.filter((t) => !t.completed), [tasks]);
   const completed = useMemo(() => tasks.filter((t) => t.completed), [tasks]);
 
+  // v0.11.1: selected task for the right-side detail pane. Hooks must
+  // run unconditionally before the accounts.length===0 early-return
+  // below; otherwise the hook-call count changes when the user adds
+  // their first account and React throws "Rendered more hooks than
+  // during the previous render."
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  useEffect(() => {
+    if (selectedId && !tasks.find((t) => t.id === selectedId)) {
+      setSelectedId(null);
+    } else if (!selectedId && visible[0]) {
+      setSelectedId(visible[0].id);
+    }
+  }, [tasks, visible, selectedId]);
+  const selected = tasks.find((t) => t.id === selectedId) || null;
+
   if (accounts.length === 0) {
     return (
       <div className="empty-feature">
@@ -111,19 +126,6 @@ export function TasksView() {
       </div>
     );
   }
-
-  // v0.11.1: selected task for the right-side detail pane.
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  useEffect(() => {
-    if (selectedId && !tasks.find((t) => t.id === selectedId)) {
-      setSelectedId(null);
-    }
-    if (!selectedId && visible[0]) {
-      setSelectedId(visible[0].id);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tasks]);
-  const selected = tasks.find((t) => t.id === selectedId) || null;
 
   return (
     <div className="three-pane">

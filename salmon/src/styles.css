@@ -13,6 +13,7 @@
   --ink-50:  #F5F6F7;
   --bg:      #FAFAF9;
   --panel:   #FFFFFF;
+  --side:    #F7F5F3;
   --shadow:  0 1px 0 rgba(16,18,20,0.04), 0 4px 18px rgba(16,18,20,0.04);
   --radius:  10px;
   --radius-sm: 6px;
@@ -42,6 +43,16 @@ button { font-family: inherit; }
 }
 .app.no-right { grid-template-columns: 260px 1fr; }
 .app.right-collapsed { grid-template-columns: 260px 1fr 28px; }
+
+/* v0.11 layout: IconRail(56) prepended to the original 3-pane shell.
+   Children render in this order:
+     IconRail (always) → LeftSidebar (topic view only) → middle → RightPane (topic only)
+   no-left fires on home/mail/calendar/contacts/tasks where LeftSidebar is absent.
+   no-right fires when no Topic is selected. */
+.app.v11 { grid-template-columns: 56px 260px 1fr 380px; }
+.app.v11.right-collapsed { grid-template-columns: 56px 260px 1fr 28px; }
+.app.v11.no-right { grid-template-columns: 56px 260px 1fr; }
+.app.v11.no-left.no-right { grid-template-columns: 56px 1fr; }
 
 .right-rail {
   background: #FBFAF8; border-left: 1px solid var(--ink-100);
@@ -2120,14 +2131,17 @@ button { font-family: inherit; }
   border: 0;
   background: transparent;
   display: flex; align-items: center; justify-content: center;
-  font-size: 19px;
-  color: var(--ink-700);
+  color: var(--ink-500);
   cursor: pointer;
   position: relative;
   padding: 0;
   font-family: inherit;
+  transition: color .12s ease, background-color .12s ease;
 }
-.icon-rail .rail-item:hover { background: rgba(232,160,130,0.12); }
+.icon-rail .rail-item:hover {
+  background: rgba(232,160,130,0.12);
+  color: var(--ink-900);
+}
 .icon-rail .rail-item.active {
   background: var(--salmon-100);
   color: var(--salmon-700);
@@ -2137,8 +2151,12 @@ button { font-family: inherit; }
   position: absolute; left: -7px; top: 10px; bottom: 10px;
   width: 3px; background: var(--salmon-700); border-radius: 0 2px 2px 0;
 }
-.icon-rail .rail-glyph { line-height: 1; }
-.icon-rail .rail-item.active .rail-glyph { font-weight: 700; }
+.icon-rail .rail-glyph {
+  width: 22px; height: 22px; display: block;
+  fill: none; stroke: currentColor;
+  stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round;
+}
+.icon-rail .rail-item.active .rail-glyph { stroke-width: 1.9; }
 .icon-rail .rail-badge {
   position: absolute; top: 3px; right: 3px;
   background: var(--salmon-700); color: white;
