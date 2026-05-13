@@ -192,11 +192,22 @@ pub async fn run_briefing(
 
     // ── Persist brief_items ────────────────────────────────────────
     let now_ms = chrono::Utc::now().timestamp_millis();
-    // First: expire stale pending items from prior runs so the home feed
-    // doesn't accumulate brief_items forever. Anything older than 24h
-    // that the user never acted on is auto-expired.
+    // Each briefing run is a fresh snapshot — supersede every still-pending
+    // item from any prior run before writing this run's output. Without
+    // this, running Briefing 3x in 24h would leave 3 generations of cards
+    // coexisting (only the >24h cleanup below would catch them, and only
+    // eventually), which surfaced as "contact has 5-6 cards for 2 emails".
+    // The new run's output is canonical; old pendings get `superseded`
+    // (a terminal status that doesn't show in any `WHERE status='pending'`
+    // query). We still keep the 24h safety expiry — that one only matters
+    // if a run crashes mid-flight, leaving stale pendings behind.
     {
         let guard = db.lock();
+        let _ = guard.conn().execute(
+            "UPDATE brief_items SET status='superseded', decided_at=?
+             WHERE status='pending'",
+            params![now_ms],
+        );
         let _ = guard.conn().execute(
             "UPDATE brief_items SET status='expired', decided_at=?
              WHERE status='pending' AND created_at < ?",

@@ -212,6 +212,12 @@ fn parse_items(raw: &str) -> Result<Vec<PulseItem>> {
         }
         out.push(item);
     }
+    // Pulse's system prompt asks for "no padding", but LLMs sometimes
+    // split one concern into multiple cards. Hard-cap at 3 items per
+    // contact — anything more is almost always the same concern fanned
+    // out into separate cards. The system prompt itself says a single
+    // contact usually has 0-2 truly independent issues per Briefing.
+    out.truncate(3);
     Ok(out)
 }
 

@@ -10,6 +10,7 @@ import type {
   UsageSummary,
 } from "../lib/types";
 import { relativeTime } from "../lib/format";
+import { RelatedMailList } from "./RelatedMailList";
 
 interface Props {
   topics: Topic[];
@@ -294,7 +295,9 @@ function BriefDetail({
           <div className="info-row-inline"><b>Topic：</b>{topicTitle}</div>
         )}
         {item.relatedMailIds.length > 0 && (
-          <div className="info-row-inline"><b>关联邮件：</b>{item.relatedMailIds.length} 封</div>
+          <div className="info-row-inline">
+            <RelatedMailList mailIds={item.relatedMailIds} />
+          </div>
         )}
 
         {draft && draft.length > 0 && (

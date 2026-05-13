@@ -7,6 +7,7 @@ import type {
   SuggestedAction,
   UnifiedContact,
 } from "../lib/types";
+import { RelatedMailList } from "./RelatedMailList";
 
 /**
  * v1.1 — Contacts view rewritten on top of `list_unified_contacts`.
@@ -384,6 +385,11 @@ function ContactBriefCard({ item }: { item: BriefItem }) {
         <div className="brief-why">
           <span className="brief-why-label">↗ AI 解释：</span>
           {item.why}
+        </div>
+      )}
+      {item.relatedMailIds.length > 0 && (
+        <div style={{ padding: "0 12px 6px", fontSize: 12 }}>
+          <RelatedMailList mailIds={item.relatedMailIds} />
         </div>
       )}
       <div className="brief-actions-section">

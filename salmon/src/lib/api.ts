@@ -83,6 +83,11 @@ export const api = {
     invoke<MailListItem[]>("list_inbox_messages", { accountId, limit: limit ?? null }),
   listContactMail: (accountId: string, email: string, limit = 50) =>
     invoke<MailListItem[]>("list_contact_mail", { accountId, email, limit }),
+  // v1.1.1: batch lookup mail rows by id — powers the related-mail
+  // expand on brief cards. Returns rows in the same order as `ids`;
+  // missing rows are silently dropped (mail deleted / outside sync window).
+  getMailMessagesByIds: (ids: string[]) =>
+    invoke<MailListItem[]>("get_mail_messages_by_ids", { ids }),
   listContactBriefItems: (email: string) =>
     invoke<BriefItem[]>("list_contact_brief_items", { email }),
   getMailMessage: (messageId: string) =>

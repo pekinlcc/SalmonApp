@@ -17,9 +17,19 @@ import { ComposeModal } from "./ComposeModal";
 interface MailViewProps {
   pendingComposeReply?: { replyToMailId: string; bodyText?: string } | null;
   onConsumeComposeReply?: () => void;
+  /** v1.1.1: open a specific mail (from RelatedMailList click on a brief
+   *  card). App.tsx stashes the payload and we pick it up here, switching
+   *  account if needed and selecting the row. */
+  pendingOpenMail?: { messageId: string; accountId: string } | null;
+  onConsumePendingOpenMail?: () => void;
 }
 
-export function MailView({ pendingComposeReply, onConsumeComposeReply }: MailViewProps = {}) {
+export function MailView({
+  pendingComposeReply,
+  onConsumeComposeReply,
+  pendingOpenMail,
+  onConsumePendingOpenMail,
+}: MailViewProps = {}) {
   const [accounts, setAccounts] = useState<MailAccount[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const [messages, setMessages] = useState<MailListItem[]>([]);
@@ -111,6 +121,22 @@ export function MailView({ pendingComposeReply, onConsumeComposeReply }: MailVie
     })();
     return () => { cancelled = true; };
   }, [pendingComposeReply, onConsumeComposeReply]);
+
+  // v1.1.1: consume pendingOpenMail handoff from App.tsx. Switching
+  // accounts triggers reloadMessages via the account-change effect; the
+  // target message might not yet be in the freshly-loaded list (it could
+  // be archived / outside the inbox), but the reader pane resolves body
+  // text via api.getMailMessage(id) which works regardless of list
+  // membership. Also clears any selected contact so the reader pane
+  // shows the mail, not the contact detail (mirrors c7c5a1e's intent).
+  useEffect(() => {
+    if (!pendingOpenMail?.messageId || !pendingOpenMail?.accountId) return;
+    setSelectedContact(null);
+    setSelectedAccountId(pendingOpenMail.accountId);
+    setSelectedMessageId(pendingOpenMail.messageId);
+    setSelectedBody(null);
+    onConsumePendingOpenMail?.();
+  }, [pendingOpenMail, onConsumePendingOpenMail]);
 
   useEffect(() => {
     let un: UnlistenFn | undefined;

@@ -106,16 +106,31 @@ export default function App() {
       setTopView("mail");
       setPendingComposeReply(detail || null);
     };
+    // v1.1.1: brief-card RelatedMailList rows fire this to jump from the
+    // home / contacts view into the Mail view with that mail pre-selected.
+    // Same stash-and-pickup dance as openCompose — MailView may not be
+    // mounted yet at the instant of dispatch.
+    const openMailMessage = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { messageId?: string; accountId?: string } | null;
+      if (!detail?.messageId || !detail?.accountId) return;
+      setSelectedId(null);
+      setSelectedTool(null);
+      setTopView("mail");
+      setPendingOpenMail({ messageId: detail.messageId, accountId: detail.accountId });
+    };
     window.addEventListener("salmon:open-mail", openMail);
     window.addEventListener("salmon:open-calendar", openCal);
     window.addEventListener("salmon:open-compose-reply", openCompose);
+    window.addEventListener("salmon:open-mail-message", openMailMessage);
     return () => {
       window.removeEventListener("salmon:open-mail", openMail);
       window.removeEventListener("salmon:open-calendar", openCal);
       window.removeEventListener("salmon:open-compose-reply", openCompose);
+      window.removeEventListener("salmon:open-mail-message", openMailMessage);
     };
   }, []);
   const [pendingComposeReply, setPendingComposeReply] = useState<{ replyToMailId: string; bodyText?: string } | null>(null);
+  const [pendingOpenMail, setPendingOpenMail] = useState<{ messageId: string; accountId: string } | null>(null);
 
   // v0.11.1: IconRail badges. Refreshed on mount + on relevant Tauri events.
   const [unreadMailBadge, setUnreadMailBadge] = useState(0);
@@ -1223,6 +1238,8 @@ export default function App() {
               <MailView
                 pendingComposeReply={pendingComposeReply}
                 onConsumeComposeReply={() => setPendingComposeReply(null)}
+                pendingOpenMail={pendingOpenMail}
+                onConsumePendingOpenMail={() => setPendingOpenMail(null)}
               />
             ) : topView === "contacts" ? (
               <ContactsView />

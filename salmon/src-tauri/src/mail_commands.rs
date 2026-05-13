@@ -869,6 +869,66 @@ pub fn list_contacts(
     crate::contacts::list_contacts(&db, account_id.as_deref()).map_err(map_err)
 }
 
+/// v1.1.1: batch lookup mail rows by id. Powers the inline-expand of
+/// `related_mail_ids` on brief cards so the user can see (and click into)
+/// the emails Pulse cited as evidence. Returns rows in the same order as
+/// the input ids; missing ids are silently dropped (the mail might have
+/// been deleted or fallen out of the local sync window).
+#[tauri::command]
+pub fn get_mail_messages_by_ids(
+    state: State<'_, AppState>,
+    ids: Vec<String>,
+) -> Result<Vec<MailListRow>, String> {
+    if ids.is_empty() { return Ok(Vec::new()); }
+    // Cap to avoid pathological SQL with 1000+ placeholders if a malformed
+    // brief_item somehow stored an enormous related_mail_ids array.
+    let ids: Vec<&str> = ids.iter().map(|s| s.as_str()).take(200).collect();
+    let placeholders = std::iter::repeat("?").take(ids.len()).collect::<Vec<_>>().join(",");
+    let sql = format!(
+        "SELECT id, account_id, thread_id, from_email, from_name, subject,
+                snippet, date_ms, unread, starred, has_attachments
+         FROM mail_messages
+         WHERE id IN ({})",
+        placeholders
+    );
+    let db = state.db.lock();
+    let mut stmt = db.conn().prepare(&sql).map_err(map_err)?;
+    let params: Vec<&dyn rusqlite::ToSql> = ids
+        .iter()
+        .map(|s| s as &dyn rusqlite::ToSql)
+        .collect();
+    let rows = stmt
+        .query_map(params.as_slice(), |r| {
+            Ok(MailListRow {
+                id: r.get(0)?,
+                account_id: r.get(1)?,
+                thread_id: r.get(2)?,
+                from_email: r.get(3)?,
+                from_name: r.get(4)?,
+                subject: r.get(5)?,
+                snippet: r.get(6)?,
+                date_ms: r.get(7)?,
+                unread: r.get::<_, i64>(8)? != 0,
+                starred: r.get::<_, i64>(9)? != 0,
+                has_attachments: r.get::<_, i64>(10)? != 0,
+            })
+        })
+        .map_err(map_err)?;
+    let mut by_id: std::collections::HashMap<String, MailListRow> =
+        std::collections::HashMap::new();
+    for row in rows {
+        let r = row.map_err(map_err)?;
+        by_id.insert(r.id.clone(), r);
+    }
+    let mut out: Vec<MailListRow> = Vec::with_capacity(ids.len());
+    for id in &ids {
+        if let Some(row) = by_id.remove(*id) {
+            out.push(row);
+        }
+    }
+    Ok(out)
+}
+
 /// v1.1: union of saved contacts + counterparties seen in the last 30
 /// days. Includes "strangers" (people we've emailed but haven't synced
 /// from Google / Outlook), and carries pending Pulse brief_items counts
