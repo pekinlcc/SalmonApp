@@ -111,72 +111,31 @@ export function WelcomeBack({
   // parent code unchanged.
   void recommendations; void recsLoading; void recsError; void onRefreshRecs;
   void onDecideRec; void onAcceptRec;
+  void totalLive;
+
+  // v0.11.1: home view IS the BriefingFeed (3-pane). The "welcome back"
+  // overview + recent/attention topics now live in BriefingFeed's
+  // detail pane when no brief item is selected.
+  const recentTopics = useMemo(() => recents.map((r) => r.topic), [recents]);
+  const attentionTopics = useMemo(
+    () => attention.map((r) => ({ topic: r.topic, reason: r.badgeText || "需看" })),
+    [attention]
+  );
 
   return (
-    <div className="welcome">
-      <div className="welcome-inner">
-        <div className="welcome-head">
-          <div className="welcome-title">
-            <span className="welcome-spark">✦</span> 欢迎回来
-          </div>
-          <div className="welcome-sub">
-            {totalLive === 0
-              ? "还没有 Topic — 新建一个开始。"
-              : attention.length === 0
-              ? `${totalLive} 个 Topic,都看过了。`
-              : `${attention.length} / ${totalLive} 个 Topic 需要看一眼。`}
-          </div>
-        </div>
-
-        {/* v0.9.1 LLM agent pipeline feed — replaces all the old blocks.
-            running/progress/refresh come from App.tsx so the indicator
-            survives navigating to a Topic and back. */}
-        <BriefingFeed
-          topics={topics}
-          onOpenTopic={onSelect}
-          running={briefingRunning}
-          progress={briefingProgress}
-          tick={briefingTick}
-          onRefresh={onRunBriefing}
-        />
-
-        {usageSummary && (usageSummary.todayIn + usageSummary.todayOut + usageSummary.totalIn + usageSummary.totalOut) > 0 && (
-          <section className="welcome-section">
-            <div className="welcome-section-label">用量</div>
-            <UsageCard summary={usageSummary} />
-          </section>
-        )}
-
-        {/* The old Topic-status rows below the feed are kept as a compact
-            secondary list — sometimes the user wants to jump back into a
-            recent Topic without an AI suggestion. */}
-        {recents.length > 0 && (
-          <section className="welcome-section">
-            <div className="welcome-section-label">最近 Topic</div>
-            <div className="welcome-list">
-              {recents.slice(0, 5).map((r) => (
-                <SessionRow key={r.topic.id} row={r} onClick={() => onSelect(r.topic.id)} />
-              ))}
-            </div>
-          </section>
-        )}
-
-        {attention.length > 0 && (
-          <section className="welcome-section">
-            <div className="welcome-section-label">需要处理（系统状态）</div>
-            <div className="welcome-list">
-              {attention.map((r) => (
-                <SessionRow key={r.topic.id} row={r} onClick={() => onSelect(r.topic.id)} />
-              ))}
-            </div>
-          </section>
-        )}
-
-        <div className="welcome-foot">
-          <button className="btn primary" onClick={onNewTopic}>+ 新建 Topic</button>
-        </div>
-      </div>
-    </div>
+    <BriefingFeed
+      topics={topics}
+      onOpenTopic={onSelect}
+      running={briefingRunning}
+      progress={briefingProgress}
+      tick={briefingTick}
+      onRefresh={onRunBriefing}
+      usageSummary={usageSummary}
+      recentTopics={recentTopics}
+      attentionTopics={attentionTopics}
+      recommendations={recommendations}
+      onNewTopic={onNewTopic}
+    />
   );
 }
 

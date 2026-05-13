@@ -115,6 +115,31 @@ export default function App() {
     };
   }, []);
   const [pendingComposeReply, setPendingComposeReply] = useState<{ replyToMailId: string; bodyText?: string } | null>(null);
+
+  // v0.11.1: IconRail badges. Refreshed on mount + on relevant Tauri events.
+  const [unreadMailBadge, setUnreadMailBadge] = useState(0);
+  const [pendingTasksBadge, setPendingTasksBadge] = useState(0);
+  const refreshBadges = useCallback(async () => {
+    try {
+      const accounts = await api.listMailAccounts();
+      const unread = accounts.reduce((sum, a) => sum + (a.unreadCount || 0), 0);
+      setUnreadMailBadge(unread);
+    } catch {}
+    try {
+      const tasks = await api.listTasks(null, false);
+      setPendingTasksBadge(tasks.filter((t) => !t.completed).length);
+    } catch {}
+  }, []);
+  useEffect(() => {
+    refreshBadges();
+    let un1: (() => void) | undefined;
+    let un2: (() => void) | undefined;
+    listen("salmon-mail-sync", () => refreshBadges()).then((u) => { un1 = u; });
+    listen("salmon-mail-accounts", () => refreshBadges()).then((u) => { un2 = u; });
+    // Tasks have no event yet; rely on the 5-min interval below.
+    const t = setInterval(refreshBadges, 5 * 60 * 1000);
+    return () => { un1?.(); un2?.(); clearInterval(t); };
+  }, [refreshBadges]);
   const [searchInitialQuery, setSearchInitialQuery] = useState("");
   const [showSearch, setShowSearch] = useState(false);
   const [workdirOkByTopic, setWorkdirOkByTopic] = useState<Record<string, boolean>>({});
@@ -1105,10 +1130,9 @@ export default function App() {
     );
   }
 
-  // v0.11: compute badge counts for IconRail
+  // v0.11.1: badge counts maintained in state; refreshed on mount and
+  // on relevant events (mail-sync done, briefing done, etc).
   const briefBadgeCount = recommendations.filter((r) => r.status === "pending").length;
-  const pendingTasksBadge = 0; // could query api.listTasks but kept 0 for v0.11 to avoid extra fetch on every render
-  const unreadMailBadge = 0; // similar; populated later if/when we maintain a counter
 
   return (
     <div className={`app v11 ${!selectedTopic ? "no-right" : rightCollapsed ? "right-collapsed" : ""}`}>

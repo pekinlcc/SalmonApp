@@ -112,51 +112,88 @@ export function TasksView() {
     );
   }
 
+  // v0.11.1: selected task for the right-side detail pane.
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  useEffect(() => {
+    if (selectedId && !tasks.find((t) => t.id === selectedId)) {
+      setSelectedId(null);
+    }
+    if (!selectedId && visible[0]) {
+      setSelectedId(visible[0].id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tasks]);
+  const selected = tasks.find((t) => t.id === selectedId) || null;
+
   return (
-    <div className="tasks-shell">
-      <div className="tasks-head">
-        <div className="tasks-title">📋 待办</div>
-        <div className="tasks-stats">
-          {pending.length} 未完成 · {completed.length} 已完成
+    <div className="three-pane">
+      <aside className="three-list">
+        <div className="left-head">
+          <div className="logo">📋</div>
+          <div className="name">待办</div>
+          <div className="ver">{pending.length} 未完</div>
         </div>
-        <div className="tasks-actions">
+        <div style={{ display: "flex", gap: 6, padding: "0 12px 8px" }}>
           <select
             className="btn-sm"
             value={accountId}
             onChange={(e) => setAccountId(e.target.value as any)}
+            style={{ flex: 1, fontSize: 11.5, padding: "4px 6px" }}
           >
             <option value="all">全部账号</option>
             {accounts.map((a) => (
               <option key={a.id} value={a.id}>{a.email}</option>
             ))}
           </select>
-          <button className="btn-sm" onClick={() => setShowCompleted((v) => !v)}>
-            {showCompleted ? "隐藏已完成" : "显示已完成"}
+          <button className="btn-sm" onClick={onSync} disabled={syncing} style={{ fontSize: 11.5, padding: "4px 8px" }}>
+            {syncing ? "…" : "↻"}
           </button>
-          <button className="btn-sm" onClick={onSync} disabled={syncing}>
-            {syncing ? "同步中…" : "↻ 同步"}
-          </button>
-          <button className="btn-sm primary" onClick={() => setComposeOpen(true)}>＋ 新建</button>
         </div>
-      </div>
-      {error && <div className="tasks-error">⚠ {error}</div>}
-      <div className="tasks-list">
-        {visible.length === 0 ? (
-          <div className="tasks-empty">
-            {showCompleted ? "没有任何待办" : "✓ 没有未完成的待办"}
-          </div>
+        <button className="new-btn" onClick={() => setComposeOpen(true)}>
+          <span className="plus">＋</span> 新建待办
+        </button>
+        <button
+          className="new-btn"
+          onClick={() => setShowCompleted((v) => !v)}
+          style={{ marginTop: 0 }}
+        >
+          {showCompleted ? "隐藏已完成" : `显示已完成 (${completed.length})`}
+        </button>
+        {error && <div className="tasks-error" style={{ margin: "0 12px 8px" }}>⚠ {error}</div>}
+        <div className="topic-list">
+          {visible.length === 0 ? (
+            <div style={{ padding: "30px 18px", fontSize: 12, color: "var(--ink-500)", textAlign: "center" }}>
+              {showCompleted ? "没有任何待办" : "✓ 没有未完成的待办"}
+            </div>
+          ) : (
+            visible.map((t) => (
+              <TaskListRow
+                key={t.id}
+                task={t}
+                active={t.id === selectedId}
+                onSelect={() => setSelectedId(t.id)}
+                onToggle={() => onToggle(t)}
+              />
+            ))
+          )}
+        </div>
+      </aside>
+
+      <section className="three-detail">
+        {selected ? (
+          <TaskDetail
+            task={selected}
+            account={accounts.find((a) => a.id === selected.accountId) || null}
+            onToggle={() => onToggle(selected)}
+            onDelete={() => { onDelete(selected); setSelectedId(null); }}
+          />
         ) : (
-          visible.map((t) => (
-            <TaskRow
-              key={t.id}
-              task={t}
-              account={accounts.find((a) => a.id === t.accountId) || null}
-              onToggle={() => onToggle(t)}
-              onDelete={() => onDelete(t)}
-            />
-          ))
+          <div className="empty-feature">
+            <div className="empty-icon">📋</div>
+            <div className="empty-sub">选一个待办查看</div>
+          </div>
         )}
-      </div>
+      </section>
 
       {composeOpen && (
         <NewTaskModal
@@ -167,11 +204,153 @@ export function TasksView() {
           onClose={() => setComposeOpen(false)}
           onCreated={(t) => {
             setTasks((cur) => [t, ...cur]);
+            setSelectedId(t.id);
             setComposeOpen(false);
           }}
         />
       )}
     </div>
+  );
+}
+
+function TaskListRow({
+  task,
+  active,
+  onSelect,
+  onToggle,
+}: {
+  task: Task;
+  active: boolean;
+  onSelect: () => void;
+  onToggle: () => void;
+}) {
+  const dueText = useMemo(() => {
+    if (!task.dueMs) return null;
+    const d = new Date(task.dueMs);
+    const now = Date.now();
+    const days = Math.floor((task.dueMs - now) / 86400_000);
+    const md = `${d.getMonth() + 1}/${d.getDate()}`;
+    if (!task.completed && task.dueMs < now - 86400_000) {
+      const overdue = Math.floor((now - task.dueMs) / 86400_000);
+      return { text: `逾期 ${overdue}d`, overdue: true };
+    }
+    if (days === 0) return { text: "今日", overdue: false };
+    if (days === 1) return { text: "明天", overdue: false };
+    if (days > 0 && days < 7) return { text: `${days}d`, overdue: false };
+    return { text: md, overdue: false };
+  }, [task.dueMs, task.completed]);
+  return (
+    <div
+      className={`topic ${active ? "active" : ""}`}
+      onClick={onSelect}
+      style={{ cursor: "pointer" }}
+    >
+      <div className="t-row" style={{ gap: 8 }}>
+        <div
+          className={`task-checkbox ${task.completed ? "checked" : ""}`}
+          onClick={(e) => { e.stopPropagation(); onToggle(); }}
+          style={{ flexShrink: 0 }}
+        >
+          {task.completed && "✓"}
+        </div>
+        <span
+          className="t-title"
+          style={task.completed ? { textDecoration: "line-through", color: "var(--ink-500)" } : undefined}
+        >
+          {task.title}
+        </span>
+        {dueText && (
+          <span
+            className="task-due"
+            style={{
+              fontSize: 10, padding: "1px 6px", borderRadius: 4,
+              background: dueText.overdue ? "#FFE5DA" : "var(--ink-50)",
+              color: dueText.overdue ? "var(--salmon-700)" : "var(--ink-500)",
+              fontWeight: dueText.overdue ? 600 : 400,
+              flexShrink: 0,
+            }}
+          >
+            {dueText.text}
+          </span>
+        )}
+      </div>
+      {task.notes && (
+        <div
+          className="t-meta"
+          style={{ marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
+        >
+          {task.notes}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TaskDetail({
+  task,
+  account,
+  onToggle,
+  onDelete,
+}: {
+  task: Task;
+  account: MailAccount | null;
+  onToggle: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <>
+      <div className="mid-head">
+        <div className="title">
+          {task.completed
+            ? <span style={{ textDecoration: "line-through", color: "var(--ink-500)" }}>{task.title}</span>
+            : task.title}
+        </div>
+        <button className="btn-ghost" onClick={onToggle}>
+          {task.completed ? "↺ 标记未完成" : "✓ 标记完成"}
+        </button>
+        <button className="btn-ghost" onClick={onDelete} style={{ color: "#B7493D" }}>🗑 删除</button>
+      </div>
+      <div style={{ flex: 1, overflowY: "auto" }}>
+        {task.dueMs && (
+          <div className="three-info-row">
+            <span className="k">截止：</span>
+            <span>{new Date(task.dueMs).toLocaleDateString("zh-CN")}</span>
+          </div>
+        )}
+        {account && (
+          <div className="three-info-row">
+            <span className="k">账号：</span>
+            <span>{account.email} ({account.provider})</span>
+          </div>
+        )}
+        <div className="three-info-row">
+          <span className="k">来源：</span>
+          <span>
+            {task.sourceKind === "briefing" ? "✦ AI 建议"
+             : task.sourceKind === "manual" ? "手动新建"
+             : "云端同步"}
+          </span>
+        </div>
+        {task.notes && (
+          <div style={{ padding: "12px 18px" }}>
+            <div className="three-section-label" style={{ padding: 0, marginBottom: 4 }}>备注</div>
+            <div style={{ fontSize: 13, color: "var(--ink-700)", whiteSpace: "pre-wrap" }}>
+              {task.notes}
+            </div>
+          </div>
+        )}
+        <div className="three-info-row">
+          <span className="k">创建：</span>
+          <span>{new Date(task.createdAt).toLocaleString("zh-CN")}</span>
+        </div>
+        {task.completed && task.completedAtMs && (
+          <div className="three-info-row">
+            <span className="k">完成于：</span>
+            <span>{new Date(task.completedAtMs).toLocaleString("zh-CN")}</span>
+          </div>
+        )}
+      </div>
+    </>
   );
 }
 
