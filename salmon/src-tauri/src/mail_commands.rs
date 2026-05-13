@@ -521,15 +521,27 @@ pub fn delete_mail_account(
     state: State<'_, AppState>,
     account_id: String,
 ) -> Result<(), String> {
-    let db = state.db.lock();
-    db.conn()
-        .execute(
-            "DELETE FROM mail_accounts WHERE id = ?",
-            rusqlite::params![account_id],
+    let mut db = state.db.lock();
+    let tx = db.conn_mut().transaction().map_err(map_err)?;
+    tx.execute(
+        "DELETE FROM mail_attachments
+         WHERE message_id IN (SELECT id FROM mail_messages WHERE account_id = ?)",
+        rusqlite::params![&account_id],
+    )
+    .map_err(map_err)?;
+    for table in ["mail_drafts", "calendar_events", "contacts", "tasks", "mail_messages"] {
+        tx.execute(
+            &format!("DELETE FROM {} WHERE account_id = ?", table),
+            rusqlite::params![&account_id],
         )
         .map_err(map_err)?;
-    // Cascade clears mail_messages / attachments / drafts via FK
-    // ON DELETE CASCADE declared in the schema.
+    }
+    tx.execute(
+        "DELETE FROM mail_accounts WHERE id = ?",
+        rusqlite::params![&account_id],
+    )
+    .map_err(map_err)?;
+    tx.commit().map_err(map_err)?;
     Ok(())
 }
 

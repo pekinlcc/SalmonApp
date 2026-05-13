@@ -22,6 +22,7 @@ impl Db {
 
     pub fn open(path: &Path) -> Result<Self> {
         let conn = Connection::open(path)?;
+        conn.pragma_update(None, "foreign_keys", "ON")?;
         conn.execute_batch(
             r#"
             CREATE TABLE IF NOT EXISTS topics (
