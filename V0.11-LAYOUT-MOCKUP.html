@@ -1,0 +1,913 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>SalmonApp v0.11 · A / B / D 三方案完整对比</title>
+<style>
+  :root {
+    --salmon: #E8A082;
+    --salmon-50: #FFF6F1;
+    --salmon-100: #FFE5D8;
+    --salmon-300: #F5C3AA;
+    --salmon-500: #E8A082;
+    --salmon-600: #C97759;
+    --salmon-700: #B7493D;
+    --bg: #FAFAF9;
+    --panel: #FFFFFF;
+    --side: #F5F2EE;
+    --ink-50: #F0EEE9;
+    --ink-100: #E5E7EB;
+    --ink-300: #C8C2B7;
+    --ink-500: #6B7280;
+    --ink-700: #4A5057;
+    --ink-900: #1B1F23;
+    --radius: 10px;
+    --radius-sm: 6px;
+    --shadow: 0 1px 2px rgba(0,0,0,0.04);
+    --mono: ui-monospace, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC",
+                 "Microsoft YaHei", "Segoe UI", sans-serif;
+    margin: 0; padding: 28px 16px 80px;
+    background: #ECECEC;
+    color: var(--ink-900);
+    line-height: 1.55;
+  }
+  .wrap { max-width: 1280px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  h1 .spark { color: var(--salmon); }
+  .lede { color: var(--ink-500); font-size: 13.5px; margin: 0 0 22px; }
+  .lede em { color: var(--salmon-700); font-style: normal; font-weight: 600; }
+
+  .section-head {
+    margin: 36px 0 8px;
+    padding: 12px 16px;
+    background: linear-gradient(90deg, var(--salmon-50), #FFFBF0);
+    border: 1px solid var(--salmon-100);
+    border-left: 4px solid var(--salmon-700);
+    border-radius: 8px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .section-head .tag {
+    background: var(--salmon-700); color: white;
+    padding: 4px 12px; border-radius: 999px;
+    font-size: 13px; font-weight: 600;
+  }
+  .section-head .name { font-size: 16px; font-weight: 600; }
+  .section-head .desc { color: var(--ink-700); font-size: 12.5px; margin-left: auto; }
+  h3.view-label {
+    font-size: 13px; color: var(--ink-500);
+    margin: 18px 0 6px;
+    font-weight: 600;
+  }
+
+  /* ========= App window frame ========= */
+  .frame {
+    background: var(--panel);
+    border: 1px solid #D0D0D0;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 6px 22px rgba(0,0,0,0.08);
+    margin: 6px 0 14px;
+  }
+  .titlebar {
+    background: #E8E8E8;
+    padding: 5px 12px;
+    display: flex; gap: 8px; font-size: 11px; color: #666;
+  }
+  .traffic { display: flex; gap: 5px; }
+  .traffic span { width: 11px; height: 11px; border-radius: 50%; }
+  .traffic .r { background: #FF5F57; }
+  .traffic .y { background: #FFBD2E; }
+  .traffic .g { background: #28C840; }
+  .titlebar .tcenter { margin: 0 auto; font-weight: 500; }
+  .app-body {
+    display: flex;
+    height: 560px;
+    background: var(--bg);
+  }
+
+  /* ========= RAIL A · Ghost 药丸 ========= */
+  .rail-a {
+    width: 56px;
+    background: var(--side);
+    border-right: 1px solid var(--ink-100);
+    padding: 8px 6px;
+    display: flex; flex-direction: column;
+    gap: 2px; flex-shrink: 0;
+  }
+  .rail-a .item {
+    width: 44px; height: 44px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 19px; color: var(--ink-700);
+    cursor: pointer; position: relative;
+  }
+  .rail-a .item:hover { background: rgba(232,160,130,0.12); }
+  .rail-a .item.active {
+    background: var(--salmon-100);
+    color: var(--salmon-700);
+  }
+  .rail-a .item.active::before {
+    content: ""; position: absolute; left: -7px; top: 10px; bottom: 10px;
+    width: 3px; background: var(--salmon-700); border-radius: 0 2px 2px 0;
+  }
+  .rail-a .badge {
+    position: absolute; top: 3px; right: 3px;
+    background: var(--salmon-700); color: white;
+    font-size: 9px; line-height: 1.2; padding: 1px 5px;
+    border-radius: 999px; min-width: 16px; text-align: center;
+  }
+  .rail-a .spacer { flex: 1; }
+
+  /* ========= RAIL B · 暖暗色 ========= */
+  .rail-b {
+    width: 56px;
+    background: #2A2522;
+    padding: 10px 6px;
+    display: flex; flex-direction: column;
+    gap: 2px; flex-shrink: 0;
+  }
+  .rail-b .item {
+    width: 44px; height: 44px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 19px;
+    color: #BFB6AC;
+    cursor: pointer; position: relative;
+    filter: saturate(0.4) brightness(1.1);
+  }
+  .rail-b .item:hover {
+    background: #3A3330;
+    filter: saturate(1) brightness(1.15);
+  }
+  .rail-b .item.active {
+    background: #3A3330;
+    filter: saturate(1) brightness(1.2);
+  }
+  .rail-b .item.active::before {
+    content: ""; position: absolute; left: -7px; top: 10px; bottom: 10px;
+    width: 3px; background: var(--salmon-500); border-radius: 0 2px 2px 0;
+  }
+  .rail-b .badge {
+    position: absolute; top: 3px; right: 3px;
+    background: var(--salmon-500); color: #1B1F23;
+    font-size: 9px; line-height: 1.2; padding: 1px 5px;
+    border-radius: 999px; min-width: 16px; text-align: center;
+    filter: none;
+  }
+  .rail-b .spacer { flex: 1; }
+
+  /* ========= RAIL D · 图标 + 文字 ========= */
+  .rail-d {
+    width: 72px;
+    background: var(--side);
+    border-right: 1px solid var(--ink-100);
+    padding: 10px 4px;
+    display: flex; flex-direction: column;
+    gap: 1px; flex-shrink: 0;
+  }
+  .rail-d .item {
+    padding: 7px 4px 6px;
+    border-radius: var(--radius-sm);
+    display: flex; flex-direction: column;
+    align-items: center; gap: 3px;
+    cursor: pointer; position: relative;
+  }
+  .rail-d .item .icon { font-size: 18px; color: var(--ink-700); }
+  .rail-d .item .label { font-size: 10.5px; color: var(--ink-500); font-weight: 500; }
+  .rail-d .item:hover { background: rgba(232,160,130,0.08); }
+  .rail-d .item.active { background: var(--salmon-100); }
+  .rail-d .item.active .icon { color: var(--salmon-700); }
+  .rail-d .item.active .label { color: var(--salmon-700); font-weight: 600; }
+  .rail-d .badge {
+    position: absolute; top: 4px; right: 8px;
+    background: var(--salmon-700); color: white;
+    font-size: 9px; line-height: 1.2; padding: 1px 5px;
+    border-radius: 999px;
+  }
+  .rail-d .spacer { flex: 1; }
+
+  /* ========= LIST pane ========= */
+  .list {
+    width: 320px;
+    background: var(--side);
+    border-right: 1px solid var(--ink-100);
+    display: flex; flex-direction: column;
+    flex-shrink: 0;
+  }
+  .list-head {
+    padding: 14px 14px 6px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .list-head .logo {
+    background: linear-gradient(135deg, var(--salmon-500), var(--salmon-700));
+    width: 22px; height: 22px; border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    color: white; font-size: 13px; font-weight: 700;
+  }
+  .list-head .name { font-weight: 600; font-size: 14px; }
+  .list-head .ver { color: var(--ink-500); font-size: 11px; margin-left: auto; }
+  .search {
+    margin: 0 12px 8px;
+    display: flex; align-items: center; gap: 6px;
+    background: var(--panel);
+    border: 1px solid var(--ink-100);
+    border-radius: var(--radius-sm);
+    padding: 5px 8px;
+  }
+  .search input {
+    border: 0; outline: 0; font-size: 12.5px; flex: 1;
+    background: transparent; font-family: inherit;
+  }
+  .new-btn {
+    margin: 0 12px 6px;
+    padding: 8px 10px;
+    border: 1px solid var(--ink-100);
+    background: white;
+    border-radius: var(--radius-sm);
+    font-size: 12.5px; color: var(--ink-700);
+    display: flex; align-items: center; gap: 8px;
+    cursor: pointer;
+  }
+  .new-btn .plus { color: var(--salmon-500); font-weight: 700; }
+  .group-label {
+    font-size: 10.5px; text-transform: uppercase; letter-spacing: .8px;
+    color: var(--ink-500); padding: 10px 16px 4px;
+  }
+  .list-body { flex: 1; overflow-y: auto; padding-bottom: 8px; }
+
+  /* Topic-style row */
+  .topic {
+    margin: 1px 8px;
+    padding: 9px 10px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    display: flex; flex-direction: column; gap: 3px;
+  }
+  .topic:hover { background: rgba(0,0,0,.035); }
+  .topic.active {
+    background: var(--salmon-50);
+    box-shadow: inset 2px 0 0 var(--salmon-500);
+  }
+  .topic.active .t-title { color: var(--salmon-700); font-weight: 600; }
+  .t-row { display: flex; align-items: center; gap: 6px; }
+  .engine-pill {
+    font-size: 9.5px; padding: 1px 5px; border-radius: 3px;
+    font-weight: 600; letter-spacing: .3px; flex-shrink: 0;
+  }
+  .engine-cc { background: #FFE4DA; color: #B7493D; }
+  .engine-cx { background: #E6F0FF; color: #2F5BB7; }
+  .t-title {
+    font-size: 12.8px; color: var(--ink-900); flex: 1;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .t-meta {
+    color: var(--ink-500); font-size: 11px;
+    display: flex; justify-content: space-between;
+  }
+  .t-badge {
+    font-size: 9.5px; padding: 1px 5px; border-radius: 3px;
+    background: var(--salmon-100); color: var(--salmon-700); font-weight: 600;
+  }
+
+  /* Contact row */
+  .contact-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--ink-100);
+    cursor: pointer;
+    background: var(--panel);
+  }
+  .contact-row:hover { background: var(--ink-50); }
+  .contact-row.selected {
+    background: var(--salmon-50);
+    box-shadow: inset 2px 0 0 var(--salmon-500);
+  }
+  .contact-name {
+    font-size: 12.8px; font-weight: 600; color: var(--ink-900);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .contact-meta {
+    font-size: 11.5px; color: var(--ink-700);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .contact-meta-dim { font-size: 10.5px; color: var(--ink-500); margin-top: 2px; }
+  .vip-star { color: #E8A82A; margin-right: 4px; }
+
+  /* Mail item */
+  .mail-item {
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--ink-100);
+    cursor: pointer;
+    background: var(--panel);
+  }
+  .mail-item.selected {
+    background: var(--salmon-50);
+    box-shadow: inset 2px 0 0 var(--salmon-500);
+  }
+  .mi-row { display: flex; align-items: baseline; gap: 8px; }
+  .mi-from { font-weight: 600; color: var(--ink-900); flex: 1;
+             overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+             font-size: 12.5px; }
+  .mi-time { color: var(--ink-500); font-size: 10.5px; flex-shrink: 0; }
+  .mi-subj { color: var(--ink-700); margin-top: 1px;
+             overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+             font-size: 11.5px; }
+
+  /* ========= DETAIL pane ========= */
+  .detail {
+    flex: 1; min-width: 0;
+    background: var(--panel);
+    display: flex; flex-direction: column;
+  }
+  .mid-head {
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--ink-100);
+    display: flex; align-items: center; gap: 10px;
+    background: var(--panel);
+  }
+  .mid-head .title {
+    font-size: 14px; font-weight: 600; flex: 1;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .mid-head .pill {
+    font-size: 10.5px; padding: 2px 7px; border-radius: 4px;
+    background: var(--ink-50); color: var(--ink-700);
+  }
+  .icon-btn {
+    background: transparent; border: 1px solid var(--ink-100);
+    border-radius: var(--radius-sm); padding: 4px 9px;
+    font-size: 11.5px; color: var(--ink-700); cursor: pointer;
+  }
+  .icon-btn:hover { border-color: var(--salmon-300); color: var(--salmon-700); }
+  .icon-btn.primary {
+    background: var(--salmon-700); color: white; border-color: var(--salmon-700);
+  }
+  .icon-btn.danger { color: #B7493D; }
+
+  .detail-body { flex: 1; overflow-y: auto; }
+
+  /* Chat */
+  .chat-scroll { flex: 1; overflow-y: auto; padding: 18px 26px; }
+  .msg { display: flex; gap: 12px; margin-bottom: 18px; }
+  .avatar {
+    width: 28px; height: 28px; border-radius: 7px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 12px; color: white;
+  }
+  .avatar.user { background: #4B5563; }
+  .avatar.ai { background: linear-gradient(135deg, var(--salmon-500), var(--salmon-700)); }
+  .msg-body { flex: 1; min-width: 0; font-size: 13px; line-height: 1.6; }
+  .msg-name { font-weight: 600; font-size: 12.5px; margin-bottom: 4px; }
+  .msg-name .ts { color: var(--ink-500); font-weight: 400; margin-left: 6px; font-size: 11px; }
+  .msg-body p { margin: 0 0 8px; }
+  .msg-body code {
+    font-family: var(--mono); font-size: 11.5px;
+    background: var(--ink-50); border: 1px solid var(--ink-100);
+    padding: 1px 5px; border-radius: 4px;
+  }
+
+  .composer { padding: 10px 14px 12px; border-top: 1px solid var(--ink-100); background: var(--panel); }
+  .composer-box {
+    border: 1px solid var(--ink-100); border-radius: var(--radius);
+    padding: 8px 10px 6px; background: var(--panel);
+    box-shadow: var(--shadow);
+  }
+  .composer-text {
+    width: 100%; border: 0; outline: 0; resize: none;
+    font-family: inherit; font-size: 13px; color: var(--ink-900);
+    background: transparent; min-height: 32px;
+  }
+  .composer-meta {
+    display: flex; align-items: center; gap: 10px;
+    margin-top: 4px; font-size: 11px; color: var(--ink-500);
+  }
+  .composer-send {
+    margin-left: auto;
+    background: var(--salmon-700); color: white;
+    border: 0; border-radius: var(--radius-sm);
+    padding: 4px 14px; font-size: 12.5px; cursor: pointer;
+  }
+
+  /* Brief card */
+  .brief-card {
+    background: var(--panel);
+    border: 1px solid var(--ink-100);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    margin: 10px 18px;
+  }
+  .brief-card.cross {
+    border-left: 3px solid #5AA76C;
+    background: #F4FBF5;
+  }
+  .brief-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+  .brief-prio { display: inline-block; padding: 1px 7px; border-radius: 4px;
+                font-size: 10px; font-weight: 600; }
+  .prio-high { background: var(--salmon-100); color: var(--salmon-700); }
+  .prio-medium { background: #FFF1B8; color: #8A6800; }
+  .brief-meta { font-size: 11.5px; color: var(--ink-500); margin-bottom: 8px; }
+  .brief-why {
+    background: #FFFBF0;
+    border-left: 3px solid #E8A82A;
+    padding: 7px 10px;
+    font-size: 12px; color: var(--ink-700);
+    border-radius: 4px;
+    margin: 8px 0;
+  }
+  .brief-why b { color: #8A6800; }
+  .brief-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+  .brief-btn {
+    padding: 4px 11px; border-radius: var(--radius-sm);
+    font-size: 11.5px; cursor: pointer;
+    background: var(--panel); border: 1px solid var(--ink-100); color: var(--ink-700);
+  }
+  .brief-btn.primary {
+    background: var(--salmon-700); color: white; border-color: var(--salmon-700);
+  }
+  .brief-btn.dismiss { margin-left: auto; font-size: 11px; color: var(--ink-500); }
+
+  .field-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 18px;
+    border-bottom: 1px solid var(--ink-100);
+    font-size: 12.5px;
+  }
+  .field-row .k { width: 70px; color: var(--ink-500); flex-shrink: 0; }
+
+  .qbox {
+    background: linear-gradient(90deg, #FFF6F1, #FFFBF0);
+    border: 1px solid var(--salmon-100);
+    border-radius: 10px;
+    padding: 14px 18px;
+    margin-top: 22px;
+    font-size: 13.5px;
+  }
+  .qbox b { color: var(--salmon-700); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1><span class="spark">✦</span> v0.11 三个完整方案 · A / B / D</h1>
+  <p class="lede">
+    每套都包含 <em>Topic / 首页 / 联系人</em> 三个视图，只有图标栏不一样，其它组件复用 0.10.3。
+    滚到底有最终选择问。
+  </p>
+
+  <!-- ===================== A 方案 ===================== -->
+  <div class="section-head">
+    <span class="tag">方案 A</span>
+    <span class="name">无卡片药丸（VS Code / Notion 风格）</span>
+    <span class="desc">浅米背景 · hover/active 才出圆角药丸 + salmon 左条 · 最干净</span>
+  </div>
+
+  <h3 class="view-label">A · Topic 对话</h3>
+  <div class="frame">
+    <div class="titlebar"><div class="traffic"><span class="r"></span><span class="y"></span><span class="g"></span></div><div class="tcenter">SalmonApp</div></div>
+    <div class="app-body">
+      <div class="rail-a">
+        <div class="item">✦<span class="badge">3</span></div>
+        <div class="item">👥</div>
+        <div class="item">📧<span class="badge">12</span></div>
+        <div class="item">📅</div>
+        <div class="item">📋<span class="badge">5</span></div>
+        <div class="item active">💬</div>
+        <div class="spacer"></div>
+        <div class="item">🔍</div>
+        <div class="item">⚙</div>
+      </div>
+      <div class="list">
+        <div class="list-head"><div class="logo">✦</div><div class="name">SalmonApp</div><div class="ver">v0.11</div></div>
+        <div class="search"><input placeholder="搜 Topic..."/></div>
+        <button class="new-btn"><span class="plus">＋</span> 新建 Topic</button>
+        <div class="group-label">需要看</div>
+        <div class="list-body">
+          <div class="topic active">
+            <div class="t-row"><span class="engine-pill engine-cc">CC</span><span class="t-title">SalmonApp v0.11 重构</span><span class="t-badge">需授权</span></div>
+            <div class="t-meta"><span>~/桌面/Salmon App</span><span>4m</span></div>
+          </div>
+          <div class="group-label">最近</div>
+          <div class="topic">
+            <div class="t-row"><span class="engine-pill engine-cx">CX</span><span class="t-title">API 重构</span></div>
+            <div class="t-meta"><span>~/work/api-server</span><span>3d</span></div>
+          </div>
+          <div class="topic">
+            <div class="t-row"><span class="engine-pill engine-cc">CC</span><span class="t-title">论文综述</span></div>
+            <div class="t-meta"><span>~/Documents/paper</span><span>1w</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="detail">
+        <div class="mid-head">
+          <div class="title">SalmonApp v0.11 重构</div>
+          <span class="pill">~/桌面/Salmon App</span>
+          <button class="icon-btn">🔍</button>
+          <button class="icon-btn">⛌</button>
+        </div>
+        <div class="chat-scroll">
+          <div class="msg"><div class="avatar user">U</div><div class="msg-body"><div class="msg-name">user<span class="ts">09:42</span></div><p>把图标栏改成方案 A 试试，看上去清爽不</p></div></div>
+          <div class="msg"><div class="avatar ai">✦</div><div class="msg-body"><div class="msg-name">claude<span class="ts">09:43</span></div><p>好的，方案 A 是把每个 icon 的白卡边框去掉，只在 hover/active 才有 <code>salmon-100</code> 圆角药丸 + 左侧短条。emoji 直接放浅米色背景，看起来跟 VS Code 侧栏一个感觉。</p></div></div>
+          <div class="msg"><div class="avatar user">U</div><div class="msg-body"><div class="msg-name">user<span class="ts">09:44</span></div><p>开干。</p></div></div>
+        </div>
+        <div class="composer"><div class="composer-box"><textarea class="composer-text" placeholder="发消息给 Claude Code..."></textarea><div class="composer-meta"><span>Mod+Enter 发送</span><button class="composer-send">发送 ↵</button></div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="view-label">A · 首页</h3>
+  <div class="frame">
+    <div class="titlebar"><div class="traffic"><span class="r"></span><span class="y"></span><span class="g"></span></div><div class="tcenter">SalmonApp · 首页</div></div>
+    <div class="app-body">
+      <div class="rail-a">
+        <div class="item active">✦<span class="badge">3</span></div>
+        <div class="item">👥</div><div class="item">📧<span class="badge">12</span></div><div class="item">📅</div><div class="item">📋<span class="badge">5</span></div><div class="item">💬</div>
+        <div class="spacer"></div><div class="item">🔍</div><div class="item">⚙</div>
+      </div>
+      <div class="list">
+        <div class="list-head"><div class="name">今日聚焦</div><div class="ver">5/13</div></div>
+        <button class="new-btn"><span class="plus">↻</span> 刷新</button>
+        <div class="group-label">3 件值得现在看</div>
+        <div class="list-body">
+          <div class="topic active"><div class="t-row"><span class="engine-pill" style="background:#D8F0DD;color:#266B33;">🔗</span><span class="t-title">Alice 追问 OAuth · 关联 Topic</span><span class="t-badge">高</span></div><div class="t-meta"><span>📧+💬 跨域</span><span>17m</span></div></div>
+          <div class="topic"><div class="t-row"><span class="engine-pill" style="background:#E6F0FF;color:#2F5BB7;">📅</span><span class="t-title">产品周会</span><span class="t-badge">28m</span></div><div class="t-meta"><span>Zoom</span><span>14:30</span></div></div>
+          <div class="topic"><div class="t-row"><span class="engine-pill" style="background:var(--salmon-100);color:var(--salmon-700);">📧</span><span class="t-title">Bob — Q3 review 5/30</span></div><div class="t-meta"><span>CEO 抄</span><span>2h</span></div></div>
+        </div>
+      </div>
+      <div class="detail">
+        <div class="mid-head"><div class="title">Alice 追问 OAuth · 关联 Topic</div><button class="icon-btn danger">× 不重要</button></div>
+        <div class="detail-body">
+          <div class="brief-card cross">
+            <div style="font-size:10px;color:#5AA76C;font-weight:600;letter-spacing:.5px;margin-bottom:6px;">📧 + 💬 跨域关联</div>
+            <div class="brief-title">Alice 这两天连问 OAuth 文档，恰好你 v0.11 Topic 也卡在 OAuth 配置</div>
+            <div class="brief-meta"><span class="brief-prio prio-high">高</span> · alice@team.com · VIP · 互动 47 次</div>
+            <div class="brief-why"><b>↗ AI 解释：</b>Alice 邮件标题含 "OAuth 注册"，v0.11 Topic 此刻等你授权 Edit oauth.rs — 同一件事两端。建议先在 Topic 完成改动再回 Alice。</div>
+            <div class="brief-actions">
+              <button class="brief-btn primary">先去 Topic → 再回 Alice → ack ⚙ 3</button>
+              <button class="brief-btn">只回 Alice 稳住</button>
+              <button class="brief-btn dismiss">不重要</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="view-label">A · 联系人</h3>
+  <div class="frame">
+    <div class="titlebar"><div class="traffic"><span class="r"></span><span class="y"></span><span class="g"></span></div><div class="tcenter">SalmonApp · 联系人</div></div>
+    <div class="app-body">
+      <div class="rail-a">
+        <div class="item">✦<span class="badge">3</span></div>
+        <div class="item active">👥</div>
+        <div class="item">📧<span class="badge">12</span></div><div class="item">📅</div><div class="item">📋<span class="badge">5</span></div><div class="item">💬</div>
+        <div class="spacer"></div><div class="item">🔍</div><div class="item">⚙</div>
+      </div>
+      <div class="list" style="background: var(--panel);">
+        <div class="list-head"><div class="name">联系人</div><div class="ver">87</div></div>
+        <div class="search"><input placeholder="搜联系人..."/></div>
+        <div class="list-body">
+          <div class="group-label">★ VIP · 有未处理事项 · 2</div>
+          <div class="contact-row selected">
+            <div style="flex:1;min-width:0;"><div class="contact-name"><span class="vip-star">★</span>Alice Chen</div><div class="contact-meta">alice@team.com · Team Co.</div><div class="contact-meta-dim">互动 47 次 · 17m</div></div>
+            <span class="t-badge">2 brief</span>
+          </div>
+          <div class="contact-row">
+            <div style="flex:1;min-width:0;"><div class="contact-name"><span class="vip-star">★</span>Bob Liu</div><div class="contact-meta">bob@team.com</div><div class="contact-meta-dim">互动 23 次 · 2h</div></div>
+            <span class="t-badge" style="background:#FFF1B8;color:#8A6800;">1 brief</span>
+          </div>
+          <div class="group-label">最近 · 14 天内</div>
+          <div class="contact-row"><div style="flex:1;min-width:0;"><div class="contact-name">Carol Wang</div><div class="contact-meta">carol@school.edu</div><div class="contact-meta-dim">互动 12 次 · 昨</div></div></div>
+          <div class="contact-row"><div style="flex:1;min-width:0;"><div class="contact-name">David Zhao</div><div class="contact-meta">david@partner.com</div><div class="contact-meta-dim">互动 5 次 · 3d</div></div></div>
+          <div class="group-label">静默 · 无事项（折叠 · 78）</div>
+        </div>
+      </div>
+      <div class="detail">
+        <div class="mid-head"><div class="title">★ Alice Chen</div><button class="icon-btn">取消 VIP</button><button class="icon-btn primary">✉ 写邮件</button></div>
+        <div class="detail-body">
+          <div class="field-row"><span class="k">邮箱：</span><span>alice@team.com</span></div>
+          <div class="field-row"><span class="k">组织：</span><span>Team Co.</span></div>
+          <div class="field-row"><span class="k">互动：</span><span>47 次 · 最近 17m</span></div>
+          <div class="group-label">✦ AI 重点事项 · 2</div>
+          <div class="brief-card">
+            <div class="brief-title">追问 OAuth 文档 · 2 次未回</div>
+            <div class="brief-meta"><span class="brief-prio prio-high">高</span> · 17m</div>
+            <div class="brief-actions">
+              <button class="brief-btn primary">起草回信</button>
+              <button class="brief-btn">加日历提醒</button>
+              <button class="brief-btn">已知晓</button>
+            </div>
+          </div>
+          <div class="group-label">📧 最近往来 · 8</div>
+          <div class="mail-item"><div class="mi-row"><span class="mi-from">Alice → 你</span><span class="mi-time">17m</span></div><div class="mi-subj">Re: OAuth 注册步骤</div></div>
+          <div class="mail-item"><div class="mi-row"><span class="mi-from">你 → Alice</span><span class="mi-time">3h</span></div><div class="mi-subj">Re: OAuth 注册步骤</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== B 方案 ===================== -->
+  <div class="section-head">
+    <span class="tag">方案 B</span>
+    <span class="name">暖暗色（Slack / Linear 风格）</span>
+    <span class="desc">深褐色侧栏 #2A2522 · emoji 自动降饱和 · 跟内容区强对比</span>
+  </div>
+
+  <h3 class="view-label">B · Topic 对话</h3>
+  <div class="frame">
+    <div class="titlebar"><div class="traffic"><span class="r"></span><span class="y"></span><span class="g"></span></div><div class="tcenter">SalmonApp</div></div>
+    <div class="app-body">
+      <div class="rail-b">
+        <div class="item">✦<span class="badge">3</span></div>
+        <div class="item">👥</div>
+        <div class="item">📧<span class="badge">12</span></div>
+        <div class="item">📅</div>
+        <div class="item">📋<span class="badge">5</span></div>
+        <div class="item active">💬</div>
+        <div class="spacer"></div>
+        <div class="item">🔍</div>
+        <div class="item">⚙</div>
+      </div>
+      <div class="list">
+        <div class="list-head"><div class="logo">✦</div><div class="name">SalmonApp</div><div class="ver">v0.11</div></div>
+        <div class="search"><input placeholder="搜 Topic..."/></div>
+        <button class="new-btn"><span class="plus">＋</span> 新建 Topic</button>
+        <div class="group-label">需要看</div>
+        <div class="list-body">
+          <div class="topic active"><div class="t-row"><span class="engine-pill engine-cc">CC</span><span class="t-title">SalmonApp v0.11 重构</span><span class="t-badge">需授权</span></div><div class="t-meta"><span>~/桌面/Salmon App</span><span>4m</span></div></div>
+          <div class="group-label">最近</div>
+          <div class="topic"><div class="t-row"><span class="engine-pill engine-cx">CX</span><span class="t-title">API 重构</span></div><div class="t-meta"><span>~/work/api-server</span><span>3d</span></div></div>
+          <div class="topic"><div class="t-row"><span class="engine-pill engine-cc">CC</span><span class="t-title">论文综述</span></div><div class="t-meta"><span>~/Documents/paper</span><span>1w</span></div></div>
+        </div>
+      </div>
+      <div class="detail">
+        <div class="mid-head">
+          <div class="title">SalmonApp v0.11 重构</div>
+          <span class="pill">~/桌面/Salmon App</span>
+          <button class="icon-btn">🔍</button>
+          <button class="icon-btn">⛌</button>
+        </div>
+        <div class="chat-scroll">
+          <div class="msg"><div class="avatar user">U</div><div class="msg-body"><div class="msg-name">user<span class="ts">09:42</span></div><p>试方案 B 暖暗色侧栏。</p></div></div>
+          <div class="msg"><div class="avatar ai">✦</div><div class="msg-body"><div class="msg-name">claude<span class="ts">09:43</span></div><p>B 是把侧栏背景换成深褐 <code>#2A2522</code>，跟内容区视觉强分离。emoji 用 CSS filter 降饱和让深底也协调。active 时图标变正常饱和 + 浅一点的 <code>#3A3330</code> 背景 + salmon 左条。整体偏专业工具感。</p></div></div>
+          <div class="msg"><div class="avatar user">U</div><div class="msg-body"><div class="msg-name">user<span class="ts">09:44</span></div><p>看着 Slack 那种感觉，开干。</p></div></div>
+        </div>
+        <div class="composer"><div class="composer-box"><textarea class="composer-text" placeholder="发消息给 Claude Code..."></textarea><div class="composer-meta"><span>Mod+Enter 发送</span><button class="composer-send">发送 ↵</button></div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="view-label">B · 首页</h3>
+  <div class="frame">
+    <div class="titlebar"><div class="traffic"><span class="r"></span><span class="y"></span><span class="g"></span></div><div class="tcenter">SalmonApp · 首页</div></div>
+    <div class="app-body">
+      <div class="rail-b">
+        <div class="item active">✦<span class="badge">3</span></div>
+        <div class="item">👥</div><div class="item">📧<span class="badge">12</span></div><div class="item">📅</div><div class="item">📋<span class="badge">5</span></div><div class="item">💬</div>
+        <div class="spacer"></div><div class="item">🔍</div><div class="item">⚙</div>
+      </div>
+      <div class="list">
+        <div class="list-head"><div class="name">今日聚焦</div><div class="ver">5/13</div></div>
+        <button class="new-btn"><span class="plus">↻</span> 刷新</button>
+        <div class="group-label">3 件值得现在看</div>
+        <div class="list-body">
+          <div class="topic active"><div class="t-row"><span class="engine-pill" style="background:#D8F0DD;color:#266B33;">🔗</span><span class="t-title">Alice 追问 OAuth · 关联 Topic</span><span class="t-badge">高</span></div><div class="t-meta"><span>📧+💬 跨域</span><span>17m</span></div></div>
+          <div class="topic"><div class="t-row"><span class="engine-pill" style="background:#E6F0FF;color:#2F5BB7;">📅</span><span class="t-title">产品周会</span><span class="t-badge">28m</span></div><div class="t-meta"><span>Zoom</span><span>14:30</span></div></div>
+          <div class="topic"><div class="t-row"><span class="engine-pill" style="background:var(--salmon-100);color:var(--salmon-700);">📧</span><span class="t-title">Bob — Q3 review 5/30</span></div><div class="t-meta"><span>CEO 抄</span><span>2h</span></div></div>
+        </div>
+      </div>
+      <div class="detail">
+        <div class="mid-head"><div class="title">Alice 追问 OAuth · 关联 Topic</div><button class="icon-btn danger">× 不重要</button></div>
+        <div class="detail-body">
+          <div class="brief-card cross">
+            <div style="font-size:10px;color:#5AA76C;font-weight:600;letter-spacing:.5px;margin-bottom:6px;">📧 + 💬 跨域关联</div>
+            <div class="brief-title">Alice 这两天连问 OAuth 文档，恰好你 v0.11 Topic 也卡在 OAuth 配置</div>
+            <div class="brief-meta"><span class="brief-prio prio-high">高</span> · alice@team.com · VIP · 互动 47 次</div>
+            <div class="brief-why"><b>↗ AI 解释：</b>Alice 邮件标题含 "OAuth 注册"，v0.11 Topic 此刻等你授权 Edit oauth.rs。建议先在 Topic 完成改动再回 Alice。</div>
+            <div class="brief-actions">
+              <button class="brief-btn primary">先去 Topic → 再回 Alice → ack ⚙ 3</button>
+              <button class="brief-btn">只回 Alice 稳住</button>
+              <button class="brief-btn dismiss">不重要</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="view-label">B · 联系人</h3>
+  <div class="frame">
+    <div class="titlebar"><div class="traffic"><span class="r"></span><span class="y"></span><span class="g"></span></div><div class="tcenter">SalmonApp · 联系人</div></div>
+    <div class="app-body">
+      <div class="rail-b">
+        <div class="item">✦<span class="badge">3</span></div>
+        <div class="item active">👥</div>
+        <div class="item">📧<span class="badge">12</span></div><div class="item">📅</div><div class="item">📋<span class="badge">5</span></div><div class="item">💬</div>
+        <div class="spacer"></div><div class="item">🔍</div><div class="item">⚙</div>
+      </div>
+      <div class="list" style="background: var(--panel);">
+        <div class="list-head"><div class="name">联系人</div><div class="ver">87</div></div>
+        <div class="search"><input placeholder="搜联系人..."/></div>
+        <div class="list-body">
+          <div class="group-label">★ VIP · 有未处理事项 · 2</div>
+          <div class="contact-row selected">
+            <div style="flex:1;min-width:0;"><div class="contact-name"><span class="vip-star">★</span>Alice Chen</div><div class="contact-meta">alice@team.com · Team Co.</div><div class="contact-meta-dim">互动 47 次 · 17m</div></div>
+            <span class="t-badge">2 brief</span>
+          </div>
+          <div class="contact-row">
+            <div style="flex:1;min-width:0;"><div class="contact-name"><span class="vip-star">★</span>Bob Liu</div><div class="contact-meta">bob@team.com</div><div class="contact-meta-dim">互动 23 次 · 2h</div></div>
+            <span class="t-badge" style="background:#FFF1B8;color:#8A6800;">1 brief</span>
+          </div>
+          <div class="group-label">最近 · 14 天内</div>
+          <div class="contact-row"><div style="flex:1;min-width:0;"><div class="contact-name">Carol Wang</div><div class="contact-meta">carol@school.edu</div><div class="contact-meta-dim">互动 12 次 · 昨</div></div></div>
+          <div class="contact-row"><div style="flex:1;min-width:0;"><div class="contact-name">David Zhao</div><div class="contact-meta">david@partner.com</div><div class="contact-meta-dim">互动 5 次 · 3d</div></div></div>
+          <div class="group-label">静默 · 无事项（折叠 · 78）</div>
+        </div>
+      </div>
+      <div class="detail">
+        <div class="mid-head"><div class="title">★ Alice Chen</div><button class="icon-btn">取消 VIP</button><button class="icon-btn primary">✉ 写邮件</button></div>
+        <div class="detail-body">
+          <div class="field-row"><span class="k">邮箱：</span><span>alice@team.com</span></div>
+          <div class="field-row"><span class="k">组织：</span><span>Team Co.</span></div>
+          <div class="field-row"><span class="k">互动：</span><span>47 次 · 最近 17m</span></div>
+          <div class="group-label">✦ AI 重点事项 · 2</div>
+          <div class="brief-card">
+            <div class="brief-title">追问 OAuth 文档 · 2 次未回</div>
+            <div class="brief-meta"><span class="brief-prio prio-high">高</span> · 17m</div>
+            <div class="brief-actions">
+              <button class="brief-btn primary">起草回信</button>
+              <button class="brief-btn">加日历提醒</button>
+              <button class="brief-btn">已知晓</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== D 方案 ===================== -->
+  <div class="section-head">
+    <span class="tag">方案 D</span>
+    <span class="name">图标 + 文字标签（macOS Finder 风格）</span>
+    <span class="desc">每图标下面带 10.5px 中文标签 · 学习成本最低 · 多占 16px (72px)</span>
+  </div>
+
+  <h3 class="view-label">D · Topic 对话</h3>
+  <div class="frame">
+    <div class="titlebar"><div class="traffic"><span class="r"></span><span class="y"></span><span class="g"></span></div><div class="tcenter">SalmonApp</div></div>
+    <div class="app-body">
+      <div class="rail-d">
+        <div class="item"><span class="icon">✦</span><span class="label">首页</span><span class="badge">3</span></div>
+        <div class="item"><span class="icon">👥</span><span class="label">联系人</span></div>
+        <div class="item"><span class="icon">📧</span><span class="label">邮件</span><span class="badge">12</span></div>
+        <div class="item"><span class="icon">📅</span><span class="label">日历</span></div>
+        <div class="item"><span class="icon">📋</span><span class="label">待办</span><span class="badge">5</span></div>
+        <div class="item active"><span class="icon">💬</span><span class="label">Topic</span></div>
+        <div class="spacer"></div>
+        <div class="item"><span class="icon">🔍</span><span class="label">搜索</span></div>
+        <div class="item"><span class="icon">⚙</span><span class="label">设置</span></div>
+      </div>
+      <div class="list">
+        <div class="list-head"><div class="logo">✦</div><div class="name">SalmonApp</div><div class="ver">v0.11</div></div>
+        <div class="search"><input placeholder="搜 Topic..."/></div>
+        <button class="new-btn"><span class="plus">＋</span> 新建 Topic</button>
+        <div class="group-label">需要看</div>
+        <div class="list-body">
+          <div class="topic active"><div class="t-row"><span class="engine-pill engine-cc">CC</span><span class="t-title">SalmonApp v0.11 重构</span><span class="t-badge">需授权</span></div><div class="t-meta"><span>~/桌面/Salmon App</span><span>4m</span></div></div>
+          <div class="group-label">最近</div>
+          <div class="topic"><div class="t-row"><span class="engine-pill engine-cx">CX</span><span class="t-title">API 重构</span></div><div class="t-meta"><span>~/work/api-server</span><span>3d</span></div></div>
+          <div class="topic"><div class="t-row"><span class="engine-pill engine-cc">CC</span><span class="t-title">论文综述</span></div><div class="t-meta"><span>~/Documents/paper</span><span>1w</span></div></div>
+        </div>
+      </div>
+      <div class="detail">
+        <div class="mid-head">
+          <div class="title">SalmonApp v0.11 重构</div>
+          <span class="pill">~/桌面/Salmon App</span>
+          <button class="icon-btn">🔍</button>
+          <button class="icon-btn">⛌</button>
+        </div>
+        <div class="chat-scroll">
+          <div class="msg"><div class="avatar user">U</div><div class="msg-body"><div class="msg-name">user<span class="ts">09:42</span></div><p>试方案 D 图标 + 文字</p></div></div>
+          <div class="msg"><div class="avatar ai">✦</div><div class="msg-body"><div class="msg-name">claude<span class="ts">09:43</span></div><p>D 是最友好的方案 — emoji 下面带中文标签，新用户一看就懂。代价是宽度 72px（多 16px）。每个 item 高 50px 左右，6 个一级 + 2 个底部按钮，整体密度更大。但每个图标自带说明，再也不会问"那个 📋 是啥"。</p></div></div>
+          <div class="msg"><div class="avatar user">U</div><div class="msg-body"><div class="msg-name">user<span class="ts">09:44</span></div><p>开干。</p></div></div>
+        </div>
+        <div class="composer"><div class="composer-box"><textarea class="composer-text" placeholder="发消息给 Claude Code..."></textarea><div class="composer-meta"><span>Mod+Enter 发送</span><button class="composer-send">发送 ↵</button></div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="view-label">D · 首页</h3>
+  <div class="frame">
+    <div class="titlebar"><div class="traffic"><span class="r"></span><span class="y"></span><span class="g"></span></div><div class="tcenter">SalmonApp · 首页</div></div>
+    <div class="app-body">
+      <div class="rail-d">
+        <div class="item active"><span class="icon">✦</span><span class="label">首页</span><span class="badge">3</span></div>
+        <div class="item"><span class="icon">👥</span><span class="label">联系人</span></div>
+        <div class="item"><span class="icon">📧</span><span class="label">邮件</span><span class="badge">12</span></div>
+        <div class="item"><span class="icon">📅</span><span class="label">日历</span></div>
+        <div class="item"><span class="icon">📋</span><span class="label">待办</span><span class="badge">5</span></div>
+        <div class="item"><span class="icon">💬</span><span class="label">Topic</span></div>
+        <div class="spacer"></div>
+        <div class="item"><span class="icon">🔍</span><span class="label">搜索</span></div>
+        <div class="item"><span class="icon">⚙</span><span class="label">设置</span></div>
+      </div>
+      <div class="list">
+        <div class="list-head"><div class="name">今日聚焦</div><div class="ver">5/13</div></div>
+        <button class="new-btn"><span class="plus">↻</span> 刷新</button>
+        <div class="group-label">3 件值得现在看</div>
+        <div class="list-body">
+          <div class="topic active"><div class="t-row"><span class="engine-pill" style="background:#D8F0DD;color:#266B33;">🔗</span><span class="t-title">Alice 追问 OAuth · 关联 Topic</span><span class="t-badge">高</span></div><div class="t-meta"><span>📧+💬 跨域</span><span>17m</span></div></div>
+          <div class="topic"><div class="t-row"><span class="engine-pill" style="background:#E6F0FF;color:#2F5BB7;">📅</span><span class="t-title">产品周会</span><span class="t-badge">28m</span></div><div class="t-meta"><span>Zoom</span><span>14:30</span></div></div>
+          <div class="topic"><div class="t-row"><span class="engine-pill" style="background:var(--salmon-100);color:var(--salmon-700);">📧</span><span class="t-title">Bob — Q3 review 5/30</span></div><div class="t-meta"><span>CEO 抄</span><span>2h</span></div></div>
+        </div>
+      </div>
+      <div class="detail">
+        <div class="mid-head"><div class="title">Alice 追问 OAuth · 关联 Topic</div><button class="icon-btn danger">× 不重要</button></div>
+        <div class="detail-body">
+          <div class="brief-card cross">
+            <div style="font-size:10px;color:#5AA76C;font-weight:600;letter-spacing:.5px;margin-bottom:6px;">📧 + 💬 跨域关联</div>
+            <div class="brief-title">Alice 这两天连问 OAuth 文档，恰好你 v0.11 Topic 也卡在 OAuth 配置</div>
+            <div class="brief-meta"><span class="brief-prio prio-high">高</span> · alice@team.com · VIP · 互动 47 次</div>
+            <div class="brief-why"><b>↗ AI 解释：</b>Alice 邮件标题含 "OAuth 注册"，v0.11 Topic 此刻等你授权 Edit oauth.rs。建议先在 Topic 完成改动再回 Alice。</div>
+            <div class="brief-actions">
+              <button class="brief-btn primary">先去 Topic → 再回 Alice → ack ⚙ 3</button>
+              <button class="brief-btn">只回 Alice 稳住</button>
+              <button class="brief-btn dismiss">不重要</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="view-label">D · 联系人</h3>
+  <div class="frame">
+    <div class="titlebar"><div class="traffic"><span class="r"></span><span class="y"></span><span class="g"></span></div><div class="tcenter">SalmonApp · 联系人</div></div>
+    <div class="app-body">
+      <div class="rail-d">
+        <div class="item"><span class="icon">✦</span><span class="label">首页</span><span class="badge">3</span></div>
+        <div class="item active"><span class="icon">👥</span><span class="label">联系人</span></div>
+        <div class="item"><span class="icon">📧</span><span class="label">邮件</span><span class="badge">12</span></div>
+        <div class="item"><span class="icon">📅</span><span class="label">日历</span></div>
+        <div class="item"><span class="icon">📋</span><span class="label">待办</span><span class="badge">5</span></div>
+        <div class="item"><span class="icon">💬</span><span class="label">Topic</span></div>
+        <div class="spacer"></div>
+        <div class="item"><span class="icon">🔍</span><span class="label">搜索</span></div>
+        <div class="item"><span class="icon">⚙</span><span class="label">设置</span></div>
+      </div>
+      <div class="list" style="background: var(--panel);">
+        <div class="list-head"><div class="name">联系人</div><div class="ver">87</div></div>
+        <div class="search"><input placeholder="搜联系人..."/></div>
+        <div class="list-body">
+          <div class="group-label">★ VIP · 有未处理事项 · 2</div>
+          <div class="contact-row selected">
+            <div style="flex:1;min-width:0;"><div class="contact-name"><span class="vip-star">★</span>Alice Chen</div><div class="contact-meta">alice@team.com · Team Co.</div><div class="contact-meta-dim">互动 47 次 · 17m</div></div>
+            <span class="t-badge">2 brief</span>
+          </div>
+          <div class="contact-row">
+            <div style="flex:1;min-width:0;"><div class="contact-name"><span class="vip-star">★</span>Bob Liu</div><div class="contact-meta">bob@team.com</div><div class="contact-meta-dim">互动 23 次 · 2h</div></div>
+            <span class="t-badge" style="background:#FFF1B8;color:#8A6800;">1 brief</span>
+          </div>
+          <div class="group-label">最近 · 14 天内</div>
+          <div class="contact-row"><div style="flex:1;min-width:0;"><div class="contact-name">Carol Wang</div><div class="contact-meta">carol@school.edu</div><div class="contact-meta-dim">互动 12 次 · 昨</div></div></div>
+          <div class="contact-row"><div style="flex:1;min-width:0;"><div class="contact-name">David Zhao</div><div class="contact-meta">david@partner.com</div><div class="contact-meta-dim">互动 5 次 · 3d</div></div></div>
+          <div class="group-label">静默 · 无事项（折叠 · 78）</div>
+        </div>
+      </div>
+      <div class="detail">
+        <div class="mid-head"><div class="title">★ Alice Chen</div><button class="icon-btn">取消 VIP</button><button class="icon-btn primary">✉ 写邮件</button></div>
+        <div class="detail-body">
+          <div class="field-row"><span class="k">邮箱：</span><span>alice@team.com</span></div>
+          <div class="field-row"><span class="k">组织：</span><span>Team Co.</span></div>
+          <div class="field-row"><span class="k">互动：</span><span>47 次 · 最近 17m</span></div>
+          <div class="group-label">✦ AI 重点事项 · 2</div>
+          <div class="brief-card">
+            <div class="brief-title">追问 OAuth 文档 · 2 次未回</div>
+            <div class="brief-meta"><span class="brief-prio prio-high">高</span> · 17m</div>
+            <div class="brief-actions">
+              <button class="brief-btn primary">起草回信</button>
+              <button class="brief-btn">加日历提醒</button>
+              <button class="brief-btn">已知晓</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="qbox">
+    <b>三套放一起对比看：</b>
+    <ul style="margin:8px 0 0;padding-left:20px;">
+      <li><b>A</b> · 最克制最现代，VS Code 程序员都熟，emoji 在浅米色上显得干净</li>
+      <li><b>B</b> · 强对比，工具感重，Slack 用户秒上手；deep mode 党友好</li>
+      <li><b>D</b> · 最友好，新用户零学习成本；代价是占用 72px 加上每图标 4 行内容密度高一点</li>
+    </ul>
+    <p style="margin-top:10px;">你选哪个？或者两个混合（比如"A 但加文字标签"也行 — 就是只在 hover 时露出文字）。选完我开始动 App.tsx。</p>
+  </div>
+
+</div>
+</body>
+</html>

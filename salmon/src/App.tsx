@@ -5,6 +5,8 @@ import type { Block, BriefingProgress, ChatLayout, CliInfo, ComposerSendMode, Me
 import { api } from "./lib/api";
 import { notify, setNotifySoundEnabled, type NotifyOpts, type ToastEvent } from "./lib/notify";
 import { LeftSidebar } from "./components/LeftSidebar";
+import { IconRail } from "./components/IconRail";
+import { ContactsView } from "./components/ContactsView";
 import { ChatStream } from "./components/ChatStream";
 import { Composer } from "./components/Composer";
 import { RightPane } from "./components/RightPane";
@@ -324,7 +326,10 @@ export default function App() {
   // behaviour). 'mail' / 'calendar' show empty-state placeholders until
   // OAuth + sync land in alpha.2+. 'topic' means a CLI topic is open via
   // selectedId. Setting selectedId implicitly switches to 'topic'.
-  type TopView = "home" | "mail" | "calendar" | "tasks";
+  // v0.11: top-level views now driven by IconRail. "topic" view shows
+  // the Topic list pane + chat; opening a chat from any other view jumps
+  // to this view via onSelect → setTopView("topic") + setSelectedId.
+  type TopView = "home" | "contacts" | "mail" | "calendar" | "tasks" | "topic";
   const [topView, setTopView] = useState<TopView>("home");
 
   const [messagesByTopic, setMessagesByTopic] = useState<Record<string, UiMessage[]>>({});
@@ -1100,27 +1105,51 @@ export default function App() {
     );
   }
 
+  // v0.11: compute badge counts for IconRail
+  const briefBadgeCount = recommendations.filter((r) => r.status === "pending").length;
+  const pendingTasksBadge = 0; // could query api.listTasks but kept 0 for v0.11 to avoid extra fetch on every render
+  const unreadMailBadge = 0; // similar; populated later if/when we maintain a counter
+
   return (
-    <div className={`app ${!selectedTopic ? "no-right" : rightCollapsed ? "right-collapsed" : ""}`}>
-      <LeftSidebar
-        topics={topics}
-        selectedId={selectedId}
-        runningIds={runningIds}
-        spawningId={spawningId}
+    <div className={`app v11 ${!selectedTopic ? "no-right" : rightCollapsed ? "right-collapsed" : ""}`}>
+      <IconRail
+        view={(selectedTopic ? "topic" : topView) as any}
+        unreadMail={unreadMailBadge}
+        pendingTasks={pendingTasksBadge}
+        briefCount={briefBadgeCount}
         cliStatus={cliStatus}
-        topView={topView}
-        onSelect={(id) => { setTopView("home"); onSelect(id); }}
-        onHome={() => { setSelectedId(null); setSelectedTool(null); setTopView("home"); refreshUsageSummary(); }}
-        onOpenMail={() => { setSelectedId(null); setSelectedTool(null); setTopView("mail"); }}
-        onOpenCalendar={() => { setSelectedId(null); setSelectedTool(null); setTopView("calendar"); }}
-        onOpenTasks={() => { setSelectedId(null); setSelectedTool(null); setTopView("tasks"); }}
-        onNewTopic={() => setShowNew(true)}
-        onOpenSearch={openSearch}
+        onView={(v) => {
+          if (v === "topic") {
+            // Stay on whatever topic is currently selected; if none, switch
+            // to topic view shell — user picks from the topic list pane.
+            setTopView("topic");
+            return;
+          }
+          setSelectedId(null);
+          setSelectedTool(null);
+          setTopView(v);
+          if (v === "home") refreshUsageSummary();
+        }}
+        onOpenSearch={() => openSearch()}
         onOpenSettings={() => { setShowSettings(true); refreshUsageSummary(); }}
-        onDeleteTopic={onDelete}
-        onRequestRenameTopic={(id) => setRenamingTopicId(id)}
-        onArchiveTopic={onArchive}
       />
+
+      {/* Topic view: show LeftSidebar (topic list) + chat + RightPane. */}
+      {topView === "topic" || selectedTopic ? (
+        <LeftSidebar
+          topics={topics}
+          selectedId={selectedId}
+          runningIds={runningIds}
+          spawningId={spawningId}
+          cliStatus={cliStatus}
+          onSelect={(id) => { setTopView("topic"); onSelect(id); }}
+          onNewTopic={() => setShowNew(true)}
+          onOpenSearch={openSearch}
+          onDeleteTopic={onDelete}
+          onRequestRenameTopic={(id) => setRenamingTopicId(id)}
+          onArchiveTopic={onArchive}
+        />
+      ) : null}
 
       {!selectedTopic ? (
         <>
@@ -1130,10 +1159,18 @@ export default function App() {
                 pendingComposeReply={pendingComposeReply}
                 onConsumeComposeReply={() => setPendingComposeReply(null)}
               />
+            ) : topView === "contacts" ? (
+              <ContactsView />
             ) : topView === "calendar" ? (
               <CalendarView />
             ) : topView === "tasks" ? (
               <TasksView />
+            ) : topView === "topic" ? (
+              <div className="empty-feature">
+                <div className="empty-icon">💬</div>
+                <div className="empty-title">选一个 Topic 或新建一个</div>
+                <div className="empty-sub">左侧列表里的 Topic 点开即可进入对话。</div>
+              </div>
             ) : (
               <WelcomeBack
                 topics={topics}

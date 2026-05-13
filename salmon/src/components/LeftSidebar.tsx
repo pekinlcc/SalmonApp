@@ -10,24 +10,20 @@ interface Props {
   runningIds: Set<string>;
   spawningId: string | null;
   cliStatus: CliInfo[];
-  /** v0.9.0-alpha.1: top-level view. 'home' is Welcome Back; 'mail' / 'calendar'
-   *  are stub pages until the OAuth flow + sync land. */
-  topView: "home" | "mail" | "calendar" | "tasks";
+  /** v0.11: LeftSidebar is now ONLY the Topic list (no more home/mail
+   *  buttons up top — those live in IconRail). Rendered as the "list
+   *  pane" of the 3-column shell when the Topic view is active. */
   onSelect: (id: string) => void;
-  onHome: () => void;
-  onOpenMail: () => void;
-  onOpenCalendar: () => void;
-  onOpenTasks: () => void;
   onNewTopic: () => void;
   onOpenSearch: (query?: string) => void;
-  onOpenSettings: () => void;
   onDeleteTopic: (id: string) => void;
   onRequestRenameTopic: (id: string) => void;
   onArchiveTopic: (id: string, archived: boolean) => void;
 }
 
 export function LeftSidebar(props: Props) {
-  const { topics, selectedId, runningIds, spawningId, cliStatus } = props;
+  const { topics, selectedId, runningIds, spawningId } = props;
+  void props.cliStatus; // CLI status moved to IconRail bottom dots
   const [query, setQuery] = useState("");
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -68,46 +64,10 @@ export function LeftSidebar(props: Props) {
   return (
     <aside className="left">
       <div className="left-head">
-        <div className="logo" onClick={props.onHome} title="返回首页" style={{ cursor: "pointer" }}>S</div>
-        <div className="name" onClick={props.onHome} style={{ cursor: "pointer" }}>SalmonApp</div>
+        <div className="logo">S</div>
+        <div className="name">Topic</div>
         <div className="ver">v{pkg.version}</div>
       </div>
-
-      <button
-        className={`home-btn ${selectedId === null && props.topView === "home" ? "active" : ""}`}
-        onClick={props.onHome}
-      >
-        <span className="home-icon">✦</span>
-        <span>首页</span>
-        <span className="home-sub">总览 / 未读</span>
-      </button>
-
-      <button
-        className={`home-btn ${selectedId === null && props.topView === "mail" ? "active" : ""}`}
-        onClick={props.onOpenMail}
-        title="邮件"
-      >
-        <span className="home-icon">📧</span>
-        <span>邮件</span>
-      </button>
-
-      <button
-        className={`home-btn ${selectedId === null && props.topView === "calendar" ? "active" : ""}`}
-        onClick={props.onOpenCalendar}
-        title="日历"
-      >
-        <span className="home-icon">📅</span>
-        <span>日历</span>
-      </button>
-
-      <button
-        className={`home-btn ${selectedId === null && props.topView === "tasks" ? "active" : ""}`}
-        onClick={props.onOpenTasks}
-        title="待办 (Google Tasks / Microsoft Todo)"
-      >
-        <span className="home-icon">📋</span>
-        <span>待办</span>
-      </button>
 
       <button className="new-btn" onClick={props.onNewTopic}>
         <span className="plus">＋</span> 新建 Topic
@@ -289,34 +249,7 @@ export function LeftSidebar(props: Props) {
         )}
       </div>
 
-      <div className="left-foot">
-        {cliStatus.map((c) => {
-          const cls = !c.installed ? "miss" : c.loggedIn ? "" : "warn";
-          const state = !c.installed ? "未安装" : c.loggedIn ? "已登录" : "未登录";
-          // Compact label so the gear stays on the same row even on the
-          // 260px sidebar. Full state is in the tooltip — dot colour
-          // already encodes ok / warn / miss at a glance.
-          const short = c.binary === "claude" ? "Claude" : "Codex";
-          return (
-            <div
-              key={c.binary}
-              className={`health ${cls}`}
-              title={`${c.name}: ${state}${c.path ? ` · ${c.path}` : ""}`}
-            >
-              <span className="dot" />
-              {short}
-            </div>
-          );
-        })}
-        <button
-          className="foot-gear"
-          title="设置 / 用量"
-          onClick={props.onOpenSettings}
-          aria-label="设置"
-        >
-          ⚙
-        </button>
-      </div>
+      {/* v0.11: CLI status + settings moved to IconRail bottom. */}
     </aside>
   );
 }

@@ -1,0 +1,413 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>SalmonApp v0.11 · 图标栏 5 个备选方案</title>
+<style>
+  :root {
+    --salmon: #E8A082;
+    --salmon-50: #FFF6F1;
+    --salmon-100: #FFE5D8;
+    --salmon-300: #F5C3AA;
+    --salmon-500: #E8A082;
+    --salmon-700: #B7493D;
+    --bg: #FAFAF9;
+    --panel: #FFFFFF;
+    --side: #F5F2EE;
+    --ink-50: #F0EEE9;
+    --ink-100: #E5E7EB;
+    --ink-300: #C8C2B7;
+    --ink-500: #6B7280;
+    --ink-700: #4A5057;
+    --ink-900: #1B1F23;
+    --radius-sm: 6px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC",
+                 "Microsoft YaHei", sans-serif;
+    margin: 0; padding: 32px 16px 80px;
+    background: #ECECEC;
+    color: var(--ink-900);
+    line-height: 1.55;
+  }
+  .wrap { max-width: 1200px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .spark { color: var(--salmon); }
+  .lede { color: var(--ink-500); font-size: 13.5px; margin: 0 0 22px; }
+
+  .options {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 14px;
+  }
+  .opt {
+    background: var(--panel);
+    border: 1px solid #D5D5D5;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+  }
+  .opt-head {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--ink-100);
+    background: var(--panel);
+  }
+  .opt-title { font-size: 13px; font-weight: 600; }
+  .opt-desc { font-size: 11px; color: var(--ink-500); margin-top: 2px; line-height: 1.5; }
+  .opt-preview {
+    display: flex;
+    background: var(--bg);
+    height: 420px;
+  }
+  .opt-preview .body-stub {
+    flex: 1;
+    background: linear-gradient(180deg, transparent 0%, transparent 100%);
+  }
+
+  /* ===== A. Ghost · 圆角药丸（无卡片，VS Code 风格） ===== */
+  .rail-a {
+    width: 56px;
+    background: var(--side);
+    border-right: 1px solid var(--ink-100);
+    padding: 8px 6px;
+    display: flex; flex-direction: column;
+    gap: 2px;
+  }
+  .rail-a .item {
+    width: 44px; height: 44px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 19px;
+    color: var(--ink-700);
+    cursor: pointer;
+    position: relative;
+  }
+  .rail-a .item:hover { background: rgba(232,160,130,0.12); }
+  .rail-a .item.active {
+    background: var(--salmon-100);
+    color: var(--salmon-700);
+  }
+  .rail-a .item.active::before {
+    content: ""; position: absolute; left: -7px; top: 10px; bottom: 10px;
+    width: 3px; background: var(--salmon-700); border-radius: 0 2px 2px 0;
+  }
+  .rail-a .badge {
+    position: absolute; top: 3px; right: 3px;
+    background: var(--salmon-700); color: white;
+    font-size: 9px; line-height: 1.2; padding: 1px 5px;
+    border-radius: 999px; min-width: 16px; text-align: center;
+  }
+  .rail-a .spacer { flex: 1; }
+
+  /* ===== B. 暗色侧栏（Notion / Slack 风格） ===== */
+  .rail-b {
+    width: 56px;
+    background: #2A2522;
+    padding: 10px 6px;
+    display: flex; flex-direction: column;
+    gap: 2px;
+  }
+  .rail-b .item {
+    width: 44px; height: 44px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 19px;
+    color: #BFB6AC;
+    cursor: pointer;
+    position: relative;
+    /* Make emoji desaturate for cohesion */
+    filter: saturate(0.4) brightness(1.1);
+  }
+  .rail-b .item:hover { background: #3A3330; filter: saturate(1) brightness(1.15); }
+  .rail-b .item.active {
+    background: #3A3330;
+    filter: saturate(1) brightness(1.2);
+  }
+  .rail-b .item.active::before {
+    content: ""; position: absolute; left: -7px; top: 10px; bottom: 10px;
+    width: 3px; background: var(--salmon-500); border-radius: 0 2px 2px 0;
+  }
+  .rail-b .badge {
+    position: absolute; top: 3px; right: 3px;
+    background: var(--salmon-500); color: #1B1F23;
+    font-size: 9px; line-height: 1.2; padding: 1px 5px;
+    border-radius: 999px; min-width: 16px; text-align: center;
+    filter: none;
+  }
+  .rail-b .spacer { flex: 1; }
+
+  /* ===== C. 圆形头像（柔和友好） ===== */
+  .rail-c {
+    width: 60px;
+    background: var(--side);
+    border-right: 1px solid var(--ink-100);
+    padding: 10px 8px;
+    display: flex; flex-direction: column;
+    gap: 6px;
+    align-items: center;
+  }
+  .rail-c .item {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    background: var(--panel);
+    border: 1px solid var(--ink-100);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    cursor: pointer;
+    position: relative;
+    color: var(--ink-700);
+  }
+  .rail-c .item:hover { border-color: var(--salmon-300); }
+  .rail-c .item.active {
+    background: var(--salmon-700);
+    border-color: var(--salmon-700);
+    color: white;
+    /* Emoji 在深色背景上不好看；让它高亮 */
+  }
+  .rail-c .badge {
+    position: absolute; top: -2px; right: -2px;
+    background: var(--salmon-700); color: white;
+    font-size: 9px; line-height: 1.2; padding: 1px 5px;
+    border-radius: 999px; min-width: 16px; text-align: center;
+    border: 1.5px solid var(--side);
+  }
+  .rail-c .spacer { flex: 1; }
+
+  /* ===== D. 极简文字 + emoji 横排（macOS Finder 风格） ===== */
+  .rail-d {
+    width: 72px;
+    background: var(--side);
+    border-right: 1px solid var(--ink-100);
+    padding: 10px 4px;
+    display: flex; flex-direction: column;
+    gap: 1px;
+  }
+  .rail-d .item {
+    padding: 7px 4px 6px;
+    border-radius: var(--radius-sm);
+    display: flex; flex-direction: column;
+    align-items: center; gap: 3px;
+    cursor: pointer; position: relative;
+  }
+  .rail-d .icon {
+    font-size: 18px;
+    color: var(--ink-700);
+  }
+  .rail-d .label {
+    font-size: 10.5px; color: var(--ink-500); font-weight: 500;
+  }
+  .rail-d .item:hover { background: rgba(232,160,130,0.08); }
+  .rail-d .item.active { background: var(--salmon-100); }
+  .rail-d .item.active .icon { color: var(--salmon-700); }
+  .rail-d .item.active .label { color: var(--salmon-700); font-weight: 600; }
+  .rail-d .badge {
+    position: absolute; top: 4px; right: 8px;
+    background: var(--salmon-700); color: white;
+    font-size: 9px; line-height: 1.2; padding: 1px 5px;
+    border-radius: 999px;
+  }
+  .rail-d .spacer { flex: 1; }
+
+  /* ===== E. 当前版本（白卡片）作对比 ===== */
+  .rail-e {
+    width: 64px;
+    background: var(--side);
+    border-right: 1px solid var(--ink-100);
+    padding: 10px 6px;
+    display: flex; flex-direction: column;
+    gap: 4px;
+  }
+  .rail-e .item {
+    width: 52px; height: 44px;
+    border: 1px solid var(--ink-100);
+    background: var(--panel);
+    border-radius: var(--radius-sm);
+    color: var(--ink-700);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 19px;
+    cursor: pointer;
+    position: relative;
+  }
+  .rail-e .item:hover { border-color: var(--salmon-300); }
+  .rail-e .item.active {
+    background: var(--salmon-50);
+    border-color: var(--salmon-300);
+    color: var(--salmon-700);
+  }
+  .rail-e .badge {
+    position: absolute; top: 2px; right: 2px;
+    background: var(--salmon-500); color: white;
+    font-size: 9px; line-height: 1.2; padding: 1px 5px;
+    border-radius: 999px; min-width: 16px; text-align: center;
+  }
+  .rail-e .spacer { flex: 1; }
+
+  /* Indicator dots in body-stub to show context */
+  .body-hint {
+    font-size: 10.5px; color: var(--ink-300);
+    padding: 10px 12px; text-align: left;
+  }
+
+  .why-section {
+    background: var(--panel); border: 1px solid var(--ink-100);
+    border-radius: 10px; padding: 16px 20px;
+    margin: 22px 0;
+    font-size: 13px;
+  }
+  .why-section h3 { margin: 0 0 8px; font-size: 14px; }
+  .why-section ul { margin: 0; padding-left: 20px; }
+  .why-section li { margin: 4px 0; }
+  .why-section li b { color: var(--salmon-700); }
+
+  .qbox {
+    background: linear-gradient(90deg, #FFF6F1, #FFFBF0);
+    border: 1px solid var(--salmon-100);
+    border-radius: 10px;
+    padding: 14px 18px;
+    margin-top: 18px;
+    font-size: 13.5px;
+  }
+  .qbox b { color: var(--salmon-700); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1><span class="spark">✦</span> 图标栏 5 个备选方案对比</h1>
+  <p class="lede">
+    白卡片 + 浅米背景太散，给你试 4 种新风格 + 当前版本一起看。每个方案演示同样 5 个图标（含 active + 数字 badge）。
+  </p>
+
+  <div class="options">
+
+    <!-- ===== A. Ghost 药丸 ===== -->
+    <div class="opt">
+      <div class="opt-head">
+        <div class="opt-title">A · 无卡片药丸 <span style="color:var(--salmon-700);font-size:11px;">推荐 ⭐</span></div>
+        <div class="opt-desc">VS Code / Notion 风格。emoji 直接在浅米背景上，hover/active 才出圆角药丸 + salmon 左条。视觉最干净。</div>
+      </div>
+      <div class="opt-preview">
+        <div class="rail-a">
+          <div class="item">✦<span class="badge">3</span></div>
+          <div class="item">👥</div>
+          <div class="item">📧<span class="badge">12</span></div>
+          <div class="item">📅</div>
+          <div class="item">📋<span class="badge">5</span></div>
+          <div class="item active">💬</div>
+          <div class="spacer"></div>
+          <div class="item">🔍</div>
+          <div class="item">⚙</div>
+        </div>
+        <div class="body-stub"><div class="body-hint">详情区...</div></div>
+      </div>
+    </div>
+
+    <!-- ===== B. 暗色 ===== -->
+    <div class="opt">
+      <div class="opt-head">
+        <div class="opt-title">B · 暖暗色</div>
+        <div class="opt-desc">Slack / Linear 风格。深褐 #2A2522 背景把图标栏跟内容区视觉分开。emoji 自动降饱和让深底也好看。强对比。</div>
+      </div>
+      <div class="opt-preview">
+        <div class="rail-b">
+          <div class="item">✦<span class="badge">3</span></div>
+          <div class="item">👥</div>
+          <div class="item">📧<span class="badge">12</span></div>
+          <div class="item">📅</div>
+          <div class="item">📋<span class="badge">5</span></div>
+          <div class="item active">💬</div>
+          <div class="spacer"></div>
+          <div class="item">🔍</div>
+          <div class="item">⚙</div>
+        </div>
+        <div class="body-stub"><div class="body-hint">详情区...</div></div>
+      </div>
+    </div>
+
+    <!-- ===== C. 圆形头像 ===== -->
+    <div class="opt">
+      <div class="opt-head">
+        <div class="opt-title">C · 圆形小头像</div>
+        <div class="opt-desc">每个图标 40px 圆形白底，active 实心 salmon。比白卡更柔和但仍有卡片感。</div>
+      </div>
+      <div class="opt-preview">
+        <div class="rail-c">
+          <div class="item">✦<span class="badge">3</span></div>
+          <div class="item">👥</div>
+          <div class="item">📧<span class="badge">12</span></div>
+          <div class="item">📅</div>
+          <div class="item">📋<span class="badge">5</span></div>
+          <div class="item active">💬</div>
+          <div class="spacer"></div>
+          <div class="item">🔍</div>
+          <div class="item">⚙</div>
+        </div>
+        <div class="body-stub"><div class="body-hint">详情区...</div></div>
+      </div>
+    </div>
+
+    <!-- ===== D. 文字+emoji ===== -->
+    <div class="opt">
+      <div class="opt-head">
+        <div class="opt-title">D · 图标+文字标签</div>
+        <div class="opt-desc">macOS Finder / iOS 风格。每图标下方加 10.5px 文字，无卡片。可学性最好，宽度多占 8px (72px)。</div>
+      </div>
+      <div class="opt-preview">
+        <div class="rail-d">
+          <div class="item"><span class="icon">✦</span><span class="label">首页</span><span class="badge">3</span></div>
+          <div class="item"><span class="icon">👥</span><span class="label">联系人</span></div>
+          <div class="item"><span class="icon">📧</span><span class="label">邮件</span><span class="badge">12</span></div>
+          <div class="item"><span class="icon">📅</span><span class="label">日历</span></div>
+          <div class="item"><span class="icon">📋</span><span class="label">待办</span><span class="badge">5</span></div>
+          <div class="item active"><span class="icon">💬</span><span class="label">Topic</span></div>
+          <div class="spacer"></div>
+          <div class="item"><span class="icon">🔍</span><span class="label">搜索</span></div>
+          <div class="item"><span class="icon">⚙</span><span class="label">设置</span></div>
+        </div>
+        <div class="body-stub"><div class="body-hint">详情区...</div></div>
+      </div>
+    </div>
+
+    <!-- ===== E. 当前版本（白卡）对比 ===== -->
+    <div class="opt" style="opacity: 0.7;">
+      <div class="opt-head">
+        <div class="opt-title">E · 当前白卡（用作对比）</div>
+        <div class="opt-desc">你截图里的版本。每图标自己一个白卡 + ink-100 边，叠在浅米色上视觉很碎。</div>
+      </div>
+      <div class="opt-preview">
+        <div class="rail-e">
+          <div class="item">✦<span class="badge">3</span></div>
+          <div class="item">👥</div>
+          <div class="item">📧<span class="badge">12</span></div>
+          <div class="item">📅</div>
+          <div class="item">📋<span class="badge">5</span></div>
+          <div class="item active">💬</div>
+          <div class="spacer"></div>
+          <div class="item">🔍</div>
+          <div class="item">⚙</div>
+        </div>
+        <div class="body-stub"><div class="body-hint">详情区...</div></div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="why-section">
+    <h3>设计取舍</h3>
+    <ul>
+      <li><b>A · 无卡片药丸</b> — 最干净、跟其余 SalmonApp 暖白调一致、没有边框噪点。能看到 active 状态（药丸 + 左条 + salmon 字色）+ badge。<b>我个人首选这个。</b></li>
+      <li><b>B · 暖暗色</b> — 跟内容区色差大，存在感强，永远不会问"图标栏在哪"。代价：深底跟 emoji 不太"友"，需要 desaturate。如果你想要更"专业工具"感选这个。</li>
+      <li><b>C · 圆形小头像</b> — 介于 A 和当前白卡之间。比 A 多点装饰感，比当前白卡少点边框噪点。</li>
+      <li><b>D · 图标+文字</b> — 学习成本最低，新用户看一眼就懂。代价：宽度多占 8px，6 个图标 + 2 个底部 = 8 行文字，密度增加。</li>
+    </ul>
+  </div>
+
+  <div class="qbox">
+    <b>你选哪个？</b> A / B / C / D，或者直接说"再改一下 X" 我继续微调。<br>
+    选 A 也欢迎说"再去掉 active 的左条 / 把 badge 改小"等具体调整。
+  </div>
+
+</div>
+</body>
+</html>
