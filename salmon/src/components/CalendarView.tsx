@@ -264,22 +264,36 @@ function WeekGrid({
                     title={`新建事件 ${String(h).padStart(2, "0")}:00`}
                   />
                 ))}
-                {evs.map((ev) => {
+                {assignLanes(evs).map((p) => {
+                  const ev = p.ev;
                   const start = new Date(ev.startMs);
                   const top = (start.getHours() * 60 + start.getMinutes()) / 60 * HOUR_PX;
                   const durMin = Math.max(20, (ev.endMs - ev.startMs) / 60_000);
                   const height = (durMin / 60) * HOUR_PX;
+                  // Lane-based horizontal split: when N events overlap in
+                  // time, the day column is split into N parallel lanes
+                  // so each event gets its own slice instead of being
+                  // hidden under the topmost one. (User reported "5/14
+                  // has 2 events at 3am in Gmail but only 1 in SalmonApp"
+                  // — that's the overlap blind spot this fixes.)
+                  const widthPct = 100 / p.totalLanes;
+                  const leftPct = p.laneIdx * widthPct;
                   return (
                     <div
                       key={ev.id}
                       className="cal-event-block"
-                      style={{ top, height }}
+                      style={{
+                        top,
+                        height,
+                        left: `calc(${leftPct}% + 2px)`,
+                        width: `calc(${widthPct}% - 4px)`,
+                      }}
                       title={`${ev.title || "(无)"} ${fmtTime(ev.startMs)}–${fmtTime(ev.endMs)}${ev.location ? " @ " + ev.location : ""}`}
                       onClick={(e) => { e.stopPropagation(); onEventClick(ev); }}
                     >
                       <div className="cal-event-time">{fmtTime(ev.startMs)}</div>
                       <div className="cal-event-title">{ev.title || "(无标题)"}</div>
-                      {ev.location && <div className="cal-event-loc">📍 {ev.location}</div>}
+                      {ev.location && p.totalLanes <= 2 && <div className="cal-event-loc">📍 {ev.location}</div>}
                     </div>
                   );
                 })}
@@ -598,4 +612,61 @@ function toDateInput(d: Date): string {
 }
 function toTimeInput(d: Date): string {
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
+/**
+ * Assign each event in a single day to a horizontal lane so overlapping
+ * events appear side-by-side instead of on top of each other. Returns
+ * each event annotated with its laneIdx + totalLanes for the cluster of
+ * mutually-overlapping events it belongs to.
+ *
+ * Algorithm: sort by start; greedily place each event in the first lane
+ * whose previous event has already ended; if no such lane, open a new
+ * one. Events that don't overlap with anyone get totalLanes=1.
+ *
+ * Cluster boundaries: a "cluster" is a maximal run of events where each
+ * touches at least one other (transitive). totalLanes is per-cluster so
+ * one busy hour doesn't shrink the rest of the day's events.
+ */
+function assignLanes(events: CalEvent[]): { ev: CalEvent; laneIdx: number; totalLanes: number }[] {
+  if (events.length === 0) return [];
+  const sorted = [...events].sort((a, b) => a.startMs - b.startMs || a.endMs - b.endMs);
+  const result: { ev: CalEvent; laneIdx: number; totalLanes: number }[] = [];
+  // Group into clusters of transitively-overlapping events.
+  let cluster: CalEvent[] = [];
+  let clusterMaxEnd = -Infinity;
+  const flushCluster = () => {
+    if (cluster.length === 0) return;
+    // Greedy lane assignment within the cluster.
+    const laneEnds: number[] = [];
+    const laneOf: number[] = [];
+    for (const ev of cluster) {
+      let lane = laneEnds.findIndex((end) => end <= ev.startMs);
+      if (lane === -1) {
+        lane = laneEnds.length;
+        laneEnds.push(ev.endMs);
+      } else {
+        laneEnds[lane] = ev.endMs;
+      }
+      laneOf.push(lane);
+    }
+    const total = laneEnds.length;
+    for (let i = 0; i < cluster.length; i++) {
+      result.push({ ev: cluster[i], laneIdx: laneOf[i], totalLanes: total });
+    }
+    cluster = [];
+    clusterMaxEnd = -Infinity;
+  };
+  for (const ev of sorted) {
+    if (cluster.length === 0 || ev.startMs < clusterMaxEnd) {
+      cluster.push(ev);
+      if (ev.endMs > clusterMaxEnd) clusterMaxEnd = ev.endMs;
+    } else {
+      flushCluster();
+      cluster.push(ev);
+      clusterMaxEnd = ev.endMs;
+    }
+  }
+  flushCluster();
+  return result;
 }
