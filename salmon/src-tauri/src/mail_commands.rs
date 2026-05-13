@@ -355,12 +355,32 @@ pub fn list_contact_mail(
 /// v0.10.3: return pending Pulse brief_items where this contact is the
 /// counter-party. The Pulse pipeline already analyses by contact; this
 /// just surfaces those rows on the contact-detail panel.
+///
+/// v1.1.4: now ALSO scopes to the current briefing run (matches what
+/// `list_brief_items` has always done). Without this scope, pending
+/// items from previous Briefing runs that didn't get superseded (e.g.
+/// installs that pre-date v1.1.3's supersede-after-write fix, or runs
+/// from before v1.1.1 added the per-contact item cap) all surfaced on
+/// the contact detail panel — surfacing as "this contact has 12 cards
+/// for 2 emails" while the Home view (which already filtered correctly)
+/// showed sane counts for the same data.
 #[tauri::command]
 pub fn list_contact_brief_items(
     state: State<'_, AppState>,
     email: String,
 ) -> Result<Vec<crate::briefing_commands::BriefItem>, String> {
     let db = state.db.lock();
+    let current_bid: String = db
+        .conn()
+        .query_row(
+            "SELECT briefing_id FROM briefing_state WHERE key='current'",
+            [],
+            |r| r.get::<_, String>(0),
+        )
+        .unwrap_or_default();
+    if current_bid.is_empty() {
+        return Ok(Vec::new());
+    }
     let email_lc = email.to_lowercase();
     let mut stmt = db
         .conn()
@@ -372,12 +392,13 @@ pub fn list_contact_brief_items(
              FROM brief_items
              WHERE lower(COALESCE(contact_email, '')) = ?
                AND status = 'pending'
+               AND briefing_id = ?
              ORDER BY score DESC, created_at DESC
              LIMIT 30",
         )
         .map_err(map_err)?;
     let rows = stmt
-        .query_map(rusqlite::params![email_lc], |r| {
+        .query_map(rusqlite::params![email_lc, current_bid], |r| {
             let rmids: String = r.get::<_, Option<String>>(9)?.unwrap_or_else(|| "[]".into());
             let rtids: String = r.get::<_, Option<String>>(10)?.unwrap_or_else(|| "[]".into());
             let reids: String = r.get::<_, Option<String>>(11)?.unwrap_or_else(|| "[]".into());

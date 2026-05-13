@@ -78,6 +78,29 @@ pub fn run() {
             let db_path = data_dir.join("salmon.db");
             let db = db::Db::open(&db_path).expect("open salmon.db");
 
+            // v1.1.4: one-time cleanup. Pre-v1.1.3 builds could leave pending
+            // brief_items from prior Briefing runs lingering forever — the
+            // supersede sweep either didn't exist, ran in the wrong order, or
+            // was skipped on a failed run. Any user upgrading from those
+            // builds is staring at stacked-up cards on the Contacts view (the
+            // Home view's `list_brief_items` already filters by current
+            // briefing_id so it was unaffected). Sweep them once on launch:
+            // anything pending that isn't part of the current briefing run
+            // gets marked `superseded`. Safe to re-run on every launch — it's
+            // idempotent and only touches stragglers.
+            {
+                let now_ms = chrono::Utc::now().timestamp_millis();
+                let _ = db.conn().execute(
+                    "UPDATE brief_items SET status='superseded', decided_at=?
+                     WHERE status='pending'
+                       AND briefing_id != COALESCE(
+                           (SELECT briefing_id FROM briefing_state WHERE key='current'),
+                           ''
+                       )",
+                    rusqlite::params![now_ms],
+                );
+            }
+
             // Bring up the permission bridge BEFORE the engine — the engine
             // hands its inline-settings JSON to every Claude spawn, so it
             // needs the bound port to exist.
