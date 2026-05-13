@@ -101,8 +101,24 @@ export function CalendarView() {
           <span className="cal-range">{fmtMD(weekStart)} – {fmtMD(addDays(weekEnd, -1))}</span>
         </div>
         <div className="cal-actions">
-          <button className={`btn-ghost ${view === "week" ? "active" : ""}`} onClick={() => setView("week")}>周视图</button>
-          <button className={`btn-ghost ${view === "agenda" ? "active" : ""}`} onClick={() => setView("agenda")}>列表</button>
+          <div className="cal-view-switch" role="tablist" aria-label="日历视图">
+            <button
+              className={view === "week" ? "active" : ""}
+              role="tab"
+              aria-selected={view === "week"}
+              onClick={() => setView("week")}
+            >
+              周
+            </button>
+            <button
+              className={view === "agenda" ? "active" : ""}
+              role="tab"
+              aria-selected={view === "agenda"}
+              onClick={() => setView("agenda")}
+            >
+              列表
+            </button>
+          </div>
           <button className="btn primary" onClick={onNewClick}>＋ 新建</button>
           <button className="btn-ghost" onClick={onSyncAll} disabled={syncing}>
             {syncing ? "同步中…" : "↻ 同步"}
