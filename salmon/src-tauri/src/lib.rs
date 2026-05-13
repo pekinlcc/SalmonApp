@@ -165,6 +165,8 @@ pub fn run() {
             mail_commands::delete_task,
             mail_commands::sync_contacts,
             mail_commands::list_contacts,
+            mail_commands::list_unified_contacts,
+            mail_commands::get_contact_roost_bundle,
             mail_commands::set_contact_vip,
             mail_commands::build_home_feed,
             briefing_commands::get_briefing_status,

@@ -234,6 +234,63 @@ export interface ContactRow {
   interactionCount: number;
 }
 
+// v1.1: union of saved contacts + email-derived "stranger" contacts.
+// Strangers are people we've exchanged mail with in the last 30 days
+// but haven't synced from Google / Outlook. `isSaved=false` for them;
+// their `id` looks like `stranger:<lowercased_email>`. brief* counts
+// come from pending brief_items (Pulse output) grouped by priority —
+// the frontend sorts the list by
+// score = briefHigh*100 + briefMedium*10 + briefLow*1.
+export interface UnifiedContact {
+  id: string;
+  email: string;
+  name?: string | null;
+  organization?: string | null;
+  isVip: boolean;
+  isSaved: boolean;
+  lastSeenMs?: number | null;
+  interactionCount: number;
+  accountId?: string | null;
+  briefHigh: number;
+  briefMedium: number;
+  briefLow: number;
+}
+
+// v1.1: Roost output (per-contact 30-day local aggregation). Same shape
+// the LLM is fed by Pulse, surfaced read-only in the Contacts detail
+// panel so users can see exactly what Pulse "knew" about a contact.
+export interface BundleMessage {
+  id: string;
+  accountId: string;
+  threadId?: string | null;
+  fromMe: boolean;
+  subject?: string | null;
+  snippet?: string | null;
+  bodyText?: string | null;
+  dateMs: number;
+  unread: boolean;
+}
+
+export interface BundleEvent {
+  id: string;
+  title?: string | null;
+  startMs: number;
+  endMs: number;
+  allDay: boolean;
+  location?: string | null;
+}
+
+export interface ContactBundle {
+  email: string;
+  displayName?: string | null;
+  isVip: boolean;
+  interactionCount: number;
+  lastSeenMs: number;
+  messages: BundleMessage[];
+  events: BundleEvent[];
+  omittedMessageCount: number;
+}
+
 // v0.9.0-alpha.6: home-feed briefing.
 export type FeedItem =
   | {

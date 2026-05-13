@@ -65,7 +65,7 @@ pub async fn run_briefing(
     emit(&app, "roost", 0, 0, None);
     let bundles = {
         let guard = db.lock();
-        roost::build_bundles(&guard).context("roost")?
+        roost::build_bundles(&guard, roost::LOOKBACK_DAYS_BRIEFING, None).context("roost")?
     };
     emit(&app, "roost", bundles.len(), bundles.len(), Some(format!("{} contact(s)", bundles.len())));
 

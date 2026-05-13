@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { BriefingFeed, BriefingRunResult, BriefingStatus, BriefItem, CalEvent, CliInfo, ComposeInput, ComposerSendMode, ContactRow, CreateTaskInput, ExecuteStepInput, FileEntry, MailAccount, MailListItem, MailMessageFull, Message, OauthStatus, Recommendation, SearchResult, StepResult, Task, Topic, UpdateTaskInput, UsageSummary, WorkdirCheck } from "./types";
+import type { BriefingFeed, BriefingRunResult, BriefingStatus, BriefItem, CalEvent, CliInfo, ComposeInput, ComposerSendMode, ContactBundle, ContactRow, CreateTaskInput, ExecuteStepInput, FileEntry, MailAccount, MailListItem, MailMessageFull, Message, OauthStatus, Recommendation, SearchResult, StepResult, Task, Topic, UnifiedContact, UpdateTaskInput, UsageSummary, WorkdirCheck } from "./types";
 
 export const api = {
   detectClis: () => invoke<{ clis: CliInfo[] }>("detect_clis"),
@@ -131,6 +131,13 @@ export const api = {
     invoke<number>("sync_contacts", { accountId }),
   listContacts: (accountId?: string | null) =>
     invoke<ContactRow[]>("list_contacts", { accountId: accountId ?? null }),
+  // v1.1: top-level Contacts tab data source. Includes strangers + Pulse
+  // priority counts. See `UnifiedContact` in types.ts.
+  listUnifiedContacts: (accountId?: string | null) =>
+    invoke<UnifiedContact[]>("list_unified_contacts", { accountId: accountId ?? null }),
+  // v1.1: per-contact 30-day Roost bundle (what Pulse was fed).
+  getContactRoostBundle: (email: string) =>
+    invoke<ContactBundle | null>("get_contact_roost_bundle", { email }),
   setContactVip: (contactId: string, vip: boolean) =>
     invoke<void>("set_contact_vip", { contactId, vip }),
   // ── v0.9.0-alpha.6: home feed (heuristic, kept as fallback) ────────

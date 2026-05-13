@@ -869,6 +869,38 @@ pub fn list_contacts(
     crate::contacts::list_contacts(&db, account_id.as_deref()).map_err(map_err)
 }
 
+/// v1.1: union of saved contacts + counterparties seen in the last 30
+/// days. Includes "strangers" (people we've emailed but haven't synced
+/// from Google / Outlook), and carries pending Pulse brief_items counts
+/// so the frontend can sort by ContactPulse priority.
+#[tauri::command]
+pub fn list_unified_contacts(
+    state: State<'_, AppState>,
+    account_id: Option<String>,
+) -> Result<Vec<crate::contacts::UnifiedContact>, String> {
+    let db = state.db.lock();
+    crate::contacts::list_unified_contacts(&db, account_id.as_deref()).map_err(map_err)
+}
+
+/// v1.1: returns the Roost bundle for one contact — exactly what Pulse
+/// gets fed (when it runs). Pure local query, no LLM. Lookback 30 days.
+/// Returns None when there's been no mail traffic with this address in
+/// the window (the Contacts view treats this as "no Roost data").
+#[tauri::command]
+pub fn get_contact_roost_bundle(
+    state: State<'_, AppState>,
+    email: String,
+) -> Result<Option<crate::roost::ContactBundle>, String> {
+    let db = state.db.lock();
+    let bundles = crate::roost::build_bundles(
+        &db,
+        crate::roost::LOOKBACK_DAYS_DETAIL,
+        Some(&email),
+    )
+    .map_err(map_err)?;
+    Ok(bundles.into_iter().next())
+}
+
 #[tauri::command]
 pub fn set_contact_vip(
     state: State<'_, AppState>,

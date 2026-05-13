@@ -1,28 +1,34 @@
 //! Roost — aggregate local mail + calendar by **contact**, producing a
 //! per-contact bundle that Pulse can analyse in one LLM call.
 //!
-//! Mirrors ThunderClaw's Roost stage but reads from SalmonApp's local
-//! tables (mail_messages, calendar_events, contacts) instead of Thunderbird
-//! IMAP. Pure Rust, no LLM call. Fast.
+//! Reads from SalmonApp's local tables (mail_messages, calendar_events,
+//! contacts). Pure Rust, no LLM call. Fast.
 //!
-//! Heuristics:
-//! - Sender email lowercased + domain-only normalized; local-part kept as-is
-//! - Skip messages older than 14 days (matches mail sync window)
+//! Two call sites:
+//! - Daily Briefing pipeline (`briefing_orchestrator`) — lookback 14 days,
+//!   no email filter, truncated to MAX_CONTACTS_PER_RUN for LLM budget.
+//! - Contacts view on-demand (`mail_commands::get_contact_roost_bundle`) —
+//!   lookback 30 days, filtered to one email, no truncation. Surfaces the
+//!   exact same data structure the LLM saw (when run) so users can inspect
+//!   what Pulse "knew" about a contact.
+//!
+//! Heuristics (apply to both call sites):
+//! - Sender email lowercased; local-part kept as-is
 //! - Skip auto-reply / no-reply addresses (regex on local-part)
 //! - Include the user's outgoing mail to the same contact (Sent folder
-//!   provides tone samples for Writer agent later)
+//!   provides tone samples for Writer agent)
 //! - Calendar events: include if the contact is in attendees OR organizer
 //!   AND the event is within ±7d of now
 //! - Bundle size cap: 12 most recent messages per contact (Pulse prompt
-//!   budget). Older messages summarised as "and N earlier from this
-//!   address".
+//!   budget). Older messages summarised as "and N earlier from this address".
 
 use crate::db::Db;
 use anyhow::Result;
 use rusqlite::params;
 use serde::{Deserialize, Serialize};
 
-const LOOKBACK_DAYS: i64 = 14;
+pub const LOOKBACK_DAYS_BRIEFING: i64 = 14;
+pub const LOOKBACK_DAYS_DETAIL: i64 = 30;
 const CAL_WINDOW_DAYS: i64 = 7;
 const MAX_MSGS_PER_CONTACT: usize = 12;
 const MAX_CONTACTS_PER_RUN: usize = 30;
@@ -65,12 +71,24 @@ pub struct BundleEvent {
     pub location: Option<String>,
 }
 
-/// Aggregate. Walks mail_messages once + calendar_events once + contacts
-/// once. Returns one bundle per "interesting contact" we've talked to in
-/// the lookback window.
-pub fn build_bundles(db: &Db) -> Result<Vec<ContactBundle>> {
+/// Aggregate. Walks mail_messages + calendar_events + contacts once each.
+/// Returns one bundle per "interesting contact" we've talked to in the
+/// lookback window.
+///
+/// - `lookback_days`: cutoff for mail. 14 for daily Briefing, 30 for the
+///   Contacts view detail panel.
+/// - `email_filter`: when Some, the result is limited to that email
+///   (case-insensitive) and MAX_CONTACTS_PER_RUN truncation is bypassed.
+///   Used by the on-demand path so the contact is always returned even if
+///   they're far down the talk-frequency ranking.
+pub fn build_bundles(
+    db: &Db,
+    lookback_days: i64,
+    email_filter: Option<&str>,
+) -> Result<Vec<ContactBundle>> {
     let now_ms = chrono::Utc::now().timestamp_millis();
-    let cutoff = now_ms - LOOKBACK_DAYS * 86400_000;
+    let cutoff = now_ms - lookback_days * 86400_000;
+    let filter_lc = email_filter.map(|s| s.to_lowercase());
 
     // 1) Pull all mail in window, indexed by lowercased counterparty email.
     //    "Counterparty" = the not-me address: for inbound it's from_email,
@@ -118,6 +136,9 @@ pub fn build_bundles(db: &Db) -> Result<Vec<ContactBundle>> {
             };
             let Some(addr) = counterparty else { continue };
             if is_noreply(&addr) { continue }
+            if let Some(want) = &filter_lc {
+                if &addr != want { continue }
+            }
             let msg = BundleMessage {
                 id,
                 account_id,
@@ -169,7 +190,11 @@ pub fn build_bundles(db: &Db) -> Result<Vec<ContactBundle>> {
         let b_score = (if b.is_vip { 1 } else { 0 }, b.interaction_count, b.last_seen_ms);
         b_score.cmp(&a_score)
     });
-    bundles.truncate(MAX_CONTACTS_PER_RUN);
+    // Single-contact path returns all matches as-is (typically 0 or 1).
+    // Full-sweep path caps the daily Briefing's LLM cost.
+    if filter_lc.is_none() {
+        bundles.truncate(MAX_CONTACTS_PER_RUN);
+    }
 
     Ok(bundles)
 }

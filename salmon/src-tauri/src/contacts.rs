@@ -351,3 +351,307 @@ pub fn set_vip(db: &Db, contact_id: &str, vip: bool) -> Result<()> {
     )?;
     Ok(())
 }
+
+// ── Unified contacts view (v1.1) ───────────────────────────────────────
+//
+// `list_contacts` (above) returns only rows synced from Google People /
+// Microsoft Graph — anyone who emailed but isn't in the synced address
+// book is invisible. The Contacts tab needs to surface those "strangers"
+// as first-class contacts too, sorted by ContactPulse priority.
+//
+// `list_unified_contacts` does the union: saved contacts ∪ counterparties
+// observed in `mail_messages` within the last 30 days. Each row also
+// carries the pending brief_items count broken down by priority so the
+// frontend can compute a sort score without a second round-trip.
+
+const UNIFIED_LOOKBACK_DAYS: i64 = 30;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UnifiedContact {
+    /// For saved contacts: the `contacts.id` row id. For email-derived
+    /// strangers: `stranger:<lowercased_email>` — stable across calls so
+    /// React list keys stay consistent.
+    pub id: String,
+    pub email: String,
+    pub name: Option<String>,
+    pub organization: Option<String>,
+    pub is_vip: bool,
+    /// True when this email matches a row in the `contacts` table. False
+    /// when reconstructed purely from observed mail traffic.
+    pub is_saved: bool,
+    pub last_seen_ms: Option<i64>,
+    pub interaction_count: i64,
+    /// For saved: the matching contacts.account_id. None for strangers.
+    pub account_id: Option<String>,
+    pub brief_high: i64,
+    pub brief_medium: i64,
+    pub brief_low: i64,
+}
+
+pub fn list_unified_contacts(
+    db: &Db,
+    account_id: Option<&str>,
+) -> Result<Vec<UnifiedContact>> {
+    let now_ms = chrono::Utc::now().timestamp_millis();
+    let cutoff = now_ms - UNIFIED_LOOKBACK_DAYS * 86400_000;
+    let own_addrs = load_own_addresses_local(db)?;
+
+    // 1) Saved contacts → map by lowercased email. Multiple rows can share
+    //    an email (same person in two account address books); collapse to
+    //    one entry per email, preferring VIP/larger-interaction/latest.
+    let mut saved: std::collections::HashMap<String, SavedRow> =
+        std::collections::HashMap::new();
+    let (sql, has_filter) = if account_id.is_some() {
+        (
+            "SELECT id, account_id, lower(email), name, organization, is_vip,
+                    last_seen_ms, interaction_count
+             FROM contacts WHERE account_id = ?",
+            true,
+        )
+    } else {
+        (
+            "SELECT id, account_id, lower(email), name, organization, is_vip,
+                    last_seen_ms, interaction_count
+             FROM contacts",
+            false,
+        )
+    };
+    {
+        let mut stmt = db.conn().prepare(sql)?;
+        let map_row = |r: &rusqlite::Row| -> rusqlite::Result<SavedRow> {
+            Ok(SavedRow {
+                id: r.get(0)?,
+                account_id: r.get(1)?,
+                email_lc: r.get(2)?,
+                name: r.get(3)?,
+                organization: r.get(4)?,
+                is_vip: r.get::<_, i64>(5)? != 0,
+                last_seen_ms: r.get(6)?,
+                interaction_count: r.get(7)?,
+            })
+        };
+        let rows: Vec<SavedRow> = if has_filter {
+            stmt.query_map(params![account_id.unwrap()], map_row)?
+                .collect::<rusqlite::Result<_>>()?
+        } else {
+            stmt.query_map([], map_row)?
+                .collect::<rusqlite::Result<_>>()?
+        };
+        for row in rows {
+            match saved.get_mut(&row.email_lc) {
+                None => {
+                    saved.insert(row.email_lc.clone(), row);
+                }
+                Some(existing) => {
+                    if !existing.is_vip && row.is_vip { existing.is_vip = true; }
+                    if row.interaction_count > existing.interaction_count {
+                        existing.interaction_count = row.interaction_count;
+                    }
+                    if row.last_seen_ms.unwrap_or(0) > existing.last_seen_ms.unwrap_or(0) {
+                        existing.last_seen_ms = row.last_seen_ms;
+                    }
+                    if existing.name.is_none() { existing.name = row.name.clone(); }
+                    if existing.organization.is_none() { existing.organization = row.organization.clone(); }
+                }
+            }
+        }
+    }
+
+    // 2) Walk mail_messages within the 30-day window to enumerate every
+    //    counterparty email — including ones never synced into `contacts`
+    //    (the "stranger" case the user wants surfaced).
+    let mut cps: std::collections::HashMap<String, CounterpartyStat> =
+        std::collections::HashMap::new();
+    {
+        let (mail_sql, has_acct) = if account_id.is_some() {
+            (
+                "SELECT from_email, from_name, to_emails, date_ms
+                 FROM mail_messages
+                 WHERE date_ms >= ? AND account_id = ?",
+                true,
+            )
+        } else {
+            (
+                "SELECT from_email, from_name, to_emails, date_ms
+                 FROM mail_messages
+                 WHERE date_ms >= ?",
+                false,
+            )
+        };
+        let mut stmt = db.conn().prepare(mail_sql)?;
+        let map_row = |r: &rusqlite::Row| {
+            Ok((
+                r.get::<_, Option<String>>(0)?,
+                r.get::<_, Option<String>>(1)?,
+                r.get::<_, Option<String>>(2)?,
+                r.get::<_, i64>(3)?,
+            ))
+        };
+        let rows: Vec<(Option<String>, Option<String>, Option<String>, i64)> = if has_acct {
+            stmt.query_map(params![cutoff, account_id.unwrap()], map_row)?
+                .collect::<rusqlite::Result<_>>()?
+        } else {
+            stmt.query_map(params![cutoff], map_row)?
+                .collect::<rusqlite::Result<_>>()?
+        };
+        for (from_email, from_name, to_json, date_ms) in rows {
+            let from_lc = from_email.as_deref().map(|s| s.to_lowercase());
+            let from_me = from_lc.as_ref().map(|e| own_addrs.contains(e)).unwrap_or(false);
+            if from_me {
+                // Outbound: each external to-recipient is a counterparty.
+                for (email_lc, name) in parse_external_recipients(&to_json, &own_addrs) {
+                    if is_noreply_local(&email_lc) { continue }
+                    bump_counterparty(&mut cps, &email_lc, date_ms, name);
+                }
+            } else if let Some(email_lc) = from_lc {
+                if !is_noreply_local(&email_lc) && !own_addrs.contains(&email_lc) {
+                    bump_counterparty(&mut cps, &email_lc, date_ms, from_name);
+                }
+            }
+        }
+    }
+
+    // 3) Pending brief_items per email per priority.
+    let mut briefs: std::collections::HashMap<String, (i64, i64, i64)> =
+        std::collections::HashMap::new();
+    {
+        let mut stmt = db.conn().prepare(
+            "SELECT lower(COALESCE(contact_email, '')), priority
+             FROM brief_items
+             WHERE status = 'pending' AND contact_email IS NOT NULL",
+        )?;
+        let rows = stmt.query_map([], |r| {
+            Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
+        })?;
+        for row in rows {
+            let (email_lc, prio) = row?;
+            if email_lc.is_empty() { continue }
+            let e = briefs.entry(email_lc).or_insert((0, 0, 0));
+            match prio.as_str() {
+                "high"   => e.0 += 1,
+                "medium" => e.1 += 1,
+                "low"    => e.2 += 1,
+                _        => {}
+            }
+        }
+    }
+
+    // 4) Merge — union of saved ∪ counterparty emails.
+    let mut all: std::collections::HashSet<String> = std::collections::HashSet::new();
+    for k in saved.keys() { all.insert(k.clone()); }
+    for k in cps.keys() { all.insert(k.clone()); }
+
+    let mut out: Vec<UnifiedContact> = Vec::with_capacity(all.len());
+    for email_lc in all {
+        if own_addrs.contains(&email_lc) || is_noreply_local(&email_lc) { continue }
+        let s = saved.get(&email_lc);
+        let cp = cps.get(&email_lc);
+        let b = briefs.get(&email_lc).copied().unwrap_or((0, 0, 0));
+
+        // Prefer saved interaction_count (cumulative) over the 30-day
+        // window count when both exist. For strangers we only have the
+        // window count.
+        let interaction_count = s
+            .map(|x| x.interaction_count)
+            .or_else(|| cp.map(|x| x.interactions))
+            .unwrap_or(0);
+        let last_seen_ms = s
+            .and_then(|x| x.last_seen_ms)
+            .or_else(|| cp.and_then(|x| x.last_seen_ms))
+            .filter(|v| *v > 0);
+
+        out.push(UnifiedContact {
+            id: s.map(|x| x.id.clone()).unwrap_or_else(|| format!("stranger:{}", email_lc)),
+            email: email_lc.clone(),
+            name: s.and_then(|x| x.name.clone()).or_else(|| cp.and_then(|x| x.name.clone())),
+            organization: s.and_then(|x| x.organization.clone()),
+            is_vip: s.map(|x| x.is_vip).unwrap_or(false),
+            is_saved: s.is_some(),
+            last_seen_ms,
+            interaction_count,
+            account_id: s.map(|x| x.account_id.clone()),
+            brief_high: b.0,
+            brief_medium: b.1,
+            brief_low: b.2,
+        });
+    }
+    Ok(out)
+}
+
+#[derive(Clone)]
+struct SavedRow {
+    id: String,
+    account_id: String,
+    email_lc: String,
+    name: Option<String>,
+    organization: Option<String>,
+    is_vip: bool,
+    last_seen_ms: Option<i64>,
+    interaction_count: i64,
+}
+
+struct CounterpartyStat {
+    interactions: i64,
+    last_seen_ms: Option<i64>,
+    name: Option<String>,
+}
+
+fn bump_counterparty(
+    cps: &mut std::collections::HashMap<String, CounterpartyStat>,
+    email_lc: &str,
+    date_ms: i64,
+    name: Option<String>,
+) {
+    let e = cps.entry(email_lc.to_string()).or_insert(CounterpartyStat {
+        interactions: 0,
+        last_seen_ms: None,
+        name: None,
+    });
+    e.interactions += 1;
+    e.last_seen_ms = Some(e.last_seen_ms.map(|x| x.max(date_ms)).unwrap_or(date_ms));
+    if e.name.is_none() && name.is_some() {
+        e.name = name;
+    }
+}
+
+fn parse_external_recipients(
+    to_json: &Option<String>,
+    own: &std::collections::HashSet<String>,
+) -> Vec<(String, Option<String>)> {
+    let raw = match to_json.as_deref() { Some(s) => s, None => return vec![] };
+    let arr: Vec<serde_json::Value> = match serde_json::from_str(raw) {
+        Ok(a) => a,
+        Err(_) => return vec![],
+    };
+    let mut out = vec![];
+    for v in arr {
+        if let Some(email) = v.get("email").and_then(|x| x.as_str()) {
+            let email_lc = email.to_lowercase();
+            if own.contains(&email_lc) { continue }
+            let name = v.get("name").and_then(|x| x.as_str()).map(String::from);
+            out.push((email_lc, name));
+        }
+    }
+    out
+}
+
+// Duplicated from roost.rs to avoid making private helpers pub. Both
+// modules have the same notion of "noreply" / "own address".
+fn is_noreply_local(addr: &str) -> bool {
+    let local = addr.split('@').next().unwrap_or("");
+    matches!(
+        local,
+        "noreply" | "no-reply" | "donotreply" | "do-not-reply" | "mailer-daemon" | "postmaster"
+    ) || local.starts_with("noreply") || local.starts_with("no-reply")
+}
+
+fn load_own_addresses_local(db: &Db) -> Result<std::collections::HashSet<String>> {
+    let mut out = std::collections::HashSet::new();
+    let mut stmt = db.conn().prepare("SELECT email FROM mail_accounts")?;
+    let rows = stmt.query_map([], |r| r.get::<_, String>(0))?;
+    for row in rows {
+        out.insert(row?.to_lowercase());
+    }
+    Ok(out)
+}
