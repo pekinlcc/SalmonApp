@@ -495,18 +495,24 @@ async fn create_google_event(
     input: &CreateEventInput,
 ) -> Result<CreatedRemoteEvent> {
     let body = if input.all_day {
-        // YYYY-MM-DD per RFC 3339 date-only.
-        let date = chrono::DateTime::<chrono::Utc>::from_timestamp_millis(input.start_ms)
-            .map(|t| t.with_timezone(&chrono::Local).format("%Y-%m-%d").to_string())
-            .unwrap_or_default();
-        let end_date = chrono::DateTime::<chrono::Utc>::from_timestamp_millis(input.end_ms)
-            .map(|t| t.with_timezone(&chrono::Local).format("%Y-%m-%d").to_string())
-            .unwrap_or(date.clone());
+        // YYYY-MM-DD per RFC 3339 date-only. Google requires end.date to
+        // be EXCLUSIVE (one day AFTER the last day of the event). User
+        // who picks "May 12 all-day" sends start=end=local midnight 5/12;
+        // we bump end_date to 5/13 so Google actually shows the event.
+        let start_d = chrono::DateTime::<chrono::Utc>::from_timestamp_millis(input.start_ms)
+            .map(|t| t.with_timezone(&chrono::Local).date_naive())
+            .ok_or_else(|| anyhow!("bad start_ms for all-day event"))?;
+        let mut end_d = chrono::DateTime::<chrono::Utc>::from_timestamp_millis(input.end_ms)
+            .map(|t| t.with_timezone(&chrono::Local).date_naive())
+            .unwrap_or(start_d);
+        if end_d <= start_d {
+            end_d = start_d.succ_opt().unwrap_or(start_d);
+        }
         serde_json::json!({
             "summary": input.title,
             "location": input.location,
-            "start": { "date": date },
-            "end": { "date": end_date },
+            "start": { "date": start_d.format("%Y-%m-%d").to_string() },
+            "end":   { "date": end_d.format("%Y-%m-%d").to_string() },
         })
     } else {
         // Send dateTime with explicit "Z" + timeZone:UTC so Google never has
@@ -557,18 +563,26 @@ async fn create_graph_event(
     input: &CreateEventInput,
 ) -> Result<CreatedRemoteEvent> {
     let body = if input.all_day {
-        let date = chrono::DateTime::<chrono::Utc>::from_timestamp_millis(input.start_ms)
-            .map(|t| t.with_timezone(&chrono::Local).format("%Y-%m-%dT00:00:00").to_string())
-            .unwrap_or_default();
-        let end_date = chrono::DateTime::<chrono::Utc>::from_timestamp_millis(input.end_ms)
-            .map(|t| t.with_timezone(&chrono::Local).format("%Y-%m-%dT00:00:00").to_string())
-            .unwrap_or(date.clone());
+        // Graph requires end-of-day-AFTER for all-day events too. Send
+        // both dateTimes at midnight UTC; the dates stay aligned with
+        // what the user picked locally.
+        let start_d = chrono::DateTime::<chrono::Utc>::from_timestamp_millis(input.start_ms)
+            .map(|t| t.with_timezone(&chrono::Local).date_naive())
+            .ok_or_else(|| anyhow!("bad start_ms for all-day event"))?;
+        let mut end_d = chrono::DateTime::<chrono::Utc>::from_timestamp_millis(input.end_ms)
+            .map(|t| t.with_timezone(&chrono::Local).date_naive())
+            .unwrap_or(start_d);
+        if end_d <= start_d {
+            end_d = start_d.succ_opt().unwrap_or(start_d);
+        }
+        let start_dt = format!("{}T00:00:00", start_d.format("%Y-%m-%d"));
+        let end_dt = format!("{}T00:00:00", end_d.format("%Y-%m-%d"));
         serde_json::json!({
             "subject": input.title,
             "isAllDay": true,
             "location": { "displayName": input.location.clone().unwrap_or_default() },
-            "start": { "dateTime": date, "timeZone": "UTC" },
-            "end":   { "dateTime": end_date, "timeZone": "UTC" },
+            "start": { "dateTime": start_dt, "timeZone": "UTC" },
+            "end":   { "dateTime": end_dt, "timeZone": "UTC" },
         })
     } else {
         let start = chrono::DateTime::<chrono::Utc>::from_timestamp_millis(input.start_ms)
@@ -604,6 +618,74 @@ async fn create_graph_event(
         .ok_or_else(|| anyhow!("graph: no id in create response"))?
         .to_string();
     Ok(CreatedRemoteEvent { id })
+}
+
+pub async fn delete_event_remote(
+    cfg: &OauthConfig,
+    db: Arc<Mutex<Db>>,
+    account_id: &str,
+    event_id: &str,
+) -> Result<()> {
+    let (provider, mut tokens) = {
+        let guard = db.lock();
+        load_account(&guard, account_id)?
+    };
+    let now_ms = chrono::Utc::now().timestamp_millis();
+    if tokens.expires_at_ms - now_ms < 60_000 {
+        let rt = tokens
+            .refresh_token
+            .clone()
+            .ok_or_else(|| anyhow!("no refresh_token for delete-event"))?;
+        let new = match provider.as_str() {
+            "gmail" => refresh_google_access(cfg, &rt).await?,
+            "outlook" => refresh_microsoft_access(cfg, &rt).await?,
+            _ => return Err(anyhow!("delete-event not impl for {}", provider)),
+        };
+        tokens.access_token = new.access_token;
+        tokens.expires_at_ms = new.expires_at_ms;
+        if let Some(r) = new.refresh_token { tokens.refresh_token = Some(r); }
+        let guard = db.lock();
+        crate::mail_sync::persist_tokens(&guard, account_id, &tokens)?;
+    }
+    match provider.as_str() {
+        "gmail" => {
+            let url = format!("{}/calendars/primary/events/{}", GOOGLE_CAL_BASE, event_id);
+            let resp = reqwest::Client::new()
+                .delete(&url)
+                .bearer_auth(&tokens.access_token)
+                .send()
+                .await
+                .context("google cal delete")?;
+            let status = resp.status();
+            if !status.is_success() && status.as_u16() != 404 && status.as_u16() != 410 {
+                let text = resp.text().await.unwrap_or_default();
+                return Err(anyhow!("google cal delete failed ({}): {}", status, text));
+            }
+        }
+        "outlook" => {
+            let url = format!("{}/me/events/{}", GRAPH_BASE, event_id);
+            let resp = reqwest::Client::new()
+                .delete(&url)
+                .bearer_auth(&tokens.access_token)
+                .send()
+                .await
+                .context("graph event delete")?;
+            let status = resp.status();
+            if !status.is_success() && status.as_u16() != 404 {
+                let text = resp.text().await.unwrap_or_default();
+                return Err(anyhow!("graph event delete failed ({}): {}", status, text));
+            }
+        }
+        other => return Err(anyhow!("delete-event not impl for {}", other)),
+    }
+    {
+        let guard = db.lock();
+        guard.conn().execute(
+            "DELETE FROM calendar_events WHERE id = ?",
+            params![event_id],
+        )?;
+    }
+    Ok(())
 }
 
 pub fn list_events_window(

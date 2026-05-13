@@ -20,6 +20,7 @@ export function CalendarView() {
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [composing, setComposing] = useState<{ start: Date; end: Date } | null>(null);
+  const [detailEvent, setDetailEvent] = useState<CalEvent | null>(null);
   const gridScrollRef = useRef<HTMLDivElement>(null);
 
   const weekEnd = useMemo(() => addDays(weekStart, 7), [weekStart]);
@@ -115,9 +116,10 @@ export function CalendarView() {
           events={events}
           gridScrollRef={gridScrollRef}
           onCellClick={onCellClick}
+          onEventClick={setDetailEvent}
         />
       ) : (
-        <Agenda events={events} accounts={accounts} />
+        <Agenda events={events} accounts={accounts} onEventClick={setDetailEvent} />
       )}
       {composing && (
         <NewEventModal
@@ -128,6 +130,17 @@ export function CalendarView() {
           onCreated={() => {
             setComposing(null);
             loadEvents();
+          }}
+        />
+      )}
+      {detailEvent && (
+        <EventDetailModal
+          ev={detailEvent}
+          accounts={accounts}
+          onClose={() => setDetailEvent(null)}
+          onDeleted={() => {
+            setEvents((cur) => cur.filter((x) => x.id !== detailEvent.id));
+            setDetailEvent(null);
           }}
         />
       )}
@@ -142,11 +155,13 @@ function WeekGrid({
   events,
   gridScrollRef,
   onCellClick,
+  onEventClick,
 }: {
   weekStart: Date;
   events: CalEvent[];
   gridScrollRef: React.RefObject<HTMLDivElement>;
   onCellClick: (day: Date, hour: number) => void;
+  onEventClick: (ev: CalEvent) => void;
 }) {
   const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart]);
   const today = new Date().toDateString();
@@ -209,7 +224,12 @@ function WeekGrid({
           return (
             <div key={d.toDateString()} className="cal-allday-cell">
               {evs.map((ev) => (
-                <div key={ev.id} className="cal-allday-pill" title={ev.title || ""}>
+                <div
+                  key={ev.id}
+                  className="cal-allday-pill"
+                  title={ev.title || ""}
+                  onClick={(e) => { e.stopPropagation(); onEventClick(ev); }}
+                >
                   {ev.title || "(无标题)"}
                 </div>
               ))}
@@ -246,7 +266,6 @@ function WeekGrid({
                 ))}
                 {evs.map((ev) => {
                   const start = new Date(ev.startMs);
-                  const end = new Date(ev.endMs);
                   const top = (start.getHours() * 60 + start.getMinutes()) / 60 * HOUR_PX;
                   const durMin = Math.max(20, (ev.endMs - ev.startMs) / 60_000);
                   const height = (durMin / 60) * HOUR_PX;
@@ -256,6 +275,7 @@ function WeekGrid({
                       className="cal-event-block"
                       style={{ top, height }}
                       title={`${ev.title || "(无)"} ${fmtTime(ev.startMs)}–${fmtTime(ev.endMs)}${ev.location ? " @ " + ev.location : ""}`}
+                      onClick={(e) => { e.stopPropagation(); onEventClick(ev); }}
                     >
                       <div className="cal-event-time">{fmtTime(ev.startMs)}</div>
                       <div className="cal-event-title">{ev.title || "(无标题)"}</div>
@@ -277,7 +297,15 @@ function WeekGrid({
 
 // ── Agenda (compact list view) ──────────────────────────────────────
 
-function Agenda({ events, accounts }: { events: CalEvent[]; accounts: MailAccount[] }) {
+function Agenda({
+  events,
+  accounts,
+  onEventClick,
+}: {
+  events: CalEvent[];
+  accounts: MailAccount[];
+  onEventClick: (ev: CalEvent) => void;
+}) {
   const acctMap = useMemo(() => {
     const m = new Map<string, MailAccount>();
     for (const a of accounts) m.set(a.id, a);
@@ -290,7 +318,7 @@ function Agenda({ events, accounts }: { events: CalEvent[]; accounts: MailAccoun
       {events.map((ev) => {
         const acct = acctMap.get(ev.accountId);
         return (
-          <div key={ev.id} className="cal-agenda-row">
+          <div key={ev.id} className="cal-agenda-row" onClick={() => onEventClick(ev)} style={{ cursor: "pointer" }}>
             <div className="cal-agenda-date">
               <div className="cal-agenda-md">{fmtMD(new Date(ev.startMs))}</div>
               <div className="cal-agenda-wd">{dayName(new Date(ev.startMs))}</div>
@@ -306,6 +334,86 @@ function Agenda({ events, accounts }: { events: CalEvent[]; accounts: MailAccoun
           </div>
         );
       })}
+    </div>
+  );
+}
+
+function EventDetailModal({
+  ev,
+  accounts,
+  onClose,
+  onDeleted,
+}: {
+  ev: CalEvent;
+  accounts: MailAccount[];
+  onClose: () => void;
+  onDeleted: () => void;
+}) {
+  const [deleting, setDeleting] = useState(false);
+  const account = accounts.find((a) => a.id === ev.accountId);
+
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, [onClose]);
+
+  async function onDelete() {
+    if (!confirm(`删除事件 "${ev.title || '(无标题)'}"？也会从 Google / Outlook 日历中删除。`)) return;
+    setDeleting(true);
+    try {
+      await api.deleteCalendarEvent(ev.accountId, ev.id);
+      window.dispatchEvent(new CustomEvent("salmon:toast", {
+        detail: { title: "✓ 已删除事件", kind: "done" },
+      }));
+      onDeleted();
+    } catch (e: any) {
+      window.dispatchEvent(new CustomEvent("salmon:toast", {
+        detail: { title: `删除失败: ${e}`, kind: "error" },
+      }));
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  return (
+    <div className="compose-backdrop" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="compose-modal" style={{ width: 480 }}>
+        <div className="compose-head">
+          <div className="compose-title">📅 {ev.title || "(无标题)"}</div>
+          <button className="btn-ghost" onClick={onClose}>×</button>
+        </div>
+        <div style={{ padding: "14px 18px", fontSize: 13, lineHeight: 1.7 }}>
+          <div>
+            <b>时间：</b>
+            {ev.allDay
+              ? `${fmtMD(new Date(ev.startMs))}（全天）`
+              : `${new Date(ev.startMs).toLocaleString("zh-CN")} – ${fmtTime(ev.endMs)}`}
+          </div>
+          {ev.location && <div><b>地点：</b>📍 {ev.location}</div>}
+          {account && <div><b>账号：</b>{account.email}</div>}
+          {ev.organizer && <div><b>组织者：</b>{ev.organizer}</div>}
+          {ev.attendees.length > 0 && (
+            <div>
+              <b>与会：</b>
+              {ev.attendees.slice(0, 8).map((a) => a.name || a.email).join("，")}
+              {ev.attendees.length > 8 && ` (+${ev.attendees.length - 8})`}
+            </div>
+          )}
+          {ev.description && (
+            <div style={{ marginTop: 10, padding: 10, background: "#FAFAF9", borderRadius: 6, fontSize: 12.5 }}>
+              {ev.description}
+            </div>
+          )}
+        </div>
+        <div className="compose-foot">
+          <button className="btn" onClick={onDelete} disabled={deleting} style={{ color: "#B7493D" }}>
+            {deleting ? "删除中…" : "🗑 删除事件"}
+          </button>
+          <div style={{ flex: 1 }} />
+          <button className="btn" onClick={onClose}>关闭</button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -354,8 +462,21 @@ function NewEventModal({
       const endMs = allDay
         ? new Date(`${endDate}T00:00:00`).getTime()
         : new Date(`${endDate}T${endTime}:00`).getTime();
-      if (isNaN(startMs) || isNaN(endMs) || endMs <= startMs) {
-        setError("起止时间无效（结束须晚于开始）");
+      if (isNaN(startMs) || isNaN(endMs)) {
+        setError("起止时间无效");
+        setCreating(false);
+        return;
+      }
+      // For all-day events the user picks the SAME day for "an event on
+      // May 12"; backend bumps end.date to make it exclusive. Only enforce
+      // strict order for timed events.
+      if (!allDay && endMs <= startMs) {
+        setError("结束时间须晚于开始时间");
+        setCreating(false);
+        return;
+      }
+      if (allDay && endMs < startMs) {
+        setError("结束日期不能早于开始日期");
         setCreating(false);
         return;
       }

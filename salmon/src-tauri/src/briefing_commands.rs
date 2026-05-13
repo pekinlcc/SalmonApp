@@ -87,7 +87,26 @@ pub async fn run_briefing(
     app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<briefing_orchestrator::BriefingRunResult, String> {
+    use std::sync::atomic::Ordering;
+    // In-flight guard: at most one briefing pipeline at a time. Without
+    // this two concurrent ↻ clicks (or a double-fire from any source)
+    // would write to brief_items with different briefing_ids and race
+    // briefing_state writes.
+    if state
+        .briefing_busy
+        .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+        .is_err()
+    {
+        return Err("已有一个简报正在生成中".into());
+    }
+    let busy = state.briefing_busy.clone();
     let db = state.db.clone();
+    // Use a guard struct so we ALWAYS release on early return / panic.
+    struct ReleaseGuard(std::sync::Arc<std::sync::atomic::AtomicBool>);
+    impl Drop for ReleaseGuard {
+        fn drop(&mut self) { self.0.store(false, std::sync::atomic::Ordering::Release); }
+    }
+    let _guard = ReleaseGuard(busy);
     briefing_orchestrator::run_briefing(app, db).await.map_err(map_err)
 }
 

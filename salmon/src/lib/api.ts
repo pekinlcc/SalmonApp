@@ -102,6 +102,8 @@ export const api = {
     allDay: boolean;
     location: string | null;
   }) => invoke<CalEvent>("create_calendar_event", { input }),
+  deleteCalendarEvent: (accountId: string, eventId: string) =>
+    invoke<void>("delete_calendar_event", { accountId, eventId }),
   // ── v0.9.1: Tasks ───────────────────────────────────────────────────
   syncTasks: (accountId: string) =>
     invoke<number>("sync_tasks", { accountId }),

@@ -40,6 +40,11 @@ pub struct AppState {
     pub bridge: permission_bridge::PermissionBridge,
     pub oauth_cfg: oauth_config::OauthConfig,
     pub oauth_broker: oauth::OauthBroker,
+    /// In-flight guard for the briefing pipeline. `run_briefing` flips this
+    /// true on entry and back to false on exit; a concurrent call returns
+    /// "already running" instead of racing to write brief_items + clobbering
+    /// briefing_state.
+    pub briefing_busy: Arc<std::sync::atomic::AtomicBool>,
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -89,6 +94,7 @@ pub fn run() {
                 bridge,
                 oauth_cfg,
                 oauth_broker,
+                briefing_busy: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             });
             Ok(())
         })
@@ -146,6 +152,7 @@ pub fn run() {
             mail_commands::sync_calendar,
             mail_commands::list_calendar_events,
             mail_commands::create_calendar_event,
+            mail_commands::delete_calendar_event,
             mail_commands::sync_tasks,
             mail_commands::list_tasks,
             mail_commands::create_task,

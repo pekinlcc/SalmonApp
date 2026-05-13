@@ -459,10 +459,15 @@ async fn create_google_task(access: &str, input: &CreateTaskInput) -> Result<Tas
         body["notes"] = serde_json::Value::String(n.clone());
     }
     if let Some(d) = input.due_ms {
-        // Google Tasks accepts RFC3339; only date part is used.
-        let s = chrono::DateTime::<chrono::Utc>::from_timestamp_millis(d)
-            .map(|t| t.to_rfc3339())
+        // Google Tasks "due" — only the date portion is honored, but the
+        // API spec wants a full RFC3339 datetime ANCHORED AT UTC MIDNIGHT
+        // of the user's intended local date. Sending arbitrary local time
+        // in RFC3339 can shift the day across timezones (a 23:30 local
+        // input near midnight rounds to next day in UTC).
+        let local_date = chrono::DateTime::<chrono::Utc>::from_timestamp_millis(d)
+            .map(|t| t.with_timezone(&chrono::Local).format("%Y-%m-%d").to_string())
             .unwrap_or_default();
+        let s = format!("{}T00:00:00.000Z", local_date);
         body["due"] = serde_json::Value::String(s);
     }
     let url = format!("{}/lists/@default/tasks", GOOGLE_TASKS_BASE);
@@ -654,9 +659,11 @@ async fn patch_google_task(
         body["notes"] = serde_json::Value::String(n.to_string());
     }
     if let Some(d) = due_ms {
-        let s = chrono::DateTime::<chrono::Utc>::from_timestamp_millis(d)
-            .map(|t| t.to_rfc3339())
+        // Same UTC-midnight anchoring as create_google_task.
+        let local_date = chrono::DateTime::<chrono::Utc>::from_timestamp_millis(d)
+            .map(|t| t.with_timezone(&chrono::Local).format("%Y-%m-%d").to_string())
             .unwrap_or_default();
+        let s = format!("{}T00:00:00.000Z", local_date);
         body["due"] = serde_json::Value::String(s);
     }
     let url = format!("{}/lists/@default/tasks/{}", GOOGLE_TASKS_BASE, task_id);

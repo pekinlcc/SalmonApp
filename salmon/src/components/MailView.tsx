@@ -48,6 +48,19 @@ export function MailView({ pendingComposeReply, onConsumeComposeReply }: MailVie
   const selectedAccountIdRef = useRef<string | null>(null);
   useEffect(() => { selectedAccountIdRef.current = selectedAccountId; }, [selectedAccountId]);
 
+  // Close the "+ 添加账号" dropdown when clicking anywhere outside it.
+  const addMenuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!addMenuOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (addMenuRef.current && !addMenuRef.current.contains(e.target as Node)) {
+        setAddMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [addMenuOpen]);
+
   const reloadAccounts = useCallback(async () => {
     try {
       const a = await api.listMailAccounts();
@@ -324,7 +337,7 @@ export function MailView({ pendingComposeReply, onConsumeComposeReply }: MailVie
           <button className="btn-ghost" onClick={onToggleContacts}>
             {showContacts ? "← 邮件" : "👥 联系人"}
           </button>
-          <div className="add-account-wrap">
+          <div className="add-account-wrap" ref={addMenuRef}>
             <button
               className="btn-ghost"
               onClick={() => setAddMenuOpen((v) => !v)}

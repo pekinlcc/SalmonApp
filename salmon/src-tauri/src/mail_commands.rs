@@ -658,6 +658,19 @@ pub async fn create_calendar_event(
         .map_err(map_err)
 }
 
+#[tauri::command]
+pub async fn delete_calendar_event(
+    state: State<'_, AppState>,
+    account_id: String,
+    event_id: String,
+) -> Result<(), String> {
+    let cfg = state.oauth_cfg.clone();
+    let db = state.db.clone();
+    crate::calendar::delete_event_remote(&cfg, db, &account_id, &event_id)
+        .await
+        .map_err(map_err)
+}
+
 // ── v0.9.1 Tasks (Google Tasks + Microsoft Graph Todo) ──────────────
 
 #[tauri::command]
