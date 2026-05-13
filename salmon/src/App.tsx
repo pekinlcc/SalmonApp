@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { ask } from "@tauri-apps/plugin-dialog";
 import type { Block, BriefingProgress, ChatLayout, CliInfo, ComposerSendMode, Message, Recommendation, StreamEvent, ToolCall, Topic, UiMessage, UsageSummary } from "./lib/types";
 import { api } from "./lib/api";
@@ -1108,19 +1109,43 @@ export default function App() {
     setTopics((cur) => cur.map((t) => (t.id === id ? { ...t, title } : t)));
   }, []);
 
-  // Quit confirmation when running topics exist. beforeunload requires a
-  // synchronous confirmation path; awaiting a Tauri dialog here cannot block
-  // the close event reliably.
+  // Quit confirmation when running topics exist. The browser-level
+  // `beforeunload` event is unreliable in WKWebView (macOS) — the dialog
+  // string is ignored and preventDefault doesn't actually block the
+  // close. Tauri 2's `onCloseRequested` is the cross-platform answer:
+  // it can asynchronously prevent the close via `event.preventDefault()`,
+  // letting us pop a real native ask() dialog. Mirrors runningIds into a
+  // ref so the close handler — subscribed once — always sees the latest
+  // count without re-subscribing on every Set change.
+  const runningIdsRef = useRef<Set<string>>(runningIds);
+  runningIdsRef.current = runningIds;
   useEffect(() => {
-    const handler = (e: BeforeUnloadEvent) => {
-      if (runningIds.size > 0) {
-        e.preventDefault();
-        e.returnValue = `还有 ${runningIds.size} 个 Topic 在运行。`;
+    let unlisten: (() => void) | null = null;
+    let cancelled = false;
+    (async () => {
+      try {
+        const win = getCurrentWindow();
+        const fn = await win.onCloseRequested(async (event) => {
+          const n = runningIdsRef.current.size;
+          if (n === 0) return;
+          const ok = await ask(`还有 ${n} 个 Topic 在运行,确定退出?未完成的对话会被中断。`, {
+            title: "确认退出 SalmonApp",
+            kind: "warning",
+          });
+          if (!ok) event.preventDefault();
+        });
+        if (cancelled) fn();
+        else unlisten = fn;
+      } catch {
+        // Browser / dev preview (no Tauri window). beforeunload still
+        // fires there; keep a minimal fallback for that case.
       }
+    })();
+    return () => {
+      cancelled = true;
+      unlisten?.();
     };
-    window.addEventListener("beforeunload", handler);
-    return () => window.removeEventListener("beforeunload", handler);
-  }, [runningIds]);
+  }, []);
 
   const selectedMessages = selectedTopic ? messagesByTopic[selectedTopic.id] || [] : [];
 
@@ -1422,8 +1447,9 @@ function buildAcceptPrompt(rec: Recommendation): string {
 }
 
 function RightRail({ onExpand }: { onExpand: () => void }) {
+  const mod = /mac|iphone|ipad|ipod/i.test(navigator.platform) ? "⌘" : "Ctrl";
   return (
-    <aside className="right-rail" title="展开右栏 (Ctrl+\\)" onClick={onExpand}>
+    <aside className="right-rail" title={`展开右栏 (${mod}+\\)`} onClick={onExpand}>
       <button className="right-rail-btn">◂</button>
     </aside>
   );

@@ -1,12 +1,14 @@
 //! Load OAuth credentials from `oauth_config.toml`. Resolution order:
 //!
 //! 1. `$SALMON_OAUTH_CONFIG` env var if set (absolute path)
-//! 2. `$XDG_CONFIG_HOME/salmonapp/oauth_config.toml` (or `~/.config/salmonapp/`)
-//!    — this is the recommended persistent location for installed `.deb`
-//!    users. The `.deb` puts the binary in /usr/bin where they can't drop
-//!    a config file, so per-user XDG config dir is the right home.
-//! 3. Same directory as the executable (`<bundle>/oauth_config.toml`) —
-//!    used by portable / AppImage runs and macOS app bundles.
+//! 2. Platform user-config dir (see `path_dirs::config_dir`):
+//!    - Linux: `$XDG_CONFIG_HOME/salmonapp/oauth_config.toml` (`~/.config/salmonapp/...`)
+//!    - macOS: `~/Library/Application Support/app.salmonapp.desktop/oauth_config.toml`
+//!    This is the recommended persistent location for installed-via-bundle
+//!    users since the binary lives in a read-only location.
+//! 3. Same directory as the executable — used by portable / AppImage runs.
+//!    Note this does NOT work for signed macOS .app bundles (Contents/MacOS
+//!    is read-only), which is why option 2 above is critical for Mac.
 //! 4. `oauth_config.toml` relative to CWD (dev mode, `cargo run` from src-tauri)
 //! 5. `salmon/src-tauri/oauth_config.toml` relative to CWD (dev mode, from
 //!    project root)
@@ -72,15 +74,8 @@ fn resolve_path() -> Option<PathBuf> {
         let pb = PathBuf::from(p);
         if pb.exists() { return Some(pb); }
     }
-    // XDG config dir — the right home for installed-via-.deb users since
-    // /usr/bin/ isn't writable. Prefer $XDG_CONFIG_HOME if set, fall back
-    // to ~/.config.
-    let xdg = std::env::var("XDG_CONFIG_HOME")
-        .ok()
-        .map(PathBuf::from)
-        .or_else(|| std::env::var("HOME").ok().map(|h| PathBuf::from(h).join(".config")));
-    if let Some(base) = xdg {
-        let pb = base.join("salmonapp").join("oauth_config.toml");
+    if let Some(base) = crate::path_dirs::config_dir() {
+        let pb = base.join("oauth_config.toml");
         if pb.exists() { return Some(pb); }
     }
     if let Ok(exe) = std::env::current_exe() {

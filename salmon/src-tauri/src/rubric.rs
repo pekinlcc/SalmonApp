@@ -10,8 +10,10 @@
 //!   user's version becomes the new baseline and AI never overwrites it
 //!   without explicit re-merge
 //!
-//! Storage location: `$XDG_CONFIG_HOME/salmonapp/rubric.md`, or
-//! `~/.config/salmonapp/rubric.md`. Sibling of `oauth_config.toml`.
+//! Storage location: platform-specific via `path_dirs::config_dir()`.
+//! Linux: `$XDG_CONFIG_HOME/salmonapp/rubric.md` (or `~/.config/salmonapp/`).
+//! macOS: `~/Library/Application Support/app.salmonapp.desktop/rubric.md`.
+//! Sibling of `oauth_config.toml`.
 //!
 //! The Editor agent (a separate LLM call) is triggered when feedback_log
 //! has >= 10 unconsumed entries OR the last edit was >= 24h ago.
@@ -59,16 +61,9 @@ pub const DEFAULT_RUBRIC: &str = r#"# SalmonApp Rubric · v1
 "#;
 
 pub fn rubric_path() -> Result<PathBuf> {
-    let base = std::env::var("XDG_CONFIG_HOME")
-        .ok()
-        .map(PathBuf::from)
-        .or_else(|| {
-            std::env::var("HOME")
-                .ok()
-                .map(|h| PathBuf::from(h).join(".config"))
-        })
-        .ok_or_else(|| anyhow!("no XDG_CONFIG_HOME / HOME"))?;
-    Ok(base.join("salmonapp").join("rubric.md"))
+    let base = crate::path_dirs::config_dir()
+        .ok_or_else(|| anyhow!("HOME unset — cannot resolve rubric path"))?;
+    Ok(base.join("rubric.md"))
 }
 
 pub fn load() -> Result<String> {

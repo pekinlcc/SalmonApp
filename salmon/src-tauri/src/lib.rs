@@ -3,6 +3,7 @@ mod engine;
 mod commands;
 mod permission_bridge;
 mod platform;
+mod path_dirs;
 mod types;
 mod oauth;
 mod oauth_config;
@@ -179,16 +180,17 @@ pub fn run() {
         .expect("error while running SalmonApp");
 }
 
-/// Open `~/.local/share/app.salmonapp.desktop/salmon.log` in append mode and
-/// `dup2` it onto fd 2. Best-effort — silently tolerates failure so a broken
-/// HOME / readonly disk never blocks startup.
+/// Open the app log file in append mode and `dup2` it onto fd 2. Best-effort —
+/// silently tolerates failure so a broken HOME / readonly disk never blocks
+/// startup. Log path comes from `path_dirs::log_dir()`:
+///   - macOS: `~/Library/Logs/app.salmonapp.desktop/salmon.log`
+///   - Linux: `~/.local/share/app.salmonapp.desktop/salmon.log`
 #[cfg(unix)]
 fn redirect_stderr_to_log_file() {
     use std::io::Write;
     use std::os::fd::AsRawFd;
 
-    let Ok(home) = std::env::var("HOME") else { return };
-    let dir = std::path::Path::new(&home).join(".local/share/app.salmonapp.desktop");
+    let Some(dir) = path_dirs::log_dir() else { return };
     if std::fs::create_dir_all(&dir).is_err() { return }
     let path = dir.join("salmon.log");
 

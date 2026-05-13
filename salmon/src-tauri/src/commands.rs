@@ -1319,15 +1319,9 @@ pub fn render_office_preview(path: String) -> Result<Vec<String>, String> {
     path.hash(&mut h);
     let key = format!("{:016x}-{}", h.finish(), mtime);
 
-    let cache_root = if let Ok(x) = std::env::var("XDG_CACHE_HOME") {
-        PathBuf::from(x)
-    } else if let Ok(home) = std::env::var("HOME") {
-        PathBuf::from(home).join(".cache")
-    } else {
-        std::env::temp_dir()
-    }
-    .join("salmonapp")
-    .join("preview");
+    let cache_root = crate::path_dirs::cache_dir()
+        .unwrap_or_else(std::env::temp_dir)
+        .join("preview");
     let dir = cache_root.join(&key);
 
     let need_render = !dir.is_dir()
@@ -1848,16 +1842,10 @@ pub fn save_pasted_image(
         return Err("topic_id 非法".into());
     }
 
-    let cache_root = if let Ok(x) = std::env::var("XDG_CACHE_HOME") {
-        PathBuf::from(x)
-    } else if let Ok(home) = std::env::var("HOME") {
-        PathBuf::from(home).join(".cache")
-    } else {
-        std::env::temp_dir()
-    }
-    .join("salmonapp")
-    .join("pastes")
-    .join(&topic_id);
+    let cache_root = crate::path_dirs::cache_dir()
+        .unwrap_or_else(std::env::temp_dir)
+        .join("pastes")
+        .join(&topic_id);
     std::fs::create_dir_all(&cache_root).map_err(map_err)?;
 
     let bytes = general_purpose::STANDARD

@@ -39,15 +39,29 @@ pub fn engine_ready(engine: &str) -> bool {
     if which::which(engine).is_err() {
         return false;
     }
-    let Some(home) = std::env::var_os("HOME") else { return false };
-    let home = PathBuf::from(home);
-    match engine {
-        "claude" => home.join(".claude/.credentials.json").exists(),
-        "codex" => {
-            home.join(".codex/auth.json").exists()
-                || home.join(".config/codex/auth.json").exists()
+    // macOS stores Claude Code OAuth credentials in Keychain (the file at
+    // `~/.claude/.credentials.json` is typically absent), and the codex
+    // CLI on Mac similarly may keep its tokens off-disk. Falling back to
+    // "binary on PATH" is sufficient — pick_engine() would otherwise
+    // false-negative every Mac user and silently downgrade the Pulse /
+    // Briefing / Writer pipeline to heuristic-only.
+    #[cfg(target_os = "macos")]
+    {
+        let _ = engine;
+        true
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let Some(home) = std::env::var_os("HOME") else { return false };
+        let home = PathBuf::from(home);
+        match engine {
+            "claude" => home.join(".claude/.credentials.json").exists(),
+            "codex" => {
+                home.join(".codex/auth.json").exists()
+                    || home.join(".config/codex/auth.json").exists()
+            }
+            _ => false,
         }
-        _ => false,
     }
 }
 

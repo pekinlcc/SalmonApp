@@ -92,7 +92,11 @@ export function NewTopicDialog({ cliStatus, defaultEngine, topics, onCancel, onC
               type="text"
               value={workdir}
               onChange={(e) => setWorkdir(e.target.value)}
-              placeholder="/home/you/project"
+              placeholder={
+                /mac|iphone|ipad|ipod/i.test(navigator.platform)
+                  ? "/Users/you/project"
+                  : "/home/you/project"
+              }
               onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
             />
             <button type="button" className="btn" style={{ flex: "0 0 auto" }} onClick={pickDir}>浏览…</button>

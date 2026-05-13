@@ -132,7 +132,7 @@ export function RightPane({ topic, selectedTool, logs, refreshKey, onCollapse }:
         ))}
         <button
           className="right-collapse-btn"
-          title="收起右栏 (Ctrl+\\)"
+          title={`收起右栏 (${/mac|iphone|ipad|ipod/i.test(navigator.platform) ? "⌘" : "Ctrl"}+\\)`}
           onClick={onCollapse}
         >
           ▸

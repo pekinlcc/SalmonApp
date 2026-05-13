@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, type DragEvent } from "react";
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
+import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { readImage, readText } from "@tauri-apps/plugin-clipboard-manager";
 import type { ComposerSendMode } from "../lib/types";
 
@@ -118,17 +119,73 @@ export function Composer({ topicId, busy, disabled, sendMode, onSend, onInterrup
     }
   };
 
+  // Dedupes by path so DOM and Tauri drag-drop events (which can both fire
+  // for the same Finder drop on Linux) don't double-add the attachment.
+  const addAttachmentByPath = (path: string, name?: string, previewOverride?: string) => {
+    setAttachments((prev) => {
+      if (prev.some((a) => a.path === path)) return prev;
+      const realName = name || path.split(/[/\\]/).pop() || "file";
+      const ext = realName.split(".").pop()?.toLowerCase() || "";
+      const isImg = ["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg"].includes(ext);
+      const preview = previewOverride ?? (isImg ? convertFileSrc(path) : "");
+      return [...prev, { path, preview, name: realName }];
+    });
+  };
+
+  // Tauri webview drag-drop listener. On macOS WKWebView the DOM event's
+  // `e.dataTransfer.files[i].path` is always empty for Finder drops, so
+  // this listener is the only reliable source of filesystem paths there.
+  // On Linux/dev mode the DOM event already provides paths; we still
+  // subscribe because Tauri delivers a clean Drop event with parsed
+  // absolute paths, and `addAttachmentByPath` dedupes by path string.
+  useEffect(() => {
+    let unlisten: (() => void) | null = null;
+    let cancelled = false;
+    (async () => {
+      try {
+        const wv = getCurrentWebview();
+        const fn = await wv.onDragDropEvent((event) => {
+          if (cancelled) return;
+          const t = event.payload.type;
+          if (t === "over") {
+            if (!disabled) setDragActive(true);
+          } else if (t === "leave") {
+            setDragActive(false);
+          } else if (t === "drop") {
+            setDragActive(false);
+            if (disabled) return;
+            const paths = (event.payload as { paths?: string[] }).paths || [];
+            for (const p of paths) addAttachmentByPath(p);
+            ref.current?.focus();
+          }
+        });
+        if (cancelled) fn();
+        else unlisten = fn;
+      } catch (err) {
+        void invoke("debug_log", { message: `Composer: onDragDropEvent setup failed: ${err}` });
+      }
+    })();
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
+  }, [disabled]);
+
   const addDroppedFile = async (file: File) => {
     const path = (file as any).path || (file as any).webkitRelativePath || "";
     if (path) {
-      setAttachments((prev) => [
-        ...prev,
-        {
-          path,
-          preview: file.type.startsWith("image/") ? convertFileSrc(path) : "",
-          name: file.name || path.split("/").pop() || "file",
-        },
-      ]);
+      addAttachmentByPath(path, file.name);
+      return;
+    }
+
+    // No DOM-side path. On macOS WKWebView this is the norm for Finder
+    // drops — the Tauri webview onDragDropEvent listener above will fill
+    // in the absolute path. Bail here so we don't FileReader-cache a
+    // copy that the Tauri event would then duplicate.
+    if (IS_MAC) {
+      void invoke("debug_log", {
+        message: `Composer DOM drop on Mac: deferring path lookup to Tauri event (${file.name || "unknown"})`,
+      });
       return;
     }
 
@@ -137,6 +194,8 @@ export function Composer({ topicId, busy, disabled, sendMode, onSend, onInterrup
       return;
     }
 
+    // In-memory image (e.g. dragged from browser): no filesystem source,
+    // no Tauri event will fire — cache it ourselves.
     const dataUrl = await fileToDataUrl(file);
     const base64 = dataUrl.split(",")[1] || "";
     const ext = file.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") || "png";
@@ -145,14 +204,7 @@ export function Composer({ topicId, busy, disabled, sendMode, onSend, onInterrup
       base64Data: base64,
       ext,
     });
-    setAttachments((prev) => [
-      ...prev,
-      {
-        path: savedPath,
-        preview: dataUrl,
-        name: file.name || savedPath.split("/").pop() || "drop.png",
-      },
-    ]);
+    addAttachmentByPath(savedPath, file.name || "drop.png", dataUrl);
   };
 
   const handleDrop = async (e: DragEvent<HTMLDivElement>) => {
