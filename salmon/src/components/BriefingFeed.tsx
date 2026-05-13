@@ -11,7 +11,6 @@ import type {
 } from "../lib/types";
 import { relativeTime } from "../lib/format";
 import { RelatedMailList } from "./RelatedMailList";
-import { SalmonLogo } from "./SalmonLogo";
 
 interface Props {
   topics: Topic[];
@@ -30,6 +29,9 @@ interface Props {
   attentionTopics: { topic: Topic; reason: string }[];
   recommendations: Recommendation[];
   onNewTopic: () => void;
+  /** v1.3: top-overview-bar stat — unread mail count (App.tsx already tracks
+   *  this for the IconRail badge; piped through so the stat row is live). */
+  unreadMail: number;
 }
 
 /**
@@ -72,38 +74,40 @@ export function BriefingFeed(props: Props) {
   );
 
   return (
-    <div className="three-pane">
-      <aside className="three-list">
-        <div className="left-head">
-          <SalmonLogo className="logo" />
-          <div className="name">今日聚焦</div>
-          {status?.generatedAt && (
-            <div className="ver">{relativeTime(status.generatedAt)}</div>
-          )}
-        </div>
-        <Banner status={status} progress={progress} running={running} onRefresh={onRefresh} />
-        {error && <div className="briefing-error" style={{ margin: "0 12px 8px" }}>⚠ {error}</div>}
-        <div className="topic-list">
-          {items.length === 0 && !running ? (
-            <div style={{ padding: "30px 18px", fontSize: 12, color: "var(--ink-500)", textAlign: "center" }}>
-              {status?.engineAvailable
-                ? "暂无待办 · 点 ↻ 让 AI 重新评估"
-                : "未检测到已登录的 Claude/Codex CLI"}
-            </div>
-          ) : (
-            items.map((it) => (
-              <BriefListRow
-                key={it.id}
-                item={it}
-                active={it.id === selectedId}
-                onClick={() => setSelectedId(it.id)}
-              />
-            ))
-          )}
-        </div>
-      </aside>
+    <div className="brief-shell">
+      <BriefOverviewBar
+        status={status}
+        items={items}
+        topics={topics}
+        unreadMail={props.unreadMail}
+        running={running}
+        progress={progress}
+        onRefresh={onRefresh}
+      />
+      {error && <div className="briefing-error" style={{ margin: "8px 22px" }}>⚠ {error}</div>}
+      <div className="three-pane brief-three">
+        <aside className="three-list">
+          <div className="topic-list" style={{ paddingTop: 8 }}>
+            {items.length === 0 && !running ? (
+              <div style={{ padding: "30px 18px", fontSize: 12, color: "var(--ink-500)", textAlign: "center" }}>
+                {status?.engineAvailable
+                  ? "暂无待办 · 点上方 ↻ 让 AI 重新评估"
+                  : "未检测到已登录的 Claude/Codex CLI"}
+              </div>
+            ) : (
+              items.map((it) => (
+                <BriefListRow
+                  key={it.id}
+                  item={it}
+                  active={it.id === selectedId}
+                  onClick={() => setSelectedId(it.id)}
+                />
+              ))
+            )}
+          </div>
+        </aside>
 
-      <section className="three-detail">
+        <section className="three-detail">
         {selected ? (
           <BriefDetail
             item={selected}
@@ -187,7 +191,12 @@ export function BriefingFeed(props: Props) {
             onNewTopic={props.onNewTopic}
           />
         )}
-      </section>
+        </section>
+
+        <aside className="brief-right-pane">
+          <BriefAiActivity status={status} running={running} progress={progress} items={items} />
+        </aside>
+      </div>
     </div>
   );
 }
@@ -367,37 +376,159 @@ function DraftPanel({
   );
 }
 
-// ── Banner inside list pane ───────────────────────────────────────────
+// ── v1.3 top overview banner (spans the whole content area) ──────────
 
-function Banner({ status, progress, running, onRefresh }: {
+function progressNote(running: boolean, progress: BriefingProgress | null): string | null {
+  if (!running) return null;
+  const stage = progress?.stage;
+  if (!stage || stage === "starting") return "启动中…";
+  if (stage === "roost") return "聚合联系人邮件…";
+  if (stage === "pulse") return `分析联系人 ${progress?.current}/${progress?.total}…`;
+  if (stage === "briefing") return "全局排序与去重…";
+  if (stage === "cross-link") return "查 Topic ↔ Mail 跨域关联…";
+  return stage;
+}
+
+function BriefOverviewBar({
+  status,
+  items,
+  topics,
+  unreadMail,
+  running,
+  progress,
+  onRefresh,
+}: {
   status: BriefingStatus | null;
-  progress: BriefingProgress | null;
+  items: BriefItem[];
+  topics: Topic[];
+  unreadMail: number;
   running: boolean;
+  progress: BriefingProgress | null;
   onRefresh: () => Promise<void> | void;
 }) {
-  const stage = progress?.stage;
-  const note = useMemo(() => {
-    if (!running) return null;
-    if (!stage || stage === "starting") return "启动中…";
-    if (stage === "roost") return "聚合联系人…";
-    if (stage === "pulse") return `分析 ${progress?.current}/${progress?.total}…`;
-    if (stage === "briefing") return "全局排序…";
-    if (stage === "cross-link") return "查跨域关联…";
-    return stage;
-  }, [running, stage, progress]);
+  const high = items.filter((i) => i.priority === "high").length;
+  const midLow = items.filter((i) => i.priority !== "high").length;
+  const activeTopics = topics.filter((t) => !t.archived).length;
+  const note = progressNote(running, progress);
+
+  const overview = (() => {
+    if (running) return <b>评估中… {note}</b>;
+    if (status?.overview) return status.overview;
+    if (status && !status.engineAvailable) {
+      return <span style={{ color: "#B7493D" }}>未检测到已登录的 Claude / Codex CLI</span>;
+    }
+    if (items.length === 0) return "暂无待处理事项 — 点右侧「刷新」让 AI 重新评估今天的邮件 / Topic。";
+    return `共 ${items.length} 件待处理${high > 0 ? `，其中 ${high} 件高优先` : ""}。`;
+  })();
 
   return (
-    <div className="briefing-banner" style={{ margin: "0 12px 10px" }}>
-      <span className={`banner-dot ${status?.engineAvailable ? "ok" : "off"}`} />
-      <div className="banner-text">
-        {running ? <b>评估中… {note}</b> : status?.overview ? <span>{status.overview}</span>
-          : status?.engineAvailable ? <span>点 ↻ 让 AI 开始评估</span>
-          : <span style={{ color: "#B7493D" }}>未检测到 CLI</span>}
+    <div className="brief-overview-bar">
+      <div className="brief-ov-left">
+        <div className="brief-ov-head">
+          <span className={`brief-pulse-dot ${running ? "live" : ""}`} />
+          <span>今日总览</span>
+          {status?.generatedAt && !running && (
+            <span className="brief-ov-age">· 刚刚更新于 {relativeTime(status.generatedAt)}</span>
+          )}
+        </div>
+        <div className="brief-ov-text">{overview}</div>
       </div>
-      <button className="banner-refresh" disabled={running} onClick={() => onRefresh()}>
-        {running ? "…" : "↻"}
-      </button>
+      <div className="brief-ov-stats">
+        <div className="brief-stat"><div className="brief-stat-n salmon">{high}</div><div className="brief-stat-l">高优先</div></div>
+        <div className="brief-stat"><div className="brief-stat-n">{midLow}</div><div className="brief-stat-l">中 / 低</div></div>
+        <div className="brief-stat"><div className="brief-stat-n">{unreadMail}</div><div className="brief-stat-l">未读邮件</div></div>
+        <div className="brief-stat"><div className="brief-stat-n">{activeTopics}</div><div className="brief-stat-l">活跃 Topic</div></div>
+      </div>
+      <div className="brief-ov-right">
+        <button
+          className={`brief-refresh-btn ${running ? "busy" : ""}`}
+          onClick={() => !running && onRefresh()}
+          disabled={running}
+          title={running ? "评估流水线运行中" : "重新跑 Briefing"}
+        >
+          {running ? <span className="brief-spinner" aria-hidden="true" /> : <span aria-hidden="true">↻</span>}
+          <span>{running ? "评估中…" : "刷新"}</span>
+        </button>
+      </div>
     </div>
+  );
+}
+
+// ── v1.3 right pane: live "what AI just did" timeline ───────────────
+
+function BriefAiActivity({
+  status,
+  running,
+  progress,
+  items,
+}: {
+  status: BriefingStatus | null;
+  running: boolean;
+  progress: BriefingProgress | null;
+  items: BriefItem[];
+}) {
+  // Tiny timeline. While running, top entry is the current pipeline
+  // stage (pulses + updates as the orchestrator emits progress events).
+  // Otherwise the top entry is the last completed Briefing run with its
+  // item count. No persisted history — that'd need a new table; v1.3
+  // keeps it cheap and entirely derivable from existing state.
+  const note = progressNote(running, progress);
+  const high = items.filter((i) => i.priority === "high").length;
+
+  return (
+    <>
+      <div className="brief-right-head">
+        <span className={`brief-pulse-dot ${running ? "live" : ""}`} />
+        <span>AI 活动</span>
+      </div>
+      <div className="brief-ai-tl">
+        {running && (
+          <div className="brief-ai-row">
+            <span className="brief-ai-dot live" />
+            <div className="brief-ai-body">
+              <div className="brief-ai-when">现在</div>
+              <div className="brief-ai-what">{note || "正在评估…"}</div>
+            </div>
+          </div>
+        )}
+        {status?.generatedAt && !running && (
+          <div className="brief-ai-row">
+            <span className="brief-ai-dot done" />
+            <div className="brief-ai-body">
+              <div className="brief-ai-when">{relativeTime(status.generatedAt)}</div>
+              <div className="brief-ai-what">
+                Briefing 跑完 · {items.length} 件待处理
+                {high > 0 ? ` (${high} 高)` : ""}
+              </div>
+            </div>
+          </div>
+        )}
+        {!status?.generatedAt && !running && (
+          <div style={{ padding: "12px 4px", fontSize: 12, color: "var(--ink-500)" }}>
+            尚未运行 Briefing。
+          </div>
+        )}
+      </div>
+
+      <div className="brief-right-head" style={{ marginTop: 18 }}>
+        <span>引擎状态</span>
+      </div>
+      <div style={{ fontSize: 12, color: "var(--ink-700)", lineHeight: 1.7 }}>
+        <div>
+          <span
+            className="brief-engine-dot"
+            style={{ background: status?.engineAvailable ? "#5AA76C" : "#B7493D" }}
+            aria-hidden="true"
+          />
+          {status?.engineAvailable ? "LLM 引擎在线" : "LLM 引擎不可用"}
+        </div>
+        {status?.engine && (
+          <div style={{ color: "var(--ink-500)" }}>
+            上次使用：{status.engine === "claude" ? "Claude Code" : status.engine === "codex" ? "Codex" : status.engine}
+          </div>
+        )}
+      </div>
+    </>
   );
 }
 

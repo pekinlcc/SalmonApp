@@ -1292,6 +1292,7 @@ export default function App() {
                 briefingProgress={briefingProgress}
                 briefingTick={briefingTick}
                 onRunBriefing={runBriefing}
+                unreadMail={unreadMailBadge}
               />
             )}
           </section>

@@ -32,6 +32,8 @@ interface Props {
   briefingProgress: BriefingProgress | null;
   briefingTick: number;
   onRunBriefing: () => Promise<void> | void;
+  // v1.3 — BriefingFeed's overview-bar shows the unread mail stat.
+  unreadMail: number;
 }
 
 interface Row {
@@ -65,6 +67,7 @@ export function WelcomeBack({
   briefingProgress,
   briefingTick,
   onRunBriefing,
+  unreadMail,
 }: Props) {
   const rows: Row[] = useMemo(() => {
     const live = topics.filter((t) => !t.archived);
@@ -135,6 +138,7 @@ export function WelcomeBack({
       attentionTopics={attentionTopics}
       recommendations={recommendations}
       onNewTopic={onNewTopic}
+      unreadMail={unreadMail}
     />
   );
 }
