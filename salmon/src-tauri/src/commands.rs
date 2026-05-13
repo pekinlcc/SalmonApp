@@ -46,6 +46,11 @@ pub fn detect_clis() -> Result<DetectResult, String> {
     Ok(DetectResult { clis: out })
 }
 
+#[tauri::command]
+pub fn quit_app(app: tauri::AppHandle) {
+    app.exit(0);
+}
+
 fn cli_logged_in(bin: &str, path: &std::path::Path) -> bool {
     match bin {
         "claude" => claude_logged_in(path),

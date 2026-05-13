@@ -1133,6 +1133,7 @@ export default function App() {
   // ref so the close handler — subscribed once — always sees the latest
   // count without re-subscribing on every Set change.
   const runningIdsRef = useRef<Set<string>>(runningIds);
+  const forceQuitRef = useRef(false);
   runningIdsRef.current = runningIds;
   useEffect(() => {
     let unlisten: (() => void) | null = null;
@@ -1141,6 +1142,7 @@ export default function App() {
       try {
         const win = getCurrentWindow();
         const fn = await win.onCloseRequested(async (event) => {
+          if (forceQuitRef.current) return;
           const n = runningIdsRef.current.size;
           if (n === 0) return; // No running topics — let Tauri close normally.
           // v1.1.3: must call preventDefault synchronously. Tauri 2's
@@ -1157,7 +1159,12 @@ export default function App() {
             kind: "warning",
           });
           if (ok) {
-            try { await win.destroy(); } catch { /* already gone */ }
+            forceQuitRef.current = true;
+            try {
+              await api.quitApp();
+            } catch {
+              try { await win.destroy(); } catch { /* already gone */ }
+            }
           }
         });
         if (cancelled) fn();
