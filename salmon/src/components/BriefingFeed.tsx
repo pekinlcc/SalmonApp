@@ -220,10 +220,12 @@ function BriefListRow({ item, active, onClick }: { item: BriefItem; active: bool
         <span className={`prio-pill ${prioCls}`}>{prioLabel}</span>
       </div>
       <div className="t-meta">
-        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 180 }}>
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 220 }}>
           {item.contactEmail || (item.kind === "topic" ? "(Topic)" : "")}
         </span>
-        <span>{relativeTime(item.createdAt)}</span>
+        {/* v1.3.1 — no per-row relativeTime: every brief in one run shares the
+            same createdAt, so showing it on every row was just noise. The
+            overview banner's "刚刚更新于 X" already conveys it once. */}
       </div>
     </div>
   );

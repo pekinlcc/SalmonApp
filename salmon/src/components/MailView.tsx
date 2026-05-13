@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { api } from "../lib/api";
-import type { ContactRow, MailAccount, MailListItem, MailMessageFull, MailSyncProgress } from "../lib/types";
+import type { MailAccount, MailListItem, MailMessageFull, MailSyncProgress } from "../lib/types";
 import { ComposeModal } from "./ComposeModal";
 
 /**
@@ -47,10 +47,13 @@ export function MailView({
     | { mode: "reply" | "replyAll" | "forward"; msg: MailMessageFull; draftBody?: string }
     | null
   >(null);
-  const [showContacts, setShowContacts] = useState(false);
-  const [contacts, setContacts] = useState<ContactRow[]>([]);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
-  const [selectedContact, setSelectedContact] = useState<ContactRow | null>(null);
+  // v1.3.1: the inline "👥 联系人" toggle + contacts side-panel are gone.
+  // The top-level Contacts tab (IconRail) is the canonical contacts UX,
+  // and the in-MailView duplicate was the source of several stale-state
+  // bugs (c7c5a1e, v1.1.3). Anything that used to clear `selectedContact`
+  // on account-switch / mail-click / pendingOpenMail consumption was
+  // safety net for that panel — removed along with the state.
 
   // Cross-event listener body needs the latest selectedAccountId, but
   // wiring the listener with that state as a dep makes us unmount/remount
@@ -137,7 +140,6 @@ export function MailView({
     if (!pendingOpenMail?.messageId || !pendingOpenMail?.accountId) return;
     applyingPendingOpenMailRef.current =
       pendingOpenMail.accountId !== selectedAccountId;
-    setSelectedContact(null);
     setSelectedAccountId(pendingOpenMail.accountId);
     setSelectedMessageId(pendingOpenMail.messageId);
     setSelectedBody(null);
@@ -192,19 +194,7 @@ export function MailView({
     }
     setSelectedMessageId(null);
     setSelectedBody(null);
-    setSelectedContact(null);
   }, [selectedAccountId, reloadMessages]);
-
-  // Separately, when the user switches account *while the contacts pane is
-  // open*, refresh contacts to match — kept in its own effect so toggling
-  // the pane on/off doesn't accidentally re-fire the message-list reset
-  // above and yank the open message out from under them.
-  useEffect(() => {
-    if (!selectedAccountId || !showContacts) return;
-    api.listContacts(selectedAccountId)
-      .then(setContacts)
-      .catch((e) => api.debugLog(`listContacts on account switch failed: ${e}`));
-  }, [selectedAccountId, showContacts]);
 
   useEffect(() => {
     if (!selectedMessageId) { setSelectedBody(null); return; }
@@ -301,19 +291,6 @@ export function MailView({
     } catch (e: any) { alert(`删除失败: ${e}`); }
   }, [selectedAccountId, reloadAccounts]);
 
-  // Just flip the boolean — the showContacts/selectedAccountId effect above
-  // does the actual fetch (and keeps things in sync if the user later
-  // switches accounts while the pane is still open).
-  const onToggleContacts = useCallback(() => {
-    setShowContacts((cur) => {
-      const next = !cur;
-      if (!next) {
-        setSelectedContact(null);
-      }
-      return next;
-    });
-  }, []);
-
   const onMarkUnread = useCallback(async () => {
     if (!selectedBody) return;
     try {
@@ -389,9 +366,6 @@ export function MailView({
           <button className="btn-ghost" onClick={onResync} disabled={syncing}>
             {syncing ? "同步中…" : "↻ 同步"}
           </button>
-          <button className="btn-ghost" onClick={onToggleContacts}>
-            {showContacts ? "← 邮件" : "👥 联系人"}
-          </button>
           <div className="add-account-wrap" ref={addMenuRef}>
             <button
               className="btn-ghost"
@@ -442,114 +416,36 @@ export function MailView({
           </aside>
         )}
 
-        {showContacts ? (
-          <section className="mail-list mail-contacts" role="list">
-            {contacts.length === 0 ? (
-              <div className="mail-empty">
-                还没同步联系人。<br />
-                <button className="btn primary" style={{ marginTop: 12 }}
-                  onClick={async () => {
-                    if (!selectedAccountId) return;
-                    try {
-                      const n = await api.syncContacts(selectedAccountId);
-                      const c = await api.listContacts(selectedAccountId);
-                      setContacts(c);
-                      alert(`已同步 ${n} 个`);
-                    } catch (e: any) { alert(`联系人同步失败: ${e}`); }
-                  }}
-                >↻ 同步联系人</button>
-              </div>
-            ) : (
-              contacts.map((c) => (
-                <div
-                  key={c.id}
-                  className={`contact-row ${selectedContact?.id === c.id ? "selected" : ""}`}
-                  onClick={() => { setSelectedContact(c); setSelectedMessageId(null); setSelectedBody(null); }}
-                  style={{ cursor: "pointer" }}
-                >
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div className="contact-name">
-                      {c.isVip && <span className="vip-star">★</span>}
-                      {c.name || c.email}
-                    </div>
-                    <div className="contact-meta">
-                      {c.email}{c.organization ? ` · ${c.organization}` : ""}
-                    </div>
-                    <div className="contact-meta-dim">
-                      互动 {c.interactionCount} 次{c.lastSeenMs ? ` · 最近 ${timeAgo(c.lastSeenMs)}` : ""}
-                    </div>
-                  </div>
-                  <button
-                    className="btn-ghost"
-                    onClick={async (e) => {
-                      e.stopPropagation();
-                      try {
-                        await api.setContactVip(c.id, !c.isVip);
-                        setContacts((cur) => cur.map((x) => x.id === c.id ? { ...x, isVip: !c.isVip } : x));
-                      } catch (err: any) { alert(String(err)); }
-                    }}
-                    title={c.isVip ? "取消 VIP" : "设为 VIP（信息会优先出现在首页）"}
-                  >
-                    {c.isVip ? "取消 VIP" : "设 VIP"}
-                  </button>
+        {/* v1.3.1 — contacts side-panel removed; mail list always rendered */}
+        <section className="mail-list" role="list">
+          {messages.length === 0 ? (
+            <div className="mail-empty">
+              {syncing ? "首次同步中，等一下…" : "(收件箱为空) — 点 ↻ 同步"}
+            </div>
+          ) : (
+            messages.map((m) => (
+              <div
+                key={m.id}
+                role="listitem"
+                className={`mail-item ${m.unread ? "unread" : ""} ${m.id === selectedMessageId ? "selected" : ""}`}
+                onClick={() => setSelectedMessageId(m.id)}
+              >
+                <div className="mi-row">
+                  <span className="mi-from">
+                    {m.unread && <span className="mi-dot" />}
+                    {m.fromName || m.fromEmail || "(无)"}
+                  </span>
+                  <span className="mi-time">{shortDate(m.dateMs)}</span>
                 </div>
-              ))
-            )}
-          </section>
-        ) : (
-          <section className="mail-list" role="list">
-            {messages.length === 0 ? (
-              <div className="mail-empty">
-                {syncing ? "首次同步中，等一下…" : "(收件箱为空) — 点 ↻ 同步"}
+                <div className="mi-subj">{m.subject || "(无主题)"}</div>
+                <div className="mi-snip">{m.snippet}</div>
               </div>
-            ) : (
-              messages.map((m) => (
-                <div
-                  key={m.id}
-                  role="listitem"
-                  className={`mail-item ${m.unread ? "unread" : ""} ${m.id === selectedMessageId ? "selected" : ""}`}
-                  onClick={() => {
-                    setSelectedContact(null);
-                    setSelectedMessageId(m.id);
-                  }}
-                >
-                  <div className="mi-row">
-                    <span className="mi-from">
-                      {m.unread && <span className="mi-dot" />}
-                      {m.fromName || m.fromEmail || "(无)"}
-                    </span>
-                    <span className="mi-time">{shortDate(m.dateMs)}</span>
-                  </div>
-                  <div className="mi-subj">{m.subject || "(无主题)"}</div>
-                  <div className="mi-snip">{m.snippet}</div>
-                </div>
-              ))
-            )}
-          </section>
-        )}
+            ))
+          )}
+        </section>
 
         <section className="mail-reader">
-          {selectedContact ? (
-            <ContactDetail
-              contact={selectedContact}
-              onClose={() => setSelectedContact(null)}
-              onOpenMessage={(mid) => {
-                // Tapping a thread row inside the contact panel: switch back
-                // to mail view + select that message.
-                setSelectedContact(null);
-                setShowContacts(false);
-                setSelectedMessageId(mid);
-              }}
-              onToggleVip={async (c) => {
-                try {
-                  await api.setContactVip(c.id, !c.isVip);
-                  const updated = { ...c, isVip: !c.isVip };
-                  setContacts((cur) => cur.map((x) => x.id === c.id ? updated : x));
-                  setSelectedContact(updated);
-                } catch (e: any) { alert(String(e)); }
-              }}
-            />
-          ) : selectedBody ? (
+          {selectedBody ? (
             <Reader
               msg={selectedBody}
               onReply={() => setCompose({ mode: "reply", msg: selectedBody })}
@@ -559,7 +455,7 @@ export function MailView({
             />
           ) : (
             <div className="mail-empty" style={{ padding: 40 }}>
-              {showContacts ? "选一个联系人查看汇总" : "选一封邮件查看"}
+              选一封邮件查看
             </div>
           )}
         </section>
@@ -628,127 +524,9 @@ function Reader({
   );
 }
 
-/**
- * v0.10.3 — when the user clicks a contact in the contacts pane, the
- * reader pane shows this aggregated view: Pulse-analyzed brief items
- * about the contact + their recent mail thread. Pulse already produced
- * the items per-contact during the briefing pipeline; we just need to
- * surface them.
- */
-function ContactDetail({
-  contact,
-  onClose,
-  onOpenMessage,
-  onToggleVip,
-}: {
-  contact: ContactRow;
-  onClose: () => void;
-  onOpenMessage: (messageId: string) => void;
-  onToggleVip: (c: ContactRow) => void;
-}) {
-  const [mail, setMail] = useState<MailListItem[]>([]);
-  const [briefs, setBriefs] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    (async () => {
-      try {
-        const [m, b] = await Promise.all([
-          api.listContactMail(contact.accountId, contact.email, 30).catch(() => []),
-          api.listContactBriefItems(contact.email).catch(() => []),
-        ]);
-        if (cancelled) return;
-        setMail(m);
-        setBriefs(b);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [contact.id, contact.accountId, contact.email]);
-
-  return (
-    <div className="contact-detail">
-      <div className="contact-detail-head">
-        <div className="contact-detail-title">
-          {contact.isVip && <span className="vip-star">★</span>}
-          {contact.name || contact.email}
-        </div>
-        <div className="contact-detail-sub">
-          {contact.email}
-          {contact.organization && <> · {contact.organization}</>}
-          <> · 互动 {contact.interactionCount} 次</>
-          {contact.lastSeenMs && <> · 最近 {timeAgo(contact.lastSeenMs)}</>}
-        </div>
-        <div className="contact-detail-actions">
-          <button className="btn-ghost" onClick={() => onToggleVip(contact)}>
-            {contact.isVip ? "取消 VIP" : "★ 设为 VIP"}
-          </button>
-          <button className="btn-ghost" onClick={onClose}>关闭</button>
-        </div>
-      </div>
-
-      {loading ? (
-        <div className="mail-empty" style={{ padding: 40 }}>加载中…</div>
-      ) : (
-        <>
-          {briefs.length > 0 && (
-            <div className="contact-section">
-              <div className="contact-section-label">
-                ✦ AI 分析的重点事项 ({briefs.length})
-              </div>
-              {briefs.map((b) => (
-                <div key={b.id} className={`contact-brief prio-${b.priority}`}>
-                  <div className="contact-brief-head">
-                    <span className={`prio-pill prio-${b.priority}`}>
-                      {b.priority === "high" ? "高" : b.priority === "low" ? "低" : "中"}
-                    </span>
-                    <span className="contact-brief-title">{b.title}</span>
-                  </div>
-                  {b.summary && <div className="contact-brief-summary">{b.summary}</div>}
-                  {b.why && (
-                    <div className="contact-brief-why">
-                      <span style={{ fontWeight: 600 }}>↗ </span>{b.why}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-
-          <div className="contact-section">
-            <div className="contact-section-label">
-              📧 最近往来邮件 ({mail.length})
-            </div>
-            {mail.length === 0 ? (
-              <div className="mail-empty" style={{ padding: 20 }}>暂无邮件</div>
-            ) : (
-              mail.map((m) => (
-                <div
-                  key={m.id}
-                  className={`mail-item ${m.unread ? "unread" : ""}`}
-                  onClick={() => onOpenMessage(m.id)}
-                  style={{ cursor: "pointer" }}
-                >
-                  <div className="mi-row">
-                    <span className="mi-from">
-                      {m.unread && <span className="mi-dot" />}
-                      {m.fromName || m.fromEmail || "(无)"}
-                    </span>
-                    <span className="mi-time">{shortDate(m.dateMs)}</span>
-                  </div>
-                  <div className="mi-subj">{m.subject || "(无主题)"}</div>
-                  <div className="mi-snip">{m.snippet}</div>
-                </div>
-              ))
-            )}
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
+// v1.3.1 — ContactDetail (inline contact-aggregation panel) removed along
+// with the rest of the MailView contacts side-panel. The top-level
+// Contacts tab (ContactsView.tsx) now owns this whole interaction.
 
 function shortDate(ms: number): string {
   const d = new Date(ms);

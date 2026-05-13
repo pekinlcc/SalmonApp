@@ -37,21 +37,24 @@ button { font-family: inherit; }
 /* ===== Three-pane layout ===== */
 .app {
   display: grid;
-  grid-template-columns: 260px 1fr 380px;
+  grid-template-columns: 280px 1fr 380px;
   grid-template-rows: 100vh;
   height: 100vh;
 }
-.app.no-right { grid-template-columns: 260px 1fr; }
-.app.right-collapsed { grid-template-columns: 260px 1fr 28px; }
+.app.no-right { grid-template-columns: 280px 1fr; }
+.app.right-collapsed { grid-template-columns: 280px 1fr 28px; }
 
 /* v0.11 layout: IconRail(56) prepended to the original 3-pane shell.
    Children render in this order:
      IconRail (always) → LeftSidebar (topic view only) → middle → RightPane (topic only)
    no-left fires on home/mail/calendar/contacts/tasks where LeftSidebar is absent.
-   no-right fires when no Topic is selected. */
-.app.v11 { grid-template-columns: 56px 260px 1fr 380px; }
-.app.v11.right-collapsed { grid-template-columns: 56px 260px 1fr 28px; }
-.app.v11.no-right { grid-template-columns: 56px 260px 1fr; }
+   no-right fires when no Topic is selected.
+   v1.3.1 — left list width standardised at 280px across Topic view and
+   the three-pane views (.three-list below) so adjacent views feel like
+   the same app. */
+.app.v11 { grid-template-columns: 56px 280px 1fr 380px; }
+.app.v11.right-collapsed { grid-template-columns: 56px 280px 1fr 28px; }
+.app.v11.no-right { grid-template-columns: 56px 280px 1fr; }
 .app.v11.no-left.no-right { grid-template-columns: 56px 1fr; }
 
 .right-rail {
@@ -2362,7 +2365,7 @@ button { font-family: inherit; }
   background: var(--bg);
 }
 .three-list {
-  width: 320px;
+  width: 280px;
   background: var(--side);
   border-right: 1px solid var(--ink-100);
   display: flex; flex-direction: column;
