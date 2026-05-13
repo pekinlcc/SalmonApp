@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { ChatLayout, CliInfo, ComposerSendMode, DailyUsage, UsageSummary } from "../lib/types";
+import type { MailAccount, OauthStatus } from "../lib/types";
 import { api } from "../lib/api";
 import pkg from "../../package.json";
 
@@ -351,61 +352,165 @@ function PreferencesTab({
   );
 }
 
-/**
- * v0.9.0-alpha.1 placeholder. Until alpha.2 wires OAuth, this tab is a
- * static screen explaining what's coming + linking to the OAuth setup
- * guide that ships in the repo. Real account management UI lands once
- * the auth backend is in.
- */
 function AccountsTab() {
+  const [accounts, setAccounts] = useState<MailAccount[]>([]);
+  const [oauthStatus, setOauthStatus] = useState<OauthStatus>({
+    googleConfigured: false,
+    microsoftConfigured: false,
+  });
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState<"gmail" | "outlook" | "delete" | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = async () => {
+    setError(null);
+    try {
+      const [status, rows] = await Promise.all([
+        api.getOauthStatus(),
+        api.listMailAccounts(),
+      ]);
+      setOauthStatus(status);
+      setAccounts(rows);
+    } catch (e: any) {
+      setError(String(e));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const addAccount = async (provider: "gmail" | "outlook") => {
+    setBusy(provider);
+    setError(null);
+    try {
+      const account = provider === "gmail"
+        ? await api.startGmailOauth()
+        : await api.startOutlookOauth();
+      setAccounts((cur) => cur.find((a) => a.id === account.id) ? cur : [...cur, account]);
+      api.syncMailAccount(account.id).catch(() => {});
+      api.syncContacts(account.id).catch(() => {});
+    } catch (e: any) {
+      setError(String(e));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const removeAccount = async (account: MailAccount) => {
+    if (!confirm(`移除 ${account.email}？本地缓存的邮件、日历、联系人和待办会一起删除。`)) return;
+    setBusy("delete");
+    setError(null);
+    try {
+      await api.deleteMailAccount(account.id);
+      setAccounts((cur) => cur.filter((a) => a.id !== account.id));
+    } catch (e: any) {
+      setError(String(e));
+    } finally {
+      setBusy(null);
+    }
+  };
+
   return (
     <>
       <h3>邮箱账号</h3>
       <div className="sub">
-        v0.9 将集成 Gmail + Outlook，做完整邮件 / 日历 / 联系人客户端 + AI 推荐。
-        当前是 alpha.1 基建版 —— 认证流程在 alpha.2 上线。
+        管理 Gmail / Outlook OAuth 账号。邮件、日历、联系人和待办共用这里的授权。
       </div>
 
-      <div className="empty-feature" style={{ padding: "30px 24px" }}>
-        <div className="empty-icon">🔑</div>
-        <div className="empty-title">还没有邮箱账号</div>
-        <div className="empty-sub">
-          要先在 Google Cloud 和 Microsoft Azure 注册 OAuth 应用，
-          拿到 client ID + secret。仓库根目录的 <code>OAUTH-SETUP.md</code>
-          一步步带你做。
+      <section className="settings-section">
+        <div className="settings-section-title">添加账号</div>
+        <div className="account-provider-grid">
+          <ProviderCard
+            label="Gmail"
+            badge="G"
+            configured={oauthStatus.googleConfigured}
+            busy={busy === "gmail"}
+            disabled={busy !== null || !oauthStatus.googleConfigured}
+            onClick={() => addAccount("gmail")}
+          />
+          <ProviderCard
+            label="Outlook"
+            badge="O"
+            configured={oauthStatus.microsoftConfigured}
+            busy={busy === "outlook"}
+            disabled={busy !== null || !oauthStatus.microsoftConfigured}
+            onClick={() => addAccount("outlook")}
+          />
         </div>
+        {(!oauthStatus.googleConfigured || !oauthStatus.microsoftConfigured) && (
+          <div className="settings-section-desc" style={{ marginTop: 8 }}>
+            未配置的服务需要先填写 <code>salmon/src-tauri/oauth_config.toml</code>，设置方法见仓库根目录 <code>OAUTH-SETUP.md</code>。
+          </div>
+        )}
+      </section>
 
-        <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
-          <button className="provider-btn" disabled style={{ opacity: 0.6, cursor: "not-allowed" }}>
-            <span className="pico" style={{ background: "#4285F4" }}>G</span>
-            <div style={{ flex: 1, textAlign: "left" }}>
-              <div style={{ fontWeight: 600 }}>+ 添加 Gmail</div>
-              <div style={{ fontSize: 11, color: "var(--ink-500)" }}>alpha.2 上线</div>
-            </div>
-          </button>
-          <button className="provider-btn" disabled style={{ opacity: 0.6, cursor: "not-allowed" }}>
-            <span className="pico" style={{ background: "#0078D4" }}>O</span>
-            <div style={{ flex: 1, textAlign: "left" }}>
-              <div style={{ fontWeight: 600 }}>+ 添加 Outlook</div>
-              <div style={{ fontSize: 11, color: "var(--ink-500)" }}>alpha.4 上线</div>
-            </div>
-          </button>
-        </div>
-
-        <div className="empty-roadmap">
-          <h4>路线图（约 5-6 个月单人）</h4>
-          <ul>
-            <li><b>alpha.1 当前</b> — 侧栏 / 视图 / DB schema / 设置基建</li>
-            <li>alpha.2 — Gmail OAuth + 邮件 read</li>
-            <li>alpha.3 — 邮件写 / 草稿 / 附件</li>
-            <li>alpha.4 — Outlook 接入</li>
-            <li>alpha.5 — 日历完整 CRUD（两家）</li>
-            <li>alpha.6 — 联系人 + 多账号 + AI 混合 briefing</li>
-            <li>v0.9.0 正式版 — Polish + ship</li>
-          </ul>
-        </div>
-      </div>
+      <section className="settings-section">
+        <div className="settings-section-title">已连接账号</div>
+        {loading ? (
+          <div className="settings-section-desc">正在加载…</div>
+        ) : accounts.length === 0 ? (
+          <div className="account-empty">还没有连接邮箱账号。</div>
+        ) : (
+          <div className="account-list">
+            {accounts.map((a) => (
+              <div className="account-row" key={a.id}>
+                <span className={`provider-dot ${a.provider === "gmail" ? "gmail" : "outlook"}`}>
+                  {a.provider === "gmail" ? "G" : "O"}
+                </span>
+                <div className="account-main">
+                  <div className="account-email">{a.email}</div>
+                  <div className="account-meta">
+                    {a.provider} · 未读 {a.unreadCount}
+                    {a.lastSyncAt ? ` · 最近同步 ${new Date(a.lastSyncAt).toLocaleString()}` : ""}
+                  </div>
+                  {a.lastSyncError && <div className="account-error">{a.lastSyncError}</div>}
+                </div>
+                <button
+                  className="btn"
+                  disabled={busy !== null}
+                  onClick={() => removeAccount(a)}
+                >
+                  移除
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        {error && <div className="settings-error">{error}</div>}
+      </section>
     </>
+  );
+}
+
+function ProviderCard({
+  label,
+  badge,
+  configured,
+  busy,
+  disabled,
+  onClick,
+}: {
+  label: string;
+  badge: string;
+  configured: boolean;
+  busy: boolean;
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button className="provider-card" disabled={disabled} onClick={onClick}>
+      <span className={`provider-dot ${badge === "G" ? "gmail" : "outlook"}`}>{badge}</span>
+      <div className="provider-main">
+        <div className="provider-title">添加 {label}</div>
+        <div className="provider-sub">
+          {busy ? "等待浏览器授权…" : configured ? "OAuth 已配置" : "OAuth 未配置"}
+        </div>
+      </div>
+      <span className={`provider-state ${configured ? "ready" : "missing"}`}>
+        {configured ? "可添加" : "需配置"}
+      </span>
+    </button>
   );
 }
 

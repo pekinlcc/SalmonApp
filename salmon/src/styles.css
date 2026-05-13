@@ -1090,6 +1090,115 @@ button { font-family: inherit; }
 }
 
 /* Provider button (Gmail / Outlook add) — used in AccountsTab. */
+.account-provider-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.provider-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 72px;
+  padding: 12px 14px;
+  background: var(--panel);
+  border: 1px solid var(--ink-100);
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+}
+.provider-card:hover:not(:disabled) {
+  border-color: var(--salmon-300);
+  background: var(--salmon-50);
+}
+.provider-card:disabled {
+  cursor: not-allowed;
+  opacity: .62;
+}
+.provider-dot {
+  width: 32px;
+  height: 32px;
+  border-radius: 7px;
+  color: white;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+.provider-dot.gmail { background: #4285F4; }
+.provider-dot.outlook { background: #0078D4; }
+.provider-main,
+.account-main {
+  min-width: 0;
+  flex: 1;
+}
+.provider-title,
+.account-email {
+  font-weight: 600;
+  color: var(--ink-900);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.provider-sub,
+.account-meta {
+  margin-top: 3px;
+  color: var(--ink-500);
+  font-size: 11.5px;
+}
+.provider-state {
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 2px 7px;
+  flex-shrink: 0;
+}
+.provider-state.ready {
+  color: #2F7D1F;
+  background: #E2F4D7;
+}
+.provider-state.missing {
+  color: var(--ink-500);
+  background: var(--ink-50);
+}
+.account-list {
+  border: 1px solid var(--ink-100);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--panel);
+}
+.account-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 12px;
+  border-bottom: 1px solid var(--ink-100);
+}
+.account-row:last-child { border-bottom: 0; }
+.account-error {
+  margin-top: 4px;
+  color: #B7493D;
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+.account-empty,
+.settings-error {
+  border: 1px solid var(--ink-100);
+  border-radius: 8px;
+  padding: 14px;
+  color: var(--ink-500);
+  font-size: 12.5px;
+  background: var(--panel);
+}
+.settings-error {
+  margin-top: 10px;
+  color: #B7493D;
+  border-color: #F1B1A8;
+  background: #FFF6F3;
+}
 .provider-btn {
   display: flex; align-items: center; gap: 10px;
   padding: 10px 14px;
@@ -2167,17 +2276,56 @@ button { font-family: inherit; }
 }
 .icon-rail .rail-spacer { flex: 1; }
 .icon-rail .rail-cli-status {
-  display: flex; gap: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
   justify-content: center;
   padding: 6px 0 2px;
 }
-.icon-rail .rail-cli-dot {
-  width: 8px; height: 8px; border-radius: 50%;
-  background: var(--ink-300);
+.icon-rail .rail-cli-pill {
+  width: 44px;
+  height: 24px;
+  border-radius: 8px;
+  border: 1px solid var(--ink-100);
+  background: rgba(255,255,255,.42);
+  color: var(--ink-700);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 0;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  cursor: pointer;
 }
-.icon-rail .rail-cli-dot.ok { background: #5AA76C; }
-.icon-rail .rail-cli-dot.warn { background: #E8A82A; }
-.icon-rail .rail-cli-dot.miss { background: #B7493D; }
+.icon-rail .rail-cli-pill:hover {
+  border-color: var(--salmon-300);
+  background: var(--salmon-50);
+}
+.icon-rail .rail-cli-mark {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--ink-300);
+  box-shadow: 0 0 0 3px rgba(0,0,0,.04);
+}
+.icon-rail .rail-cli-pill.ok {
+  border-color: rgba(90,167,108,.45);
+  background: #F2FAF1;
+}
+.icon-rail .rail-cli-pill.warn {
+  border-color: rgba(232,168,42,.55);
+  background: #FFF8E1;
+}
+.icon-rail .rail-cli-pill.miss {
+  border-color: rgba(183,73,61,.42);
+  background: #FFF3F1;
+  color: #8A4A43;
+}
+.icon-rail .rail-cli-pill.ok .rail-cli-mark { background: #5AA76C; }
+.icon-rail .rail-cli-pill.warn .rail-cli-mark { background: #E8A82A; }
+.icon-rail .rail-cli-pill.miss .rail-cli-mark { background: #B7493D; }
 
 /* ===== v0.11 ContactsView 3-pane wrapper ===== */
 .three-pane {

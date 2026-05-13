@@ -125,12 +125,17 @@ export function IconRail(props: Props) {
       <div className="rail-cli-status">
         {props.cliStatus.map((c) => {
           const cls = !c.installed ? "miss" : c.loggedIn ? "ok" : "warn";
+          const short = c.binary === "claude" ? "CC" : "CX";
           return (
-            <span
+            <button
               key={c.binary}
-              className={`rail-cli-dot ${cls}`}
+              className={`rail-cli-pill ${cls}`}
               title={`${c.name}: ${!c.installed ? "未安装" : c.loggedIn ? "已登录" : "未登录"}`}
-            />
+              onClick={props.onOpenSettings}
+            >
+              <span className="rail-cli-mark" />
+              <span>{short}</span>
+            </button>
           );
         })}
       </div>

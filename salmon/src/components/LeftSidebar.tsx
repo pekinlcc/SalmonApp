@@ -3,7 +3,6 @@ import { ask } from "@tauri-apps/plugin-dialog";
 import type { CliInfo, Topic } from "../lib/types";
 import { relativeTime } from "../lib/format";
 import { SalmonLogo } from "./SalmonLogo";
-import pkg from "../../package.json";
 
 interface Props {
   topics: Topic[];
@@ -67,7 +66,6 @@ export function LeftSidebar(props: Props) {
       <div className="left-head">
         <SalmonLogo className="logo" />
         <div className="name">Topic</div>
-        <div className="ver">v{pkg.version}</div>
       </div>
 
       <button className="new-btn" onClick={props.onNewTopic}>
