@@ -64,6 +64,7 @@
 | `https://www.googleapis.com/auth/gmail.modify` | 标已读 / 归档 / 删除 |
 | `https://www.googleapis.com/auth/calendar` | 日历 CRUD |
 | `https://www.googleapis.com/auth/contacts.readonly` | 联系人 |
+| `https://www.googleapis.com/auth/tasks` | 待办 CRUD |
 | `https://www.googleapis.com/auth/userinfo.email` | 知道登录的邮箱地址 |
 | `https://www.googleapis.com/auth/userinfo.profile` | 显示名 / 头像 |
 
@@ -112,8 +113,8 @@
   - 这样个人 Outlook / Hotmail / Live 邮箱 + 公司账号都能登录
 - **重定向 URI**：
   - 平台选 **"公共客户端/本机 (移动和桌面)"**
-  - URI 填：`http://127.0.0.1:8765/oauth-callback`
-  - （这是 SalmonApp 启动 OAuth 时本地监听的端口，alpha.2 实现）
+  - URI 填：`http://127.0.0.1/oauth/callback`
+  - SalmonApp 启动 OAuth 时会监听随机本地端口。Microsoft 对 loopback redirect URI 会忽略端口，但路径必须匹配 `/oauth/callback`。
 
 点 **注册**。
 
@@ -140,6 +141,7 @@ Microsoft 不用 client secret（公共客户端走 PKCE），所以只有这一
 | `Mail.Send` | 发邮件 |
 | `Calendars.ReadWrite` | 日历 CRUD |
 | `Contacts.Read` | 联系人 |
+| `Tasks.ReadWrite` | 待办 CRUD |
 | `User.Read` | 知道登录的账号信息 |
 | `offline_access` | refresh token（关键！没这个每小时要重登） |
 
