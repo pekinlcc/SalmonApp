@@ -150,6 +150,7 @@ export function MailView({ pendingComposeReply, onConsumeComposeReply }: MailVie
     reloadMessages(selectedAccountId);
     setSelectedMessageId(null);
     setSelectedBody(null);
+    setSelectedContact(null);
   }, [selectedAccountId, reloadMessages]);
 
   // Separately, when the user switches account *while the contacts pane is
@@ -262,7 +263,13 @@ export function MailView({ pendingComposeReply, onConsumeComposeReply }: MailVie
   // does the actual fetch (and keeps things in sync if the user later
   // switches accounts while the pane is still open).
   const onToggleContacts = useCallback(() => {
-    setShowContacts((cur) => !cur);
+    setShowContacts((cur) => {
+      const next = !cur;
+      if (!next) {
+        setSelectedContact(null);
+      }
+      return next;
+    });
   }, []);
 
   const onMarkUnread = useCallback(async () => {
@@ -459,7 +466,10 @@ export function MailView({ pendingComposeReply, onConsumeComposeReply }: MailVie
                   key={m.id}
                   role="listitem"
                   className={`mail-item ${m.unread ? "unread" : ""} ${m.id === selectedMessageId ? "selected" : ""}`}
-                  onClick={() => setSelectedMessageId(m.id)}
+                  onClick={() => {
+                    setSelectedContact(null);
+                    setSelectedMessageId(m.id);
+                  }}
                 >
                   <div className="mi-row">
                     <span className="mi-from">
