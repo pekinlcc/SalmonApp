@@ -638,12 +638,17 @@ fn parse_external_recipients(
 
 // Duplicated from roost.rs to avoid making private helpers pub. Both
 // modules have the same notion of "noreply" / "own address".
+// v1.1.3: drop the substring prefix forms (`starts_with("noreply")`,
+// `starts_with("no-reply")`) — they over-matched real human addresses
+// like `no-reply-needed@…` or `noreplyforanother@…` and silently hid
+// those people from both the Contacts view and the Pulse pipeline.
+// The exact-match list still catches the canonical noreply spellings.
 fn is_noreply_local(addr: &str) -> bool {
     let local = addr.split('@').next().unwrap_or("");
     matches!(
         local,
         "noreply" | "no-reply" | "donotreply" | "do-not-reply" | "mailer-daemon" | "postmaster"
-    ) || local.starts_with("noreply") || local.starts_with("no-reply")
+    )
 }
 
 fn load_own_addresses_local(db: &Db) -> Result<std::collections::HashSet<String>> {

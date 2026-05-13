@@ -172,6 +172,14 @@ export function ContactsView() {
             briefs={briefs}
             bundle={bundle}
             bundleLoading={bundleLoading}
+            onBriefActionDone={(itemId) => {
+              // Drop the just-acted brief from the local detail list so
+              // the card disappears immediately, and refresh the parent
+              // list so the priority badge pill on the contact row
+              // updates from the now-shrunken brief_items counts.
+              setBriefs((cur) => cur.filter((b) => b.id !== itemId));
+              loadContacts();
+            }}
             onToggleVip={async () => {
               if (!selected.isSaved) return;
               try {
@@ -247,12 +255,14 @@ function ContactDetail({
   bundle,
   bundleLoading,
   onToggleVip,
+  onBriefActionDone,
 }: {
   contact: UnifiedContact;
   briefs: BriefItem[];
   bundle: ContactBundle | null;
   bundleLoading: boolean;
   onToggleVip: () => void;
+  onBriefActionDone: (itemId: string) => void;
 }) {
   return (
     <>
@@ -295,7 +305,9 @@ function ContactDetail({
             </div>
           </div>
         ) : (
-          briefs.map((b) => <ContactBriefCard key={b.id} item={b} />)
+          briefs.map((b) => (
+            <ContactBriefCard key={b.id} item={b} onActionDone={onBriefActionDone} />
+          ))
         )}
 
         {/* [Roost] — 30-day local aggregation, exactly what Pulse was fed */}
@@ -338,7 +350,7 @@ function ContactDetail({
                   className="mail-item"
                   onClick={() => {
                     window.dispatchEvent(new CustomEvent("salmon:open-mail-message", {
-                      detail: { messageId: m.id },
+                      detail: { messageId: m.id, accountId: m.accountId },
                     }));
                   }}
                   style={{ cursor: "pointer" }}
@@ -367,7 +379,7 @@ function ContactDetail({
   );
 }
 
-function ContactBriefCard({ item }: { item: BriefItem }) {
+function ContactBriefCard({ item, onActionDone }: { item: BriefItem; onActionDone: (itemId: string) => void }) {
   const prioClass = item.priority === "high" ? "prio-high" : item.priority === "low" ? "prio-low" : "prio-medium";
   const prioLabel = item.priority === "high" ? "高" : item.priority === "low" ? "低" : "中";
   return (
@@ -409,6 +421,7 @@ function ContactBriefCard({ item }: { item: BriefItem }) {
                   window.dispatchEvent(new CustomEvent("salmon:toast", {
                     detail: { title: `✓ 执行 ${a.label}`, kind: "done" },
                   }));
+                  onActionDone(item.id);
                 } catch (e: any) {
                   window.dispatchEvent(new CustomEvent("salmon:toast", {
                     detail: { title: `执行失败: ${e}`, kind: "error" },

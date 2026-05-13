@@ -1142,12 +1142,23 @@ export default function App() {
         const win = getCurrentWindow();
         const fn = await win.onCloseRequested(async (event) => {
           const n = runningIdsRef.current.size;
-          if (n === 0) return;
+          if (n === 0) return; // No running topics — let Tauri close normally.
+          // v1.1.3: must call preventDefault synchronously. Tauri 2's
+          // onCloseRequested doesn't await the handler before deciding to
+          // close — by the time `await ask(...)` resolves the close
+          // request has already been processed (or dropped under WKWebView),
+          // so calling preventDefault after the await was a no-op. That's
+          // why "Yes" in the dialog didn't actually quit in v1.1.2.
+          // Fix: always preventDefault first; on confirm, explicitly
+          // destroy() the window.
+          event.preventDefault();
           const ok = await ask(`还有 ${n} 个 Topic 在运行,确定退出?未完成的对话会被中断。`, {
             title: "确认退出 SalmonApp",
             kind: "warning",
           });
-          if (!ok) event.preventDefault();
+          if (ok) {
+            try { await win.destroy(); } catch { /* already gone */ }
+          }
         });
         if (cancelled) fn();
         else unlisten = fn;

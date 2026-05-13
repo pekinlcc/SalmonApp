@@ -259,9 +259,11 @@ export function ChatStream(props: Props) {
 
       {messages.map((m) => (
         <div key={m.id} className="msg" data-message-id={m.id}>
-          <div className={`avatar ${m.role === "user" ? "user" : "ai"}`}>
-            {m.role === "user" ? "我" : "S"}
-          </div>
+          {m.role === "user" ? (
+            <div className="avatar user">我</div>
+          ) : (
+            <SalmonLogo className="avatar ai" />
+          )}
           <div className="msg-body">
             <div className="msg-name">
               {m.role === "user" ? "你" : "SalmonApp · " + (topic.engine === "claude" ? "Claude Code" : "Codex")}

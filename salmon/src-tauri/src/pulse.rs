@@ -215,8 +215,13 @@ fn parse_items(raw: &str) -> Result<Vec<PulseItem>> {
     // Pulse's system prompt asks for "no padding", but LLMs sometimes
     // split one concern into multiple cards. Hard-cap at 3 items per
     // contact — anything more is almost always the same concern fanned
-    // out into separate cards. The system prompt itself says a single
-    // contact usually has 0-2 truly independent issues per Briefing.
+    // out into separate cards. v1.1.3: sort by priority desc first so
+    // a `[low, low, low, high]` output (rare but possible) keeps the
+    // high-priority card instead of dropping it on the truncate.
+    let pri_rank = |p: &str| -> u8 {
+        match p { "high" => 3, "medium" => 2, _ => 1 }
+    };
+    out.sort_by(|a, b| pri_rank(&b.priority).cmp(&pri_rank(&a.priority)));
     out.truncate(3);
     Ok(out)
 }

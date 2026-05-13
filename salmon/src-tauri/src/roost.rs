@@ -255,12 +255,15 @@ fn first_external_recipient(
     None
 }
 
+// v1.1.3: tightened — see contacts::is_noreply_local for the rationale.
+// The substring prefix forms were eating legitimate addresses like
+// `no-reply-needed@…` and `noreplyforanother@…`.
 fn is_noreply(addr: &str) -> bool {
     let local = addr.split('@').next().unwrap_or("");
     matches!(
         local,
         "noreply" | "no-reply" | "donotreply" | "do-not-reply" | "mailer-daemon" | "postmaster"
-    ) || local.starts_with("noreply") || local.starts_with("no-reply")
+    )
 }
 
 fn load_events_by_email(

@@ -129,14 +129,20 @@ export function MailView({
   // text via api.getMailMessage(id) which works regardless of list
   // membership. Also clears any selected contact so the reader pane
   // shows the mail, not the contact detail (mirrors c7c5a1e's intent).
+  // v1.1.3: when the target mail lives in a different account, the
+  // account-change effect would normally clobber the just-set
+  // selectedMessageId. Use the applyingPendingOpenMailRef guard so the
+  // selection survives the account switch.
   useEffect(() => {
     if (!pendingOpenMail?.messageId || !pendingOpenMail?.accountId) return;
+    applyingPendingOpenMailRef.current =
+      pendingOpenMail.accountId !== selectedAccountId;
     setSelectedContact(null);
     setSelectedAccountId(pendingOpenMail.accountId);
     setSelectedMessageId(pendingOpenMail.messageId);
     setSelectedBody(null);
     onConsumePendingOpenMail?.();
-  }, [pendingOpenMail, onConsumePendingOpenMail]);
+  }, [pendingOpenMail, onConsumePendingOpenMail, selectedAccountId]);
 
   useEffect(() => {
     let un: UnlistenFn | undefined;
@@ -171,9 +177,19 @@ export function MailView({
     }
   }, []);
 
+  // Guards the account-change effect below: when pendingOpenMail (from a
+  // brief-card click) lands on a mail in a DIFFERENT account, we need to
+  // switch account AND keep the just-set selectedMessageId. Without this
+  // ref the account-change effect would clobber it back to null and the
+  // reader pane would land empty. Mirrors the pendingComposeReply pattern.
+  const applyingPendingOpenMailRef = useRef(false);
   useEffect(() => {
     if (!selectedAccountId) return;
     reloadMessages(selectedAccountId);
+    if (applyingPendingOpenMailRef.current) {
+      applyingPendingOpenMailRef.current = false;
+      return;
+    }
     setSelectedMessageId(null);
     setSelectedBody(null);
     setSelectedContact(null);

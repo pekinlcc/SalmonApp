@@ -192,22 +192,12 @@ pub async fn run_briefing(
 
     // ── Persist brief_items ────────────────────────────────────────
     let now_ms = chrono::Utc::now().timestamp_millis();
-    // Each briefing run is a fresh snapshot — supersede every still-pending
-    // item from any prior run before writing this run's output. Without
-    // this, running Briefing 3x in 24h would leave 3 generations of cards
-    // coexisting (only the >24h cleanup below would catch them, and only
-    // eventually), which surfaced as "contact has 5-6 cards for 2 emails".
-    // The new run's output is canonical; old pendings get `superseded`
-    // (a terminal status that doesn't show in any `WHERE status='pending'`
-    // query). We still keep the 24h safety expiry — that one only matters
-    // if a run crashes mid-flight, leaving stale pendings behind.
+    // Safety net: expire pending items older than 24h. Unaffected by the
+    // supersede sweep below — that one is failure-safe (only runs after
+    // a successful write_items); this one is a separate "stale cleanup"
+    // concern and shouldn't depend on whether a new run completes.
     {
         let guard = db.lock();
-        let _ = guard.conn().execute(
-            "UPDATE brief_items SET status='superseded', decided_at=?
-             WHERE status='pending'",
-            params![now_ms],
-        );
         let _ = guard.conn().execute(
             "UPDATE brief_items SET status='expired', decided_at=?
              WHERE status='pending' AND created_at < ?",
@@ -224,6 +214,21 @@ pub async fn run_briefing(
         &cross_links,
     )
     .context("persist brief_items")?;
+
+    // v1.1.3: supersede prior pending items AFTER write_items succeeds.
+    // Order matters — if we superseded first and write_items failed (DB
+    // error, JSON serialization fault, etc.) the user would lose all
+    // their pending cards with nothing to replace them. By writing
+    // first and superseding everything-except-this-run after, a failed
+    // write leaves prior pending intact and the user sees no regression.
+    {
+        let guard = db.lock();
+        let _ = guard.conn().execute(
+            "UPDATE brief_items SET status='superseded', decided_at=?
+             WHERE status='pending' AND briefing_id != ?",
+            params![now_ms, briefing_id],
+        );
+    }
 
     // Update briefing_state to point at this new run.
     {
