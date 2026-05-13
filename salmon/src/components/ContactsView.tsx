@@ -8,6 +8,7 @@ import type {
   UnifiedContact,
 } from "../lib/types";
 import { RelatedMailList } from "./RelatedMailList";
+import { SalmonLogo } from "./SalmonLogo";
 
 /**
  * v1.1 — Contacts view rewritten on top of `list_unified_contacts`.
@@ -124,7 +125,7 @@ export function ContactsView() {
     <div className="three-pane">
       <aside className="three-list">
         <div className="left-head">
-          <div className="logo">👥</div>
+          <SalmonLogo className="logo" />
           <div className="name">联系人</div>
           <div className="ver">{total}</div>
         </div>

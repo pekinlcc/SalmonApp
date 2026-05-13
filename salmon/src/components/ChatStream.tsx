@@ -7,6 +7,7 @@ import type { Block, ChatLayout, Topic, ToolCall, UiMessage } from "../lib/types
 import { ToolCallCard } from "./ToolCallCard";
 import { PermissionCard } from "./PermissionCard";
 import { CodeBlock } from "./CodeBlock";
+import { SalmonLogo } from "./SalmonLogo";
 
 interface Props {
   topic: Topic;
@@ -281,7 +282,7 @@ export function ChatStream(props: Props) {
 
       {pendingPermission && (
         <div className="msg">
-          <div className="avatar ai">S</div>
+          <SalmonLogo className="avatar ai" />
           <div className="msg-body">
             <div className="msg-name">权限请求 <span className="ts">{time(Date.now())}</span></div>
             <PermissionCard
@@ -297,7 +298,7 @@ export function ChatStream(props: Props) {
 
       {showTyping && (
         <div className="msg typing-msg">
-          <div className="avatar ai">S</div>
+          <SalmonLogo className="avatar ai" />
           <div className="msg-body">
             <div className="msg-name">
               SalmonApp · {topic.engine === "claude" ? "Claude Code" : "Codex"}

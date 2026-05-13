@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ask } from "@tauri-apps/plugin-dialog";
 import type { CliInfo, Topic } from "../lib/types";
 import { relativeTime } from "../lib/format";
+import { SalmonLogo } from "./SalmonLogo";
 import pkg from "../../package.json";
 
 interface Props {
@@ -64,7 +65,7 @@ export function LeftSidebar(props: Props) {
   return (
     <aside className="left">
       <div className="left-head">
-        <div className="logo">S</div>
+        <SalmonLogo className="logo" />
         <div className="name">Topic</div>
         <div className="ver">v{pkg.version}</div>
       </div>

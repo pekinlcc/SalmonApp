@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
 import type { MailAccount, Task } from "../lib/types";
+import { SalmonLogo } from "./SalmonLogo";
 
 /**
  * v0.9.1 — Tasks view (Google Tasks + Microsoft Graph Todo).
@@ -131,7 +132,7 @@ export function TasksView() {
     <div className="three-pane">
       <aside className="three-list">
         <div className="left-head">
-          <div className="logo">📋</div>
+          <SalmonLogo className="logo" />
           <div className="name">待办</div>
           <div className="ver">{pending.length} 未完</div>
         </div>

@@ -11,6 +11,7 @@ import type {
 } from "../lib/types";
 import { relativeTime } from "../lib/format";
 import { RelatedMailList } from "./RelatedMailList";
+import { SalmonLogo } from "./SalmonLogo";
 
 interface Props {
   topics: Topic[];
@@ -74,7 +75,7 @@ export function BriefingFeed(props: Props) {
     <div className="three-pane">
       <aside className="three-list">
         <div className="left-head">
-          <div className="logo">✦</div>
+          <SalmonLogo className="logo" />
           <div className="name">今日聚焦</div>
           {status?.generatedAt && (
             <div className="ver">{relativeTime(status.generatedAt)}</div>
