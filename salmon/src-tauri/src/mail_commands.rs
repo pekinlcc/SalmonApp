@@ -300,6 +300,116 @@ pub async fn sync_mail_account(
         .map_err(map_err)
 }
 
+/// v0.10.3: list mail to/from a specific contact across an account.
+/// Powers the "click contact → show their thread" panel in MailView's
+/// contacts pane. Matches both inbound (from_email = email) and outbound
+/// (to_emails contains email).
+#[tauri::command]
+pub fn list_contact_mail(
+    state: State<'_, AppState>,
+    account_id: String,
+    email: String,
+    limit: Option<i64>,
+) -> Result<Vec<MailListRow>, String> {
+    let db = state.db.lock();
+    let limit = limit.unwrap_or(50).max(1).min(500);
+    let email_lc = email.to_lowercase();
+    let to_like = format!("%\"{}\"%", email_lc);
+    let mut stmt = db
+        .conn()
+        .prepare(
+            "SELECT id, account_id, thread_id, from_email, from_name, subject,
+                    snippet, date_ms, unread, starred, has_attachments
+             FROM mail_messages
+             WHERE account_id = ?
+               AND (lower(COALESCE(from_email, '')) = ?
+                    OR lower(COALESCE(to_emails, '')) LIKE ? ESCAPE '\\')
+             ORDER BY date_ms DESC
+             LIMIT ?",
+        )
+        .map_err(map_err)?;
+    let rows = stmt
+        .query_map(rusqlite::params![account_id, email_lc, to_like, limit], |r| {
+            Ok(MailListRow {
+                id: r.get(0)?,
+                account_id: r.get(1)?,
+                thread_id: r.get(2)?,
+                from_email: r.get(3)?,
+                from_name: r.get(4)?,
+                subject: r.get(5)?,
+                snippet: r.get(6)?,
+                date_ms: r.get(7)?,
+                unread: r.get::<_, i64>(8)? != 0,
+                starred: r.get::<_, i64>(9)? != 0,
+                has_attachments: r.get::<_, i64>(10)? != 0,
+            })
+        })
+        .map_err(map_err)?;
+    let mut out = Vec::new();
+    for row in rows {
+        out.push(row.map_err(map_err)?);
+    }
+    Ok(out)
+}
+
+/// v0.10.3: return pending Pulse brief_items where this contact is the
+/// counter-party. The Pulse pipeline already analyses by contact; this
+/// just surfaces those rows on the contact-detail panel.
+#[tauri::command]
+pub fn list_contact_brief_items(
+    state: State<'_, AppState>,
+    email: String,
+) -> Result<Vec<crate::briefing_commands::BriefItem>, String> {
+    let db = state.db.lock();
+    let email_lc = email.to_lowercase();
+    let mut stmt = db
+        .conn()
+        .prepare(
+            "SELECT id, briefing_id, kind, priority, title, summary, why,
+                    contact_email, topic_id, related_mail_ids, related_topic_ids,
+                    related_event_ids, suggested_actions, status, score,
+                    created_at, decided_at
+             FROM brief_items
+             WHERE lower(COALESCE(contact_email, '')) = ?
+               AND status = 'pending'
+             ORDER BY score DESC, created_at DESC
+             LIMIT 30",
+        )
+        .map_err(map_err)?;
+    let rows = stmt
+        .query_map(rusqlite::params![email_lc], |r| {
+            let rmids: String = r.get::<_, Option<String>>(9)?.unwrap_or_else(|| "[]".into());
+            let rtids: String = r.get::<_, Option<String>>(10)?.unwrap_or_else(|| "[]".into());
+            let reids: String = r.get::<_, Option<String>>(11)?.unwrap_or_else(|| "[]".into());
+            let actions_json: String = r.get(12)?;
+            Ok(crate::briefing_commands::BriefItem {
+                id: r.get(0)?,
+                briefing_id: r.get(1)?,
+                kind: r.get(2)?,
+                priority: r.get(3)?,
+                title: r.get(4)?,
+                summary: r.get(5)?,
+                why: r.get(6)?,
+                contact_email: r.get(7)?,
+                topic_id: r.get(8)?,
+                related_mail_ids: serde_json::from_str(&rmids).unwrap_or_default(),
+                related_topic_ids: serde_json::from_str(&rtids).unwrap_or_default(),
+                related_event_ids: serde_json::from_str(&reids).unwrap_or_default(),
+                suggested_actions: serde_json::from_str(&actions_json).unwrap_or_default(),
+                status: r.get(13)?,
+                score: r.get(14)?,
+                created_at: r.get(15)?,
+                decided_at: r.get(16)?,
+            })
+        })
+        .map_err(map_err)?;
+    let mut out = Vec::new();
+    for row in rows {
+        out.push(row.map_err(map_err)?);
+    }
+    Ok(out)
+}
+
 #[tauri::command]
 pub fn list_inbox_messages(
     state: State<'_, AppState>,

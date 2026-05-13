@@ -125,8 +125,102 @@ export function ChatStream(props: Props) {
 
   const time = (ts: number) => new Date(ts).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" });
 
+  // v0.10.3 — per-topic search. Cmd/Ctrl+F (or the 🔍 button) opens an
+  // overlay; results jump to the matching message via scrollIntoView.
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<{ messageId: string; role: string; snippet: string; createdAt: number }[]>([]);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Hotkey: Cmd/Ctrl+F opens search.
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        setSearchOpen(true);
+        setTimeout(() => searchInputRef.current?.focus(), 0);
+      } else if (e.key === "Escape" && searchOpen) {
+        setSearchOpen(false);
+        setSearchQuery("");
+      }
+    };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, [searchOpen]);
+
+  // Live search as user types (debounce).
+  useEffect(() => {
+    if (!searchOpen) return;
+    const q = searchQuery.trim();
+    if (!q) { setSearchResults([]); return; }
+    const handle = window.setTimeout(async () => {
+      try {
+        const rs = await api.searchTopicMessages(topic.id, q, 50);
+        setSearchResults(rs.map((r) => ({
+          messageId: r.messageId, role: r.role, snippet: r.snippet, createdAt: r.createdAt,
+        })));
+      } catch {
+        setSearchResults([]);
+      }
+    }, 180);
+    return () => window.clearTimeout(handle);
+  }, [searchQuery, searchOpen, topic.id]);
+
+  const jumpToMessage = useCallback((messageId: string) => {
+    const el = streamRef.current?.querySelector(`[data-message-id="${messageId}"]`) as HTMLElement | null;
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    el.classList.add("msg-flash");
+    window.setTimeout(() => el.classList.remove("msg-flash"), 1400);
+  }, []);
+
   return (
     <div className="stream-wrap">
+      {searchOpen && (
+        <div className="topic-search-bar">
+          <span className="topic-search-icon">🔍</span>
+          <input
+            ref={searchInputRef}
+            type="text"
+            placeholder="在这个 Topic 里搜对话…"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            autoFocus
+          />
+          <span className="topic-search-count">
+            {searchQuery.trim() && `${searchResults.length} 条`}
+          </span>
+          <button
+            className="btn-ghost"
+            onClick={() => { setSearchOpen(false); setSearchQuery(""); }}
+            title="关闭（Esc）"
+          >×</button>
+        </div>
+      )}
+      {searchOpen && searchResults.length > 0 && (
+        <div className="topic-search-results">
+          {searchResults.map((r) => (
+            <div
+              key={r.messageId}
+              className="topic-search-row"
+              onClick={() => jumpToMessage(r.messageId)}
+            >
+              <span className={`topic-search-role role-${r.role}`}>
+                {r.role === "user" ? "你" : r.role === "assistant" ? "S" : "·"}
+              </span>
+              <span className="topic-search-snippet">{r.snippet}</span>
+              <span className="topic-search-ts">{time(r.createdAt)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      {!searchOpen && (
+        <button
+          className="topic-search-fab"
+          onClick={() => { setSearchOpen(true); setTimeout(() => searchInputRef.current?.focus(), 0); }}
+          title="搜索此 Topic 内的对话（Ctrl/Cmd+F）"
+        >🔍</button>
+      )}
       <div className="stream" ref={streamRef} onScroll={onScroll}>
       {messages.length === 0 && !pendingPermission && (
         <div className="banner info" style={{ marginTop: 0 }}>
@@ -161,7 +255,7 @@ export function ChatStream(props: Props) {
       )}
 
       {messages.map((m) => (
-        <div key={m.id} className="msg">
+        <div key={m.id} className="msg" data-message-id={m.id}>
           <div className={`avatar ${m.role === "user" ? "user" : "ai"}`}>
             {m.role === "user" ? "我" : "S"}
           </div>

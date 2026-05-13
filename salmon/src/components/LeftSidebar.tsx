@@ -85,11 +85,10 @@ export function LeftSidebar(props: Props) {
       <button
         className={`home-btn ${selectedId === null && props.topView === "mail" ? "active" : ""}`}
         onClick={props.onOpenMail}
-        title="邮件 (alpha)"
+        title="邮件"
       >
         <span className="home-icon">📧</span>
         <span>邮件</span>
-        <span className="home-sub alpha-tag">alpha</span>
       </button>
 
       <button

@@ -368,6 +368,24 @@ pub fn search_messages(
         .map_err(map_err)
 }
 
+/// v0.10.3: per-topic message search. The header search box inside a
+/// chat view uses this to jump between hits within the current Topic
+/// without dragging in matches from other Topics.
+#[tauri::command]
+pub fn search_topic_messages(
+    state: State<'_, AppState>,
+    topic_id: String,
+    query: String,
+    limit: Option<usize>,
+) -> Result<Vec<SearchResult>, String> {
+    let limit = limit.unwrap_or(50).clamp(1, 200);
+    state
+        .db
+        .lock()
+        .search_topic_messages(&topic_id, &query, limit)
+        .map_err(map_err)
+}
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FileEntry {

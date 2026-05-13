@@ -40,6 +40,7 @@ export function MailView({ pendingComposeReply, onConsumeComposeReply }: MailVie
   const [showContacts, setShowContacts] = useState(false);
   const [contacts, setContacts] = useState<ContactRow[]>([]);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
+  const [selectedContact, setSelectedContact] = useState<ContactRow | null>(null);
 
   // Cross-event listener body needs the latest selectedAccountId, but
   // wiring the listener with that state as a dep makes us unmount/remount
@@ -406,7 +407,12 @@ export function MailView({ pendingComposeReply, onConsumeComposeReply }: MailVie
               </div>
             ) : (
               contacts.map((c) => (
-                <div key={c.id} className="contact-row">
+                <div
+                  key={c.id}
+                  className={`contact-row ${selectedContact?.id === c.id ? "selected" : ""}`}
+                  onClick={() => { setSelectedContact(c); setSelectedMessageId(null); setSelectedBody(null); }}
+                  style={{ cursor: "pointer" }}
+                >
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div className="contact-name">
                       {c.isVip && <span className="vip-star">★</span>}
@@ -421,11 +427,12 @@ export function MailView({ pendingComposeReply, onConsumeComposeReply }: MailVie
                   </div>
                   <button
                     className="btn-ghost"
-                    onClick={async () => {
+                    onClick={async (e) => {
+                      e.stopPropagation();
                       try {
                         await api.setContactVip(c.id, !c.isVip);
                         setContacts((cur) => cur.map((x) => x.id === c.id ? { ...x, isVip: !c.isVip } : x));
-                      } catch (e: any) { alert(String(e)); }
+                      } catch (err: any) { alert(String(err)); }
                     }}
                     title={c.isVip ? "取消 VIP" : "设为 VIP（信息会优先出现在首页）"}
                   >
@@ -465,7 +472,27 @@ export function MailView({ pendingComposeReply, onConsumeComposeReply }: MailVie
         )}
 
         <section className="mail-reader">
-          {selectedBody ? (
+          {selectedContact ? (
+            <ContactDetail
+              contact={selectedContact}
+              onClose={() => setSelectedContact(null)}
+              onOpenMessage={(mid) => {
+                // Tapping a thread row inside the contact panel: switch back
+                // to mail view + select that message.
+                setSelectedContact(null);
+                setShowContacts(false);
+                setSelectedMessageId(mid);
+              }}
+              onToggleVip={async (c) => {
+                try {
+                  await api.setContactVip(c.id, !c.isVip);
+                  const updated = { ...c, isVip: !c.isVip };
+                  setContacts((cur) => cur.map((x) => x.id === c.id ? updated : x));
+                  setSelectedContact(updated);
+                } catch (e: any) { alert(String(e)); }
+              }}
+            />
+          ) : selectedBody ? (
             <Reader
               msg={selectedBody}
               onReply={() => setCompose({ mode: "reply", msg: selectedBody })}
@@ -474,7 +501,9 @@ export function MailView({ pendingComposeReply, onConsumeComposeReply }: MailVie
               onMarkUnread={onMarkUnread}
             />
           ) : (
-            <div className="mail-empty" style={{ padding: 40 }}>选一封邮件查看</div>
+            <div className="mail-empty" style={{ padding: 40 }}>
+              {showContacts ? "选一个联系人查看汇总" : "选一封邮件查看"}
+            </div>
           )}
         </section>
       </div>
@@ -537,6 +566,128 @@ function Reader({
         <iframe className="reader-html" sandbox="" srcDoc={htmlSrcDoc} title={msg.subject || "email"} />
       ) : (
         <pre className="reader-text">{msg.bodyText || msg.snippet || ""}</pre>
+      )}
+    </div>
+  );
+}
+
+/**
+ * v0.10.3 — when the user clicks a contact in the contacts pane, the
+ * reader pane shows this aggregated view: Pulse-analyzed brief items
+ * about the contact + their recent mail thread. Pulse already produced
+ * the items per-contact during the briefing pipeline; we just need to
+ * surface them.
+ */
+function ContactDetail({
+  contact,
+  onClose,
+  onOpenMessage,
+  onToggleVip,
+}: {
+  contact: ContactRow;
+  onClose: () => void;
+  onOpenMessage: (messageId: string) => void;
+  onToggleVip: (c: ContactRow) => void;
+}) {
+  const [mail, setMail] = useState<MailListItem[]>([]);
+  const [briefs, setBriefs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    (async () => {
+      try {
+        const [m, b] = await Promise.all([
+          api.listContactMail(contact.accountId, contact.email, 30).catch(() => []),
+          api.listContactBriefItems(contact.email).catch(() => []),
+        ]);
+        if (cancelled) return;
+        setMail(m);
+        setBriefs(b);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [contact.id, contact.accountId, contact.email]);
+
+  return (
+    <div className="contact-detail">
+      <div className="contact-detail-head">
+        <div className="contact-detail-title">
+          {contact.isVip && <span className="vip-star">★</span>}
+          {contact.name || contact.email}
+        </div>
+        <div className="contact-detail-sub">
+          {contact.email}
+          {contact.organization && <> · {contact.organization}</>}
+          <> · 互动 {contact.interactionCount} 次</>
+          {contact.lastSeenMs && <> · 最近 {timeAgo(contact.lastSeenMs)}</>}
+        </div>
+        <div className="contact-detail-actions">
+          <button className="btn-ghost" onClick={() => onToggleVip(contact)}>
+            {contact.isVip ? "取消 VIP" : "★ 设为 VIP"}
+          </button>
+          <button className="btn-ghost" onClick={onClose}>关闭</button>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="mail-empty" style={{ padding: 40 }}>加载中…</div>
+      ) : (
+        <>
+          {briefs.length > 0 && (
+            <div className="contact-section">
+              <div className="contact-section-label">
+                ✦ AI 分析的重点事项 ({briefs.length})
+              </div>
+              {briefs.map((b) => (
+                <div key={b.id} className={`contact-brief prio-${b.priority}`}>
+                  <div className="contact-brief-head">
+                    <span className={`prio-pill prio-${b.priority}`}>
+                      {b.priority === "high" ? "高" : b.priority === "low" ? "低" : "中"}
+                    </span>
+                    <span className="contact-brief-title">{b.title}</span>
+                  </div>
+                  {b.summary && <div className="contact-brief-summary">{b.summary}</div>}
+                  {b.why && (
+                    <div className="contact-brief-why">
+                      <span style={{ fontWeight: 600 }}>↗ </span>{b.why}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="contact-section">
+            <div className="contact-section-label">
+              📧 最近往来邮件 ({mail.length})
+            </div>
+            {mail.length === 0 ? (
+              <div className="mail-empty" style={{ padding: 20 }}>暂无邮件</div>
+            ) : (
+              mail.map((m) => (
+                <div
+                  key={m.id}
+                  className={`mail-item ${m.unread ? "unread" : ""}`}
+                  onClick={() => onOpenMessage(m.id)}
+                  style={{ cursor: "pointer" }}
+                >
+                  <div className="mi-row">
+                    <span className="mi-from">
+                      {m.unread && <span className="mi-dot" />}
+                      {m.fromName || m.fromEmail || "(无)"}
+                    </span>
+                    <span className="mi-time">{shortDate(m.dateMs)}</span>
+                  </div>
+                  <div className="mi-subj">{m.subject || "(无主题)"}</div>
+                  <div className="mi-snip">{m.snippet}</div>
+                </div>
+              ))
+            )}
+          </div>
+        </>
       )}
     </div>
   );

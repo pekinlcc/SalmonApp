@@ -699,6 +699,49 @@ impl Db {
         Ok(out)
     }
 
+    /// Per-topic message search. Returns matching messages in the specified
+    /// topic only, ordered by recency. Used by the in-topic search box.
+    pub fn search_topic_messages(
+        &self,
+        topic_id: &str,
+        query: &str,
+        limit: usize,
+    ) -> Result<Vec<SearchResult>> {
+        let q = query.trim();
+        if q.is_empty() {
+            return Ok(Vec::new());
+        }
+        let like = format!("%{}%", q.replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_"));
+        let mut stmt = self.conn.prepare(
+            "SELECT t.id,t.title,t.engine,t.workdir,
+                    m.id,m.role,m.content,m.created_at
+             FROM messages m
+             JOIN topics t ON t.id = m.topic_id
+             WHERE m.topic_id = ?
+               AND m.content LIKE ? ESCAPE '\\'
+             ORDER BY m.created_at ASC
+             LIMIT ?",
+        )?;
+        let rows = stmt.query_map(params![topic_id, like, limit as i64], |r| {
+            let content: String = r.get(6)?;
+            Ok(SearchResult {
+                topic_id: r.get(0)?,
+                topic_title: r.get(1)?,
+                engine: r.get(2)?,
+                workdir: r.get(3)?,
+                message_id: r.get(4)?,
+                role: r.get(5)?,
+                snippet: make_snippet(&content, q, 180),
+                created_at: r.get(7)?,
+            })
+        })?;
+        let mut out = Vec::new();
+        for row in rows {
+            out.push(row?);
+        }
+        Ok(out)
+    }
+
     pub fn search_messages(&self, query: &str, limit: usize) -> Result<Vec<SearchResult>> {
         let q = query.trim();
         if q.is_empty() {

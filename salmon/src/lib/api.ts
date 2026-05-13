@@ -27,6 +27,8 @@ export const api = {
     invoke<Message[]>("list_messages", { topicId }),
   searchMessages: (query: string, limit = 30) =>
     invoke<SearchResult[]>("search_messages", { query, limit }),
+  searchTopicMessages: (topicId: string, query: string, limit = 50) =>
+    invoke<SearchResult[]>("search_topic_messages", { topicId, query, limit }),
   listWorkdirFiles: (workdir: string) =>
     invoke<FileEntry[]>("list_workdir_files", { workdir }),
   readFileText: (path: string) => invoke<string>("read_file_text", { path }),
@@ -77,6 +79,10 @@ export const api = {
     invoke<number>("sync_mail_account", { accountId }),
   listInboxMessages: (accountId: string, limit?: number) =>
     invoke<MailListItem[]>("list_inbox_messages", { accountId, limit: limit ?? null }),
+  listContactMail: (accountId: string, email: string, limit = 50) =>
+    invoke<MailListItem[]>("list_contact_mail", { accountId, email, limit }),
+  listContactBriefItems: (email: string) =>
+    invoke<BriefItem[]>("list_contact_brief_items", { email }),
   getMailMessage: (messageId: string) =>
     invoke<MailMessageFull>("get_mail_message", { messageId }),
   deleteMailAccount: (accountId: string) =>
