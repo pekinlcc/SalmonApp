@@ -401,7 +401,7 @@ pub fn list_contact_brief_items(
         .prepare(
             "SELECT id, briefing_id, kind, priority, title, summary, why,
                     contact_email, topic_id, related_mail_ids, related_topic_ids,
-                    related_event_ids, suggested_actions, status, score,
+                    related_event_ids, suggested_actions, action_results, status, score,
                     created_at, decided_at
              FROM brief_items
              WHERE lower(COALESCE(contact_email, '')) = ?
@@ -417,6 +417,7 @@ pub fn list_contact_brief_items(
             let rtids: String = r.get::<_, Option<String>>(10)?.unwrap_or_else(|| "[]".into());
             let reids: String = r.get::<_, Option<String>>(11)?.unwrap_or_else(|| "[]".into());
             let actions_json: String = r.get(12)?;
+            let action_results_json: String = r.get::<_, Option<String>>(13)?.unwrap_or_else(|| "[]".into());
             Ok(crate::briefing_commands::BriefItem {
                 id: r.get(0)?,
                 briefing_id: r.get(1)?,
@@ -431,10 +432,11 @@ pub fn list_contact_brief_items(
                 related_topic_ids: serde_json::from_str(&rtids).unwrap_or_default(),
                 related_event_ids: serde_json::from_str(&reids).unwrap_or_default(),
                 suggested_actions: serde_json::from_str(&actions_json).unwrap_or_default(),
-                status: r.get(13)?,
-                score: r.get(14)?,
-                created_at: r.get(15)?,
-                decided_at: r.get(16)?,
+                action_results: serde_json::from_str(&action_results_json).unwrap_or_default(),
+                status: r.get(14)?,
+                score: r.get(15)?,
+                created_at: r.get(16)?,
+                decided_at: r.get(17)?,
             })
         })
         .map_err(map_err)?;

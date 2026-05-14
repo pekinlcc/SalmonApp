@@ -153,6 +153,8 @@ export const api = {
   runBriefing: () => invoke<BriefingRunResult>("run_briefing"),
   listBriefItems: (briefingId?: string | null) =>
     invoke<BriefItem[]>("list_brief_items", { briefingId: briefingId ?? null }),
+  listBriefHistory: (limit?: number | null) =>
+    invoke<BriefItem[]>("list_brief_history", { limit: limit ?? 200 }),
   executeActionStep: (input: ExecuteStepInput) =>
     invoke<StepResult[]>("execute_action_step", { input }),
   decideBriefItem: (itemId: string, status: "acted" | "ack" | "muted" | "pending") =>

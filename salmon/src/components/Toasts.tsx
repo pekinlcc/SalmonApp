@@ -1,10 +1,11 @@
 import { useEffect, useRef } from "react";
-import type { NotifyKind, ToastEvent } from "../lib/notify";
+import type { NotifyKind, ToastActionTarget, ToastEvent } from "../lib/notify";
 
 interface Props {
   toasts: ToastEvent[];
   onDismiss: (id: string) => void;
   onClick: (t: ToastEvent) => void;
+  onAction: (target: ToastActionTarget) => void;
 }
 
 const TIMEOUT_BY_KIND: Record<NotifyKind, number> = {
@@ -25,7 +26,7 @@ const ICON_BY_KIND: Record<NotifyKind, string> = {
   info: "ℹ",
 };
 
-export function Toasts({ toasts, onDismiss, onClick }: Props) {
+export function Toasts({ toasts, onDismiss, onClick, onAction }: Props) {
   // Per-toast timer registry. Without this, re-rendering on every toast
   // arrival would clear and restart timers for ALL toasts, so older toasts
   // never auto-dismiss while new ones keep coming in.
@@ -61,7 +62,7 @@ export function Toasts({ toasts, onDismiss, onClick }: Props) {
   return (
     <div className="toasts">
       {toasts.map((t) => {
-        const clickable = !!t.topicId;
+        const clickable = !!t.topicId || (t.actions?.length ?? 0) > 0;
         return (
           <div
             key={t.id}
@@ -77,6 +78,24 @@ export function Toasts({ toasts, onDismiss, onClick }: Props) {
             <div className="toast-text">
               <div className="toast-title">{t.title}</div>
               {t.body && <div className="toast-body">{t.body}</div>}
+              {t.actions && t.actions.length > 0 && (
+                <div className="toast-actions">
+                  {t.actions.map((a, i) => (
+                    <button
+                      key={`${a.label}-${i}`}
+                      type="button"
+                      className={`toast-action ${a.primary ? "primary" : ""}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onAction(a.target);
+                        onDismiss(t.id);
+                      }}
+                    >
+                      {a.label}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             <button
               type="button"

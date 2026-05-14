@@ -16,12 +16,25 @@ import {
 
 export type NotifyKind = "permission" | "done" | "error" | "crash" | "recs" | "info";
 
+export type ToastActionTarget =
+  | { view: "topic"; topicId: string }
+  | { view: "calendar"; eventId?: string | null; accountId?: string | null; startMs?: number | null }
+  | { view: "tasks"; taskId?: string | null; accountId?: string | null }
+  | { view: "mail"; messageId?: string | null; accountId?: string | null };
+
+export interface ToastAction {
+  label: string;
+  target: ToastActionTarget;
+  primary?: boolean;
+}
+
 export interface NotifyOpts {
   /** Null = not tied to a topic (e.g. recommendations roundup). */
   topicId: string | null;
   kind: NotifyKind;
   title: string;
   body: string;
+  actions?: ToastAction[];
 }
 
 export interface ToastEvent {
@@ -31,6 +44,7 @@ export interface ToastEvent {
   title: string;
   body: string;
   createdAt: number;
+  actions?: ToastAction[];
 }
 
 const COOLDOWN_MS = 5000;
@@ -139,6 +153,7 @@ export async function notify(
       title: opts.title,
       body: opts.body,
       createdAt: now,
+      actions: opts.actions,
     });
     return;
   }

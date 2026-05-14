@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
 import type {
+  BriefActionRun,
   BriefItem,
   BriefingProgress,
   BriefingStatus,
@@ -47,24 +48,31 @@ export function BriefingFeed(props: Props) {
   const [items, setItems] = useState<BriefItem[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [drafts, setDrafts] = useState<Record<string, StepResult[]>>({});
+  const [filter, setFilter] = useState<"pending" | "acted" | "muted" | "history">("pending");
 
   const refreshAll = useCallback(async () => {
     try {
       const s = await api.getBriefingStatus();
       setStatus(s);
-      const all = await api.listBriefItems(null);
-      const pending = all.filter((x) => x.status === "pending");
-      setItems(pending);
+      const all = filter === "pending"
+        ? await api.listBriefItems(null)
+        : await api.listBriefHistory(200);
+      const shown = all.filter((x) => {
+        if (filter === "pending") return x.status === "pending";
+        if (filter === "acted") return x.status === "acted";
+        if (filter === "muted") return x.status === "muted";
+        return x.status !== "pending";
+      });
+      setItems(shown);
       // Keep selected if still present, else pick first.
       setSelectedId((cur) => {
-        if (cur && pending.find((x) => x.id === cur)) return cur;
-        return pending[0]?.id ?? null;
+        if (cur && shown.find((x) => x.id === cur)) return cur;
+        return shown[0]?.id ?? null;
       });
     } catch (e: any) {
       setError(String(e));
     }
-  }, []);
+  }, [filter]);
 
   useEffect(() => { refreshAll(); }, [refreshAll, tick]);
 
@@ -87,11 +95,17 @@ export function BriefingFeed(props: Props) {
       {error && <div className="briefing-error" style={{ margin: "8px 22px" }}>⚠ {error}</div>}
       <div className="three-pane brief-three">
         <aside className="three-list">
+          <div className="brief-filter">
+            <button className={filter === "pending" ? "active" : ""} onClick={() => setFilter("pending")}>待处理</button>
+            <button className={filter === "acted" ? "active" : ""} onClick={() => setFilter("acted")}>已归档</button>
+            <button className={filter === "muted" ? "active" : ""} onClick={() => setFilter("muted")}>已忽略</button>
+            <button className={filter === "history" ? "active" : ""} onClick={() => setFilter("history")}>历史</button>
+          </div>
           <div className="topic-list" style={{ paddingTop: 8 }}>
             {items.length === 0 && !running ? (
               <div style={{ padding: "30px 18px", fontSize: 12, color: "var(--ink-500)", textAlign: "center" }}>
                 {status?.engineAvailable
-                  ? "暂无待办 · 点上方 ↻ 让 AI 重新评估"
+                  ? filter === "pending" ? "暂无待办 · 点上方 ↻ 让 AI 重新评估" : "这里暂时没有历史记录"
                   : "未检测到已登录的 Claude/Codex CLI"}
               </div>
             ) : (
@@ -112,7 +126,7 @@ export function BriefingFeed(props: Props) {
           <BriefDetail
             item={selected}
             topics={topics}
-            draft={drafts[selected.id]}
+            readOnly={filter !== "pending" || selected.status !== "pending"}
             onAction={async (actionIndex) => {
               try {
                 const results = await api.executeActionStep({
@@ -120,45 +134,56 @@ export function BriefingFeed(props: Props) {
                   actionIndex,
                   stepIndices: null,
                 });
-                setDrafts((cur) => ({ ...cur, [selected.id]: results }));
+                const action = selected.suggestedActions[actionIndex];
+                const run: BriefActionRun = {
+                  actionIndex,
+                  actionLabel: action?.label || `Action ${actionIndex + 1}`,
+                  createdAt: Date.now(),
+                  results,
+                };
+                setItems((cur) => cur.map((x) => x.id === selected.id
+                  ? { ...x, actionResults: [...(x.actionResults || []), run] }
+                  : x
+                ));
 
                 for (const r of results) {
                   let msg = ""; let kind: "done" | "info" | "error" = "info";
+                  let actions: any[] | undefined;
                   if (r.kind === "Acknowledged") {
                     msg = r.message.startsWith("open_topic:") ? "前往 Topic" : "✓ 已确认";
                     kind = "done";
+                    if (r.message.startsWith("open_topic:")) {
+                      const topicId = r.message.slice("open_topic:".length);
+                      actions = topicId ? [{ label: "查看 Topic", primary: true, target: { view: "topic", topicId } }] : undefined;
+                    }
                   } else if (r.kind === "EventCreated") {
                     const when = r.allDay
                       ? new Date(r.startMs).toLocaleDateString("zh-CN")
                       : new Date(r.startMs).toLocaleString("zh-CN", { hour: "2-digit", minute: "2-digit", month: "numeric", day: "numeric" });
                     msg = `✓ 已加日历: ${r.title} (${when}) · ${r.accountEmail}`;
                     kind = "done";
+                    actions = [{
+                      label: "查看日历",
+                      primary: true,
+                      target: { view: "calendar", eventId: r.eventId, startMs: r.startMs },
+                    }];
                     window.dispatchEvent(new CustomEvent("salmon:calendar-events-changed", {
                       detail: { startMs: r.startMs, eventId: r.eventId },
                     }));
                   } else if (r.kind === "TaskCreated") {
                     const when = r.dueMs ? ` · 截止 ${new Date(r.dueMs).toLocaleDateString("zh-CN")}` : "";
                     msg = `✓ 已加待办: ${r.title}${when}`; kind = "done";
+                    actions = [{
+                      label: "查看待办",
+                      primary: true,
+                      target: { view: "tasks", taskId: r.taskId },
+                    }];
                   } else if (r.kind === "ReplyDrafted") {
                     msg = "💬 回信草稿已生成 · 看下面审稿"; kind = "info";
                   } else if (r.kind === "Skipped") {
                     msg = `⚠ 跳过: ${r.reason}`; kind = "error";
                   }
-                  window.dispatchEvent(new CustomEvent("salmon:toast", { detail: { title: msg, kind } }));
-                }
-
-                const hasInteractive = results.some((r) => r.kind === "ReplyDrafted");
-                const anySuccess = results.some((r) => r.kind !== "Skipped");
-                if (!hasInteractive && anySuccess) {
-                  // Card consumed — remove from list and clear selection
-                  setItems((cur) => cur.filter((x) => x.id !== selected.id));
-                  setSelectedId(null);
-                  for (const r of results) {
-                    if (r.kind === "Acknowledged" && r.message.startsWith("open_topic:")) {
-                      const id = r.message.slice("open_topic:".length);
-                      if (id) onOpenTopic(id);
-                    }
-                  }
+                  window.dispatchEvent(new CustomEvent("salmon:toast", { detail: { title: msg, kind, actions } }));
                 }
               } catch (e: any) {
                 window.dispatchEvent(new CustomEvent("salmon:toast", {
@@ -180,11 +205,24 @@ export function BriefingFeed(props: Props) {
                 }));
               }
             }}
-            onClearDraft={() => setDrafts((cur) => {
-              const next = { ...cur };
-              delete next[selected.id];
-              return next;
-            })}
+            onArchive={async () => {
+              try {
+                await api.decideBriefItem(selected.id, "acted");
+                if (filter === "pending") {
+                  setItems((cur) => cur.filter((x) => x.id !== selected.id));
+                  setSelectedId(null);
+                } else {
+                  refreshAll();
+                }
+                window.dispatchEvent(new CustomEvent("salmon:toast", {
+                  detail: { title: "✓ 已归档，仍可在历史里找到", kind: "done" },
+                }));
+              } catch (e: any) {
+                window.dispatchEvent(new CustomEvent("salmon:toast", {
+                  detail: { title: `归档失败: ${e}`, kind: "error" },
+                }));
+              }
+            }}
           />
         ) : (
           <HomeOverview
@@ -240,17 +278,17 @@ function BriefListRow({ item, active, onClick }: { item: BriefItem; active: bool
 function BriefDetail({
   item,
   topics,
-  draft,
+  readOnly,
   onAction,
   onDismiss,
-  onClearDraft,
+  onArchive,
 }: {
   item: BriefItem;
   topics: Topic[];
-  draft: StepResult[] | undefined;
+  readOnly: boolean;
   onAction: (actionIndex: number) => Promise<void>;
   onDismiss: () => void;
-  onClearDraft: () => void;
+  onArchive: () => void;
 }) {
   const [busyAction, setBusyAction] = useState<number | null>(null);
   const click = useCallback(
@@ -267,7 +305,12 @@ function BriefDetail({
     <>
       <div className="mid-head">
         <div className="title">{item.title}</div>
-        <button className="btn-ghost" onClick={onDismiss} style={{ color: "#B7493D" }}>不重要</button>
+        {item.status === "pending" && item.actionResults.length > 0 && (
+          <button className="btn-ghost" onClick={onArchive}>归档</button>
+        )}
+        {item.status === "pending" && (
+          <button className="btn-ghost" onClick={onDismiss} style={{ color: "#B7493D" }}>不重要</button>
+        )}
       </div>
       <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px" }}>
         {item.summary && (
@@ -292,7 +335,7 @@ function BriefDetail({
               <button
                 key={i}
                 className={`brief-btn ${isPrimary ? "primary" : ""}`}
-                disabled={busyAction !== null}
+                disabled={readOnly || busyAction !== null}
                 onClick={() => click(i)}
                 title={a.steps.map((s) => `${s.kind}: ${s.detail || "(空)"}`).join("\n")}
               >
@@ -316,33 +359,43 @@ function BriefDetail({
           </div>
         )}
 
-        {draft && draft.length > 0 && (
-          <DraftPanel results={draft} onClose={onClearDraft} />
+        {item.actionResults.length > 0 && (
+          <ActionResultsPanel runs={item.actionResults} />
         )}
       </div>
     </>
   );
 }
 
-// ── DraftPanel — only ReplyDrafted needs an inline review (v0.9.2) ───
+// ── ActionResultsPanel — persisted action history for a brief card ───
 
-function DraftPanel({
-  results,
-  onClose,
+function ActionResultsPanel({
+  runs,
 }: {
-  results: StepResult[];
-  onClose: () => void;
+  runs: BriefActionRun[];
 }) {
   return (
     <div className="brief-drafts" style={{ marginTop: 16 }}>
       <div className="brief-drafts-head">
         <span>AI 执行结果</span>
-        <button className="btn-ghost" onClick={onClose}>×</button>
       </div>
-      {results.map((r, i) => {
+      {runs.slice().reverse().map((run) => (
+        <div key={`${run.createdAt}-${run.actionIndex}`} className="brief-action-run">
+          <div className="brief-action-run-head">
+            <b>{run.actionLabel}</b>
+            <span>{new Date(run.createdAt).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+          </div>
+          {run.results.map((r, i) => <StepResultView key={i} result={r} />)}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function StepResultView({ result: r }: { result: StepResult }) {
         if (r.kind === "ReplyDrafted") {
           return (
-            <div key={i} className="draft-reply">
+            <div className="draft-reply">
               <div className="draft-label">💬 回信草稿（你审核后手动发）</div>
               <pre className="draft-body">{r.draft}</pre>
               <div className="draft-actions">
@@ -373,7 +426,7 @@ function DraftPanel({
         }
         if (r.kind === "Skipped") {
           return (
-            <div key={i} className="draft-skipped">⚠ 跳过一步: {r.reason}</div>
+            <div className="draft-skipped">⚠ 跳过一步: {r.reason}</div>
           );
         }
         if (r.kind === "EventCreated") {
@@ -386,12 +439,22 @@ function DraftPanel({
                 minute: "2-digit",
               });
           return (
-            <div key={i} className="draft-reply">
+            <div className="draft-reply">
               <div className="draft-label">📅 日历已创建</div>
               <div className="salmon-action-row">
                 <b>{r.title}</b>
                 <span>{when} · {r.accountEmail}</span>
                 {r.location && <small>{r.location}</small>}
+              </div>
+              <div className="draft-actions">
+                <button
+                  className="brief-btn primary"
+                  onClick={() => window.dispatchEvent(new CustomEvent("salmon:navigate", {
+                    detail: { view: "calendar", eventId: r.eventId, startMs: r.startMs },
+                  }))}
+                >
+                  查看日历
+                </button>
               </div>
             </div>
           );
@@ -399,20 +462,47 @@ function DraftPanel({
         if (r.kind === "TaskCreated") {
           const due = r.dueMs ? new Date(r.dueMs).toLocaleDateString("zh-CN") : "无截止日期";
           return (
-            <div key={i} className="draft-reply">
+            <div className="draft-reply">
               <div className="draft-label">✓ 待办已创建</div>
               <div className="salmon-action-row">
                 <b>{r.title}</b>
                 <span>{due} · {r.accountEmail}</span>
                 {r.notes && <small>{r.notes}</small>}
               </div>
+              <div className="draft-actions">
+                <button
+                  className="brief-btn primary"
+                  onClick={() => window.dispatchEvent(new CustomEvent("salmon:navigate", {
+                    detail: { view: "tasks", taskId: r.taskId },
+                  }))}
+                >
+                  查看待办
+                </button>
+              </div>
+            </div>
+          );
+        }
+        if (r.kind === "Acknowledged") {
+          const topicId = r.message.startsWith("open_topic:") ? r.message.slice("open_topic:".length) : "";
+          return (
+            <div className="draft-reply">
+              <div className="draft-label">✓ 已确认</div>
+              {topicId && (
+                <div className="draft-actions">
+                  <button
+                    className="brief-btn primary"
+                    onClick={() => window.dispatchEvent(new CustomEvent("salmon:navigate", {
+                      detail: { view: "topic", topicId },
+                    }))}
+                  >
+                    查看 Topic
+                  </button>
+                </div>
+              )}
             </div>
           );
         }
         return null;
-      })}
-    </div>
-  );
 }
 
 // ── v1.3 top overview banner (spans the whole content area) ──────────

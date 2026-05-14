@@ -12,11 +12,17 @@ const FIRST_HOUR = 0;        // grid starts at midnight; we scroll to ~07:00 on 
 const HOURS_TOTAL = 24;
 const ALL_DAY_BAND_H = 28;
 
-export function CalendarView() {
+interface CalendarViewProps {
+  pendingOpenEvent?: { eventId?: string | null; accountId?: string | null; startMs?: number | null } | null;
+  onConsumePendingOpenEvent?: () => void;
+}
+
+export function CalendarView({ pendingOpenEvent, onConsumePendingOpenEvent }: CalendarViewProps = {}) {
   const [accounts, setAccounts] = useState<MailAccount[]>([]);
   const [events, setEvents] = useState<CalEvent[]>([]);
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek(new Date()));
   const [view, setView] = useState<"week" | "agenda">("week");
+  const [highlightEventId, setHighlightEventId] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [composing, setComposing] = useState<{ start: Date; end: Date } | null>(null);
@@ -46,6 +52,22 @@ export function CalendarView() {
     window.addEventListener("salmon:calendar-events-changed", onCalendarChanged);
     return () => window.removeEventListener("salmon:calendar-events-changed", onCalendarChanged);
   }, [loadEvents]);
+
+  useEffect(() => {
+    if (!pendingOpenEvent?.eventId && !pendingOpenEvent?.startMs) return;
+    if (pendingOpenEvent.startMs) {
+      setWeekStart(startOfWeek(new Date(pendingOpenEvent.startMs)));
+      setView("week");
+    }
+    if (pendingOpenEvent.eventId) setHighlightEventId(pendingOpenEvent.eventId);
+    onConsumePendingOpenEvent?.();
+  }, [pendingOpenEvent, onConsumePendingOpenEvent]);
+
+  useEffect(() => {
+    if (!highlightEventId) return;
+    const ev = events.find((x) => x.id === highlightEventId);
+    if (ev) setDetailEvent(ev);
+  }, [events, highlightEventId]);
 
   // Auto-scroll to ~07:00 so the user lands somewhere useful instead of midnight.
   useEffect(() => {
@@ -139,11 +161,17 @@ export function CalendarView() {
           weekStart={weekStart}
           events={events}
           gridScrollRef={gridScrollRef}
+          highlightEventId={highlightEventId}
           onCellClick={onCellClick}
           onEventClick={setDetailEvent}
         />
       ) : (
-        <Agenda events={events} accounts={accounts} onEventClick={setDetailEvent} />
+        <Agenda
+          events={events}
+          accounts={accounts}
+          highlightEventId={highlightEventId}
+          onEventClick={setDetailEvent}
+        />
       )}
       {composing && (
         <NewEventModal
@@ -178,12 +206,14 @@ function WeekGrid({
   weekStart,
   events,
   gridScrollRef,
+  highlightEventId,
   onCellClick,
   onEventClick,
 }: {
   weekStart: Date;
   events: CalEvent[];
   gridScrollRef: React.RefObject<HTMLDivElement>;
+  highlightEventId?: string | null;
   onCellClick: (day: Date, hour: number) => void;
   onEventClick: (ev: CalEvent) => void;
 }) {
@@ -305,7 +335,7 @@ function WeekGrid({
                   return (
                     <div
                       key={ev.id}
-                      className="cal-event-block"
+                      className={`cal-event-block ${ev.id === highlightEventId ? "highlight" : ""}`}
                       style={{
                         top,
                         height,
@@ -338,10 +368,12 @@ function WeekGrid({
 function Agenda({
   events,
   accounts,
+  highlightEventId,
   onEventClick,
 }: {
   events: CalEvent[];
   accounts: MailAccount[];
+  highlightEventId?: string | null;
   onEventClick: (ev: CalEvent) => void;
 }) {
   const acctMap = useMemo(() => {
@@ -356,7 +388,12 @@ function Agenda({
       {events.map((ev) => {
         const acct = acctMap.get(ev.accountId);
         return (
-          <div key={ev.id} className="cal-agenda-row" onClick={() => onEventClick(ev)} style={{ cursor: "pointer" }}>
+          <div
+            key={ev.id}
+            className={`cal-agenda-row ${ev.id === highlightEventId ? "highlight" : ""}`}
+            onClick={() => onEventClick(ev)}
+            style={{ cursor: "pointer" }}
+          >
             <div className="cal-agenda-date">
               <div className="cal-agenda-md">{fmtMD(new Date(ev.startMs))}</div>
               <div className="cal-agenda-wd">{dayName(new Date(ev.startMs))}</div>
@@ -518,7 +555,7 @@ function NewEventModal({
         setCreating(false);
         return;
       }
-      await api.createCalendarEvent({
+      const ev = await api.createCalendarEvent({
         accountId,
         title: title.trim(),
         startMs,
@@ -527,7 +564,15 @@ function NewEventModal({
         location: location.trim() || null,
       });
       window.dispatchEvent(new CustomEvent("salmon:toast", {
-        detail: { title: `✓ 已加日历: ${title.trim()}`, kind: "done" },
+        detail: {
+          title: `✓ 已加日历: ${title.trim()}`,
+          kind: "done",
+          actions: [{
+            label: "查看日历",
+            primary: true,
+            target: { view: "calendar", eventId: ev.id, accountId, startMs },
+          }],
+        },
       }));
       onCreated();
     } catch (e: any) {

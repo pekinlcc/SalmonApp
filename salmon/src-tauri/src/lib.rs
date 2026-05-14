@@ -197,6 +197,7 @@ pub fn run() {
             briefing_commands::get_briefing_status,
             briefing_commands::run_briefing,
             briefing_commands::list_brief_items,
+            briefing_commands::list_brief_history,
             briefing_commands::execute_action_step,
             briefing_commands::decide_brief_item,
             briefing_commands::get_rubric,

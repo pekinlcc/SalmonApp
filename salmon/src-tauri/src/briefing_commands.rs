@@ -39,10 +39,20 @@ pub struct BriefItem {
     pub related_topic_ids: Vec<String>,
     pub related_event_ids: Vec<String>,
     pub suggested_actions: Vec<SuggestedAction>,
+    pub action_results: Vec<BriefActionRun>,
     pub status: String,
     pub score: f64,
     pub created_at: i64,
     pub decided_at: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BriefActionRun {
+    pub action_index: usize,
+    pub action_label: String,
+    pub created_at: i64,
+    pub results: Vec<StepResult>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -137,7 +147,7 @@ pub fn list_brief_items(
         .prepare(
             "SELECT id, briefing_id, kind, priority, title, summary, why,
                     contact_email, topic_id, related_mail_ids, related_topic_ids,
-                    related_event_ids, suggested_actions, status, score,
+                    related_event_ids, suggested_actions, action_results, status, score,
                     created_at, decided_at
              FROM brief_items
              WHERE briefing_id = ?
@@ -150,6 +160,7 @@ pub fn list_brief_items(
             let rtids: String = r.get::<_, Option<String>>(10)?.unwrap_or_else(|| "[]".into());
             let reids: String = r.get::<_, Option<String>>(11)?.unwrap_or_else(|| "[]".into());
             let actions_json: String = r.get(12)?;
+            let action_results_json: String = r.get::<_, Option<String>>(13)?.unwrap_or_else(|| "[]".into());
             Ok(BriefItem {
                 id: r.get(0)?,
                 briefing_id: r.get(1)?,
@@ -164,10 +175,68 @@ pub fn list_brief_items(
                 related_topic_ids: serde_json::from_str(&rtids).unwrap_or_default(),
                 related_event_ids: serde_json::from_str(&reids).unwrap_or_default(),
                 suggested_actions: serde_json::from_str(&actions_json).unwrap_or_default(),
-                status: r.get(13)?,
-                score: r.get(14)?,
-                created_at: r.get(15)?,
-                decided_at: r.get(16)?,
+                action_results: serde_json::from_str(&action_results_json).unwrap_or_default(),
+                status: r.get(14)?,
+                score: r.get(15)?,
+                created_at: r.get(16)?,
+                decided_at: r.get(17)?,
+            })
+        })
+        .map_err(map_err)?;
+    let mut out = Vec::new();
+    for row in rows {
+        out.push(row.map_err(map_err)?);
+    }
+    Ok(out)
+}
+
+#[tauri::command]
+pub fn list_brief_history(
+    state: State<'_, AppState>,
+    limit: Option<i64>,
+) -> Result<Vec<BriefItem>, String> {
+    let db = state.db.lock();
+    let lim = limit.unwrap_or(200).clamp(1, 500);
+    let mut stmt = db
+        .conn()
+        .prepare(
+            "SELECT id, briefing_id, kind, priority, title, summary, why,
+                    contact_email, topic_id, related_mail_ids, related_topic_ids,
+                    related_event_ids, suggested_actions, action_results, status, score,
+                    created_at, decided_at
+             FROM brief_items
+             WHERE status != 'pending'
+                OR COALESCE(action_results, '') NOT IN ('', '[]')
+             ORDER BY COALESCE(decided_at, created_at) DESC
+             LIMIT ?",
+        )
+        .map_err(map_err)?;
+    let rows = stmt
+        .query_map(params![lim], |r| {
+            let rmids: String = r.get::<_, Option<String>>(9)?.unwrap_or_else(|| "[]".into());
+            let rtids: String = r.get::<_, Option<String>>(10)?.unwrap_or_else(|| "[]".into());
+            let reids: String = r.get::<_, Option<String>>(11)?.unwrap_or_else(|| "[]".into());
+            let actions_json: String = r.get(12)?;
+            let action_results_json: String = r.get::<_, Option<String>>(13)?.unwrap_or_else(|| "[]".into());
+            Ok(BriefItem {
+                id: r.get(0)?,
+                briefing_id: r.get(1)?,
+                kind: r.get(2)?,
+                priority: r.get(3)?,
+                title: r.get(4)?,
+                summary: r.get(5)?,
+                why: r.get(6)?,
+                contact_email: r.get(7)?,
+                topic_id: r.get(8)?,
+                related_mail_ids: serde_json::from_str(&rmids).unwrap_or_default(),
+                related_topic_ids: serde_json::from_str(&rtids).unwrap_or_default(),
+                related_event_ids: serde_json::from_str(&reids).unwrap_or_default(),
+                suggested_actions: serde_json::from_str(&actions_json).unwrap_or_default(),
+                action_results: serde_json::from_str(&action_results_json).unwrap_or_default(),
+                status: r.get(14)?,
+                score: r.get(15)?,
+                created_at: r.get(16)?,
+                decided_at: r.get(17)?,
             })
         })
         .map_err(map_err)?;
@@ -186,7 +255,7 @@ pub struct ExecuteStepInput {
     pub step_indices: Option<Vec<usize>>, // null = all steps
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all_fields = "camelCase")]
 pub enum StepResult {
     Acknowledged { message: String },
@@ -488,13 +557,30 @@ pub async fn execute_action_step(
         }
     }
 
-    // Log feedback + maybe mark item acted-on. Don't mark acted if every
-    // step Skipped — the user should be able to retry. They'll see the
-    // skipped reasons in toasts and can fix (e.g. add a mail account,
-    // re-login for tasks scope, etc) and click the same action again.
+    // Log feedback + persist the inline result history. Do not auto-archive
+    // the card after success: the frontend keeps showing the result with
+    // "view" actions, and the user archives it explicitly when done.
     let any_succeeded = results.iter().any(|r| !matches!(r, StepResult::Skipped { .. }));
     {
         let db = state.db.lock();
+        let mut runs: Vec<BriefActionRun> = db
+            .conn()
+            .query_row(
+                "SELECT action_results FROM brief_items WHERE id=?",
+                params![input.item_id],
+                |r| r.get::<_, Option<String>>(0),
+            )
+            .ok()
+            .flatten()
+            .and_then(|s| serde_json::from_str(&s).ok())
+            .unwrap_or_default();
+        runs.push(BriefActionRun {
+            action_index: input.action_index,
+            action_label: action.label.clone(),
+            created_at: chrono::Utc::now().timestamp_millis(),
+            results: results.clone(),
+        });
+        let runs_json = serde_json::to_string(&runs).map_err(map_err)?;
         db.conn()
             .execute(
                 "INSERT INTO feedback_log(ts, kind, item_id, item_title, detail)
@@ -507,14 +593,12 @@ pub async fn execute_action_step(
                 ],
             )
             .map_err(map_err)?;
-        if any_succeeded {
-            db.conn()
-                .execute(
-                    "UPDATE brief_items SET status='acted', decided_at=? WHERE id=?",
-                    params![chrono::Utc::now().timestamp_millis(), input.item_id],
-                )
-                .map_err(map_err)?;
-        }
+        db.conn()
+            .execute(
+                "UPDATE brief_items SET action_results=? WHERE id=?",
+                params![runs_json, input.item_id],
+            )
+            .map_err(map_err)?;
     }
 
     Ok(results)

@@ -8,7 +8,12 @@ import { SalmonLogo } from "./SalmonLogo";
  * Standalone left-sidebar entry. Filtered by account; toggle to show
  * completed.
  */
-export function TasksView() {
+interface TasksViewProps {
+  pendingOpenTask?: { taskId?: string | null; accountId?: string | null } | null;
+  onConsumePendingOpenTask?: () => void;
+}
+
+export function TasksView({ pendingOpenTask, onConsumePendingOpenTask }: TasksViewProps = {}) {
   const [accounts, setAccounts] = useState<MailAccount[]>([]);
   const [accountId, setAccountId] = useState<string | "all">("all");
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -16,6 +21,8 @@ export function TasksView() {
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [composeOpen, setComposeOpen] = useState(false);
+  const [highlightTaskId, setHighlightTaskId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const loadAll = useCallback(async () => {
     try {
@@ -34,6 +41,17 @@ export function TasksView() {
   }, [accountId]);
 
   useEffect(() => { loadAll(); }, [loadAll]);
+
+  useEffect(() => {
+    if (!pendingOpenTask?.taskId && !pendingOpenTask?.accountId) return;
+    if (pendingOpenTask.accountId) setAccountId(pendingOpenTask.accountId);
+    if (pendingOpenTask.taskId) {
+      setSelectedId(pendingOpenTask.taskId);
+      setHighlightTaskId(pendingOpenTask.taskId);
+      setShowCompleted(true);
+    }
+    onConsumePendingOpenTask?.();
+  }, [pendingOpenTask, onConsumePendingOpenTask]);
 
   const onSync = useCallback(async () => {
     if (accounts.length === 0) return;
@@ -116,7 +134,6 @@ export function TasksView() {
   // below; otherwise the hook-call count changes when the user adds
   // their first account and React throws "Rendered more hooks than
   // during the previous render."
-  const [selectedId, setSelectedId] = useState<string | null>(null);
   useEffect(() => {
     if (selectedId && !tasks.find((t) => t.id === selectedId)) {
       setSelectedId(null);
@@ -186,6 +203,7 @@ export function TasksView() {
                 key={t.id}
                 task={t}
                 active={t.id === selectedId}
+                highlight={t.id === highlightTaskId}
                 onSelect={() => setSelectedId(t.id)}
                 onToggle={() => onToggle(t)}
               />
@@ -220,6 +238,7 @@ export function TasksView() {
           onCreated={(t) => {
             setTasks((cur) => [t, ...cur]);
             setSelectedId(t.id);
+            setHighlightTaskId(t.id);
             setComposeOpen(false);
           }}
         />
@@ -231,11 +250,13 @@ export function TasksView() {
 function TaskListRow({
   task,
   active,
+  highlight,
   onSelect,
   onToggle,
 }: {
   task: Task;
   active: boolean;
+  highlight?: boolean;
   onSelect: () => void;
   onToggle: () => void;
 }) {
@@ -256,7 +277,7 @@ function TaskListRow({
   }, [task.dueMs, task.completed]);
   return (
     <div
-      className={`topic ${active ? "active" : ""}`}
+      className={`topic ${active ? "active" : ""} ${highlight ? "highlight" : ""}`}
       onClick={onSelect}
       style={{ cursor: "pointer" }}
     >
@@ -473,7 +494,15 @@ function NewTaskModal({
       });
       onCreated(t);
       window.dispatchEvent(new CustomEvent("salmon:toast", {
-        detail: { title: `✓ 已创建待办: ${t.title}`, kind: "done" },
+        detail: {
+          title: `✓ 已创建待办: ${t.title}`,
+          kind: "done",
+          actions: [{
+            label: "查看待办",
+            primary: true,
+            target: { view: "tasks", taskId: t.id, accountId: t.accountId },
+          }],
+        },
       }));
     } catch (e: any) {
       setError(String(e));

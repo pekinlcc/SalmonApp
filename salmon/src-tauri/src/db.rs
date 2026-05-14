@@ -228,6 +228,7 @@ impl Db {
                 related_topic_ids   TEXT,                       -- JSON array
                 related_event_ids   TEXT,                       -- JSON array
                 suggested_actions   TEXT NOT NULL,              -- JSON: [{label, steps:[{kind,detail}]}]
+                action_results      TEXT,                       -- JSON: executed action result history
                 status              TEXT NOT NULL DEFAULT 'pending',
                 score               REAL NOT NULL DEFAULT 0,
                 created_at          INTEGER NOT NULL,
@@ -287,6 +288,10 @@ impl Db {
             );
             "#,
         )?;
+        let _ = conn.execute(
+            "ALTER TABLE brief_items ADD COLUMN action_results TEXT",
+            [],
+        );
         Ok(Self { conn })
     }
 

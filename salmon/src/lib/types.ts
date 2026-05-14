@@ -370,10 +370,18 @@ export interface BriefItem {
   relatedTopicIds: string[];
   relatedEventIds: string[];
   suggestedActions: SuggestedAction[];
-  status: "pending" | "acted" | "ack" | "muted";
+  actionResults: BriefActionRun[];
+  status: "pending" | "acted" | "ack" | "muted" | "expired" | "superseded";
   score: number;
   createdAt: number;
   decidedAt?: number | null;
+}
+
+export interface BriefActionRun {
+  actionIndex: number;
+  actionLabel: string;
+  createdAt: number;
+  results: StepResult[];
 }
 
 export interface BriefingStatus {

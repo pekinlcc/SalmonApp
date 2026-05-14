@@ -20,7 +20,7 @@ interface MailViewProps {
   /** v1.1.1: open a specific mail (from RelatedMailList click on a brief
    *  card). App.tsx stashes the payload and we pick it up here, switching
    *  account if needed and selecting the row. */
-  pendingOpenMail?: { messageId: string; accountId: string } | null;
+  pendingOpenMail?: { messageId?: string | null; accountId?: string | null } | null;
   onConsumePendingOpenMail?: () => void;
 }
 
@@ -137,12 +137,16 @@ export function MailView({
   // selectedMessageId. Use the applyingPendingOpenMailRef guard so the
   // selection survives the account switch.
   useEffect(() => {
-    if (!pendingOpenMail?.messageId || !pendingOpenMail?.accountId) return;
-    applyingPendingOpenMailRef.current =
-      pendingOpenMail.accountId !== selectedAccountId;
-    setSelectedAccountId(pendingOpenMail.accountId);
-    setSelectedMessageId(pendingOpenMail.messageId);
-    setSelectedBody(null);
+    if (!pendingOpenMail?.messageId && !pendingOpenMail?.accountId) return;
+    if (pendingOpenMail.accountId) {
+      applyingPendingOpenMailRef.current =
+        !!pendingOpenMail.messageId && pendingOpenMail.accountId !== selectedAccountId;
+      setSelectedAccountId(pendingOpenMail.accountId);
+    }
+    if (pendingOpenMail.messageId) {
+      setSelectedMessageId(pendingOpenMail.messageId);
+      setSelectedBody(null);
+    }
     onConsumePendingOpenMail?.();
   }, [pendingOpenMail, onConsumePendingOpenMail, selectedAccountId]);
 

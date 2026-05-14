@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../lib/api";
 import type { MailAccount } from "../lib/types";
+import type { ToastAction } from "../lib/notify";
 
 export function CodeBlock({ children }: { children?: React.ReactNode }) {
   const ref = useRef<HTMLPreElement>(null);
@@ -77,6 +78,11 @@ interface MailActionItem {
   replyToMessageId?: string | null;
 }
 
+interface SalmonActionExecution {
+  message: string;
+  actions?: ToastAction[];
+}
+
 function SalmonActionCard({ raw }: { raw: string }) {
   const parsed = useMemo(() => parseSalmonAction(raw), [raw]);
   if (parsed.ok && (parsed.action.kind === "mail.send" || parsed.action.kind === "mail.draft")) {
@@ -111,10 +117,10 @@ function SalmonActionCard({ raw }: { raw: string }) {
     setBusy(true);
     setError(null);
     try {
-      const message = await executeSalmonAction(parsed.action, accountId);
-      setDone(message);
+      const result = await executeSalmonAction(parsed.action, accountId);
+      setDone(result.message);
       window.dispatchEvent(new CustomEvent("salmon:toast", {
-        detail: { title: message, kind: "done" },
+        detail: { title: result.message, kind: "done", actions: result.actions },
       }));
     } catch (e: any) {
       const msg = readableActionError(e);
@@ -198,10 +204,10 @@ function MailActionCard({ action }: { action: Extract<SalmonAction, { kind: "mai
     setBusy(true);
     setError(null);
     try {
-      const message = await executeSalmonAction(action, accountId);
-      setDone(message);
+      const result = await executeSalmonAction(action, accountId);
+      setDone(result.message);
       window.dispatchEvent(new CustomEvent("salmon:toast", {
-        detail: { title: message, kind: "done" },
+        detail: { title: result.message, kind: "done", actions: result.actions },
       }));
     } catch (e: any) {
       const msg = readableActionError(e);
@@ -358,15 +364,16 @@ function renderActionDetails(action: SalmonAction) {
   );
 }
 
-async function executeSalmonAction(action: SalmonAction, accountId: string): Promise<string> {
+async function executeSalmonAction(action: SalmonAction, accountId: string): Promise<SalmonActionExecution> {
   switch (action.kind) {
     case "tasks.create": {
       const items = action.items || [];
       if (items.length === 0) throw new Error("没有待办条目。");
+      const actions: ToastAction[] = [];
       for (const item of items) {
         const title = item.title?.trim();
         if (!title) throw new Error("待办标题不能为空。");
-        await api.createTask({
+        const task = await api.createTask({
           accountId,
           title,
           notes: item.notes?.trim() || null,
@@ -374,12 +381,18 @@ async function executeSalmonAction(action: SalmonAction, accountId: string): Pro
           sourceKind: "chat",
           sourceBriefItemId: null,
         });
+        actions.push({
+          label: "查看待办",
+          primary: actions.length === 0,
+          target: { view: "tasks", taskId: task.id, accountId: task.accountId },
+        });
       }
-      return `已创建 ${items.length} 个待办`;
+      return { message: `已创建 ${items.length} 个待办`, actions };
     }
     case "calendar.create": {
       const events = calendarItems(action);
       if (events.length === 0) throw new Error("没有日历事件。");
+      const actions: ToastAction[] = [];
       for (const event of events) {
         const title = event.title?.trim();
         if (!title) throw new Error("日历标题不能为空。");
@@ -388,7 +401,7 @@ async function executeSalmonAction(action: SalmonAction, accountId: string): Pro
         let endMs = resolveLocalTime(event.endMs, event.endLocal, allDay);
         if (!startMs) throw new Error(`日历事件缺少开始时间: ${title}`);
         if (!endMs) endMs = allDay ? startMs : startMs + 60 * 60 * 1000;
-        await api.createCalendarEvent({
+        const created = await api.createCalendarEvent({
           accountId,
           title,
           startMs,
@@ -396,20 +409,31 @@ async function executeSalmonAction(action: SalmonAction, accountId: string): Pro
           allDay,
           location: event.location?.trim() || null,
         });
+        actions.push({
+          label: "查看日历",
+          primary: actions.length === 0,
+          target: { view: "calendar", eventId: created.id, accountId, startMs },
+        });
       }
-      return `已创建 ${events.length} 个日历事件`;
+      return { message: `已创建 ${events.length} 个日历事件`, actions };
     }
     case "mail.draft": {
       const draft = action.draft;
       if (!draft) throw new Error("缺少邮件草稿。");
       await api.saveMailDraft(toComposeInput(draft, accountId), null);
-      return "已保存邮件草稿";
+      return {
+        message: "已保存邮件草稿",
+        actions: [{ label: "查看邮件", primary: true, target: { view: "mail", accountId } }],
+      };
     }
     case "mail.send": {
       const mail = action.mail;
       if (!mail) throw new Error("缺少邮件内容。");
       await api.sendMail(toComposeInput(mail, accountId));
-      return "已发送邮件";
+      return {
+        message: "已发送邮件",
+        actions: [{ label: "查看邮件", primary: true, target: { view: "mail", accountId } }],
+      };
     }
   }
 }

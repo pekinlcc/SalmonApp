@@ -87,6 +87,17 @@ export function ComposeModal({ accounts, defaultAccountId, replyTo, onClose, onS
     setSending(true);
     try {
       await api.sendMail(buildInput());
+      window.dispatchEvent(new CustomEvent("salmon:toast", {
+        detail: {
+          title: "✓ 邮件已发送",
+          kind: "done",
+          actions: [{
+            label: "查看邮件",
+            primary: true,
+            target: { view: "mail", accountId },
+          }],
+        },
+      }));
       onSent();
     } catch (e: any) {
       setError(String(e));

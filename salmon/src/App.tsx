@@ -4,7 +4,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { ask } from "@tauri-apps/plugin-dialog";
 import type { Block, BriefingProgress, ChatLayout, CliInfo, ComposerSendMode, Message, Recommendation, StreamEvent, ToolCall, Topic, UiMessage, UsageSummary } from "./lib/types";
 import { api } from "./lib/api";
-import { notify, setNotifySoundEnabled, type NotifyOpts, type ToastEvent } from "./lib/notify";
+import { notify, setNotifySoundEnabled, type NotifyOpts, type ToastActionTarget, type ToastEvent } from "./lib/notify";
 import { LeftSidebar } from "./components/LeftSidebar";
 import { IconRail } from "./components/IconRail";
 import { ContactsView } from "./components/ContactsView";
@@ -130,7 +130,9 @@ export default function App() {
     };
   }, []);
   const [pendingComposeReply, setPendingComposeReply] = useState<{ replyToMailId: string; bodyText?: string } | null>(null);
-  const [pendingOpenMail, setPendingOpenMail] = useState<{ messageId: string; accountId: string } | null>(null);
+  const [pendingOpenMail, setPendingOpenMail] = useState<{ messageId?: string | null; accountId?: string | null } | null>(null);
+  const [pendingOpenCalendar, setPendingOpenCalendar] = useState<{ eventId?: string | null; accountId?: string | null; startMs?: number | null } | null>(null);
+  const [pendingOpenTask, setPendingOpenTask] = useState<{ taskId?: string | null; accountId?: string | null } | null>(null);
 
   // v0.11.1: IconRail badges. Refreshed on mount + on relevant Tauri events.
   const [unreadMailBadge, setUnreadMailBadge] = useState(0);
@@ -202,7 +204,12 @@ export default function App() {
   // DOM event so they don't have to prop-drill the pushToast callback.
   useEffect(() => {
     const handler = (e: Event) => {
-      const detail = (e as CustomEvent).detail as { title?: string; body?: string; kind?: string } | undefined;
+      const detail = (e as CustomEvent).detail as {
+        title?: string;
+        body?: string;
+        kind?: string;
+        actions?: ToastEvent["actions"];
+      } | undefined;
       if (!detail?.title) return;
       const kind = (detail.kind && ["permission","done","error","crash","recs","info"].includes(detail.kind))
         ? (detail.kind as any) : "info";
@@ -213,6 +220,7 @@ export default function App() {
         title: detail.title,
         body: detail.body || "",
         createdAt: Date.now(),
+        actions: Array.isArray(detail.actions) ? detail.actions : undefined,
       });
     };
     window.addEventListener("salmon:toast", handler);
@@ -924,6 +932,50 @@ export default function App() {
     [messagesByTopic, runningIds, topics]
   );
 
+  const navigateActionTarget = useCallback((target: ToastActionTarget) => {
+    if (target.view === "topic") {
+      setTopView("topic");
+      onSelect(target.topicId);
+      return;
+    }
+    setSelectedId(null);
+    setSelectedTool(null);
+    if (target.view === "calendar") {
+      setTopView("calendar");
+      setPendingOpenCalendar({
+        eventId: target.eventId ?? null,
+        accountId: target.accountId ?? null,
+        startMs: target.startMs ?? null,
+      });
+      return;
+    }
+    if (target.view === "tasks") {
+      setTopView("tasks");
+      setPendingOpenTask({
+        taskId: target.taskId ?? null,
+        accountId: target.accountId ?? null,
+      });
+      return;
+    }
+    if (target.view === "mail") {
+      setTopView("mail");
+      setPendingOpenMail({
+        messageId: target.messageId ?? null,
+        accountId: target.accountId ?? null,
+      });
+    }
+  }, [onSelect]);
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const target = (e as CustomEvent).detail as ToastActionTarget | undefined;
+      if (!target?.view) return;
+      navigateActionTarget(target);
+    };
+    window.addEventListener("salmon:navigate", handler);
+    return () => window.removeEventListener("salmon:navigate", handler);
+  }, [navigateActionTarget]);
+
   const onArchive = useCallback(async (id: string, archived: boolean) => {
     try {
       await api.setArchived(id, archived);
@@ -997,11 +1049,13 @@ export default function App() {
     // landed users on a Topic that looked empty / didn't auto-resume.
     if (t.topicId) {
       onSelect(t.topicId);
+    } else if (t.actions?.[0]) {
+      navigateActionTarget(t.actions[0].target);
     } else {
       setSelectedId(null);
       setSelectedTool(null);
     }
-  }, [onSelect]);
+  }, [navigateActionTarget, onSelect]);
 
   const onToggleDangerMode = useCallback(async (id: string, danger: boolean) => {
     try {
@@ -1296,9 +1350,15 @@ export default function App() {
             ) : topView === "contacts" ? (
               <ContactsView />
             ) : topView === "calendar" ? (
-              <CalendarView />
+              <CalendarView
+                pendingOpenEvent={pendingOpenCalendar}
+                onConsumePendingOpenEvent={() => setPendingOpenCalendar(null)}
+              />
             ) : topView === "tasks" ? (
-              <TasksView />
+              <TasksView
+                pendingOpenTask={pendingOpenTask}
+                onConsumePendingOpenTask={() => setPendingOpenTask(null)}
+              />
             ) : topView === "topic" ? (
               <div className="empty-feature">
                 <div className="empty-icon">💬</div>
@@ -1472,7 +1532,12 @@ export default function App() {
         );
       })()}
 
-      <Toasts toasts={toasts} onDismiss={dismissToast} onClick={onToastClick} />
+      <Toasts
+        toasts={toasts}
+        onDismiss={dismissToast}
+        onClick={onToastClick}
+        onAction={navigateActionTarget}
+      />
     </div>
   );
 }
