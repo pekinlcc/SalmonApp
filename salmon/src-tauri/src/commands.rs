@@ -1,10 +1,11 @@
-use crate::types::{CliInfo, Message, Recommendation, SearchResult, Topic};
+use crate::types::{CliInfo, Message, Recommendation, SearchResult, StreamEvent, Topic};
 use crate::AppState;
+use anyhow::Result as AnyResult;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::process::Command;
 use std::sync::Arc;
-use tauri::State;
+use tauri::{AppHandle, Emitter, State};
 
 fn map_err<E: std::fmt::Display>(e: E) -> String {
     format!("{e}")
@@ -301,7 +302,8 @@ fn spawn_topic(state: &State<'_, AppState>, topic: Topic) -> Result<(), String> 
 }
 
 #[tauri::command]
-pub fn send_message(
+pub async fn send_message(
+    app: AppHandle,
     state: State<'_, AppState>,
     topic_id: String,
     content: String,
@@ -312,17 +314,221 @@ pub fn send_message(
         .get_topic(&topic_id)
         .map_err(map_err)?
         .ok_or_else(|| "topic not found".to_string())?;
-    spawn_topic(&state, topic)?;
     let saved = state
         .db
         .lock()
         .append_message(&topic_id, "user", &content, None)
         .map_err(map_err)?;
-    if let Err(e) = state.engine.send(&topic_id, &content).map_err(map_err) {
+    if try_handle_builtin_app_action(&app, &state, &topic_id, &content)
+        .await
+        .map_err(map_err)?
+    {
+        return Ok(saved);
+    }
+    if let Err(e) = spawn_topic(&state, topic) {
+        let _ = state.db.lock().delete_message(&saved.id);
+        return Err(e);
+    }
+    let engine_prompt = prompt_with_salmon_capabilities(&content);
+    if let Err(e) = state.engine.send(&topic_id, &engine_prompt).map_err(map_err) {
         let _ = state.db.lock().delete_message(&saved.id);
         return Err(e);
     }
     Ok(saved)
+}
+
+async fn try_handle_builtin_app_action(
+    app: &AppHandle,
+    state: &State<'_, AppState>,
+    topic_id: &str,
+    content: &str,
+) -> AnyResult<bool> {
+    let Some(task_titles) = parse_task_creation_request(content) else {
+        return Ok(false);
+    };
+    let Some((account_id, account_email)) = first_mail_account(state)? else {
+        emit_builtin_reply(
+            app,
+            state,
+            topic_id,
+            "我可以在 SalmonApp 内创建待办，但还没有连接 Gmail / Outlook 账号。先到「邮件」里添加账号后，我就能直接写入待办。".to_string(),
+        )?;
+        return Ok(true);
+    };
+
+    let mut created = Vec::new();
+    let mut failed = Vec::new();
+    for title in task_titles {
+        let input = crate::tasks::CreateTaskInput {
+            account_id: account_id.clone(),
+            title: title.clone(),
+            notes: None,
+            due_ms: None,
+            source_kind: Some("manual".into()),
+            source_brief_item_id: None,
+        };
+        match crate::tasks::create_task_remote(&state.oauth_cfg, state.db.clone(), input).await {
+            Ok(task) => created.push(task.title),
+            Err(err) => failed.push((title, err.to_string())),
+        }
+    }
+
+    let mut lines = Vec::new();
+    if !created.is_empty() {
+        lines.push(format!("已在 SalmonApp 待办里创建 {} 项（{}）：", created.len(), account_email));
+        for title in &created {
+            lines.push(format!("- {}", title));
+        }
+    }
+    if !failed.is_empty() {
+        if !lines.is_empty() {
+            lines.push(String::new());
+        }
+        lines.push("这些待办创建失败：".into());
+        for (title, err) in failed {
+            lines.push(format!("- {}：{}", title, err));
+        }
+    }
+    emit_builtin_reply(app, state, topic_id, lines.join("\n"))?;
+    Ok(true)
+}
+
+fn first_mail_account(state: &State<'_, AppState>) -> AnyResult<Option<(String, String)>> {
+    let db = state.db.lock();
+    let mut stmt = db
+        .conn()
+        .prepare("SELECT id, email FROM mail_accounts ORDER BY added_at ASC LIMIT 1")?;
+    let mut rows = stmt.query([])?;
+    if let Some(row) = rows.next()? {
+        Ok(Some((row.get(0)?, row.get(1)?)))
+    } else {
+        Ok(None)
+    }
+}
+
+fn emit_builtin_reply(
+    app: &AppHandle,
+    state: &State<'_, AppState>,
+    topic_id: &str,
+    content: String,
+) -> AnyResult<()> {
+    let saved = state
+        .db
+        .lock()
+        .append_message(topic_id, "assistant", &content, None)?;
+    app.emit(
+        "salmon-stream",
+        StreamEvent::AssistantDone {
+            topic_id: topic_id.to_string(),
+            message_id: saved.id,
+            content,
+        },
+    )?;
+    app.emit(
+        "salmon-stream",
+        StreamEvent::Exited {
+            topic_id: topic_id.to_string(),
+            code: Some(0),
+        },
+    )?;
+    Ok(())
+}
+
+fn parse_task_creation_request(content: &str) -> Option<Vec<String>> {
+    let text = content.trim();
+    if text.is_empty() {
+        return None;
+    }
+    let wants_task = text.contains("待办") || text.contains("任务") || text.to_ascii_lowercase().contains("todo");
+    let wants_create = ["创建", "添加", "新增", "加到", "加入", "生成", "帮我加", "帮我建"]
+        .iter()
+        .any(|w| text.contains(w));
+    if !wants_task || !wants_create {
+        return None;
+    }
+
+    let after_marker = ["待办：", "待办:", "任务：", "任务:"]
+        .iter()
+        .find_map(|marker| text.split_once(marker).map(|(_, rest)| rest.trim()))
+        .unwrap_or(text);
+    let mut items = parse_numbered_items(after_marker);
+    if items.is_empty() {
+        items = after_marker
+            .lines()
+            .map(|line| line.trim().trim_start_matches(['-', '*', '•']).trim())
+            .filter(|line| !line.is_empty())
+            .map(clean_task_title)
+            .filter(|line| !line.is_empty())
+            .collect();
+    }
+    if items.is_empty() {
+        let cleaned = clean_task_title(after_marker);
+        if !cleaned.is_empty() {
+            items.push(cleaned);
+        }
+    }
+    items.dedup();
+    if items.is_empty() { None } else { Some(items) }
+}
+
+fn parse_numbered_items(text: &str) -> Vec<String> {
+    let chars: Vec<(usize, char)> = text.char_indices().collect();
+    let mut starts: Vec<(usize, usize)> = Vec::new();
+    let mut i = 0;
+    while i < chars.len() {
+        let (byte_idx, ch) = chars[i];
+        let prev_boundary = i == 0 || chars[i - 1].1.is_whitespace();
+        if prev_boundary && (ch.is_ascii_digit() || is_chinese_number(ch)) {
+            let mut j = i + 1;
+            while j < chars.len() && chars[j].1.is_ascii_digit() {
+                j += 1;
+            }
+            if j < chars.len() && matches!(chars[j].1, '.' | '、' | ')' | '）') {
+                let content_start = chars.get(j + 1).map(|(idx, _)| *idx).unwrap_or(text.len());
+                starts.push((byte_idx, content_start));
+                i = j + 1;
+                continue;
+            }
+        }
+        i += 1;
+    }
+    let mut out = Vec::new();
+    for idx in 0..starts.len() {
+        let start = starts[idx].1;
+        let end = starts.get(idx + 1).map(|(marker, _)| *marker).unwrap_or(text.len());
+        let item = clean_task_title(&text[start..end]);
+        if !item.is_empty() {
+            out.push(item);
+        }
+    }
+    out
+}
+
+fn is_chinese_number(ch: char) -> bool {
+    matches!(ch, '一' | '二' | '三' | '四' | '五' | '六' | '七' | '八' | '九' | '十')
+}
+
+fn clean_task_title(input: &str) -> String {
+    let mut s = input
+        .trim()
+        .trim_matches(|c: char| c == '，' || c == ',' || c == ';' || c == '；')
+        .trim()
+        .to_string();
+    for prefix in ["帮我创建", "帮我添加", "创建", "添加", "新增", "生成", "待办", "任务", "几个"] {
+        s = s.trim_start_matches(prefix).trim().to_string();
+    }
+    s.trim_matches(['：', ':']).trim().to_string()
+}
+
+fn prompt_with_salmon_capabilities(content: &str) -> String {
+    format!(
+        "【SalmonApp 内置能力提示】\n\
+你正在 SalmonApp 内回复。SalmonApp 已内置 Gmail/Outlook 邮件、日历、联系人、Google Tasks/Microsoft To Do 待办能力。\n\
+如果用户要发邮件、写邮件草稿、创建日历事件或创建待办，优先说明/使用 SalmonApp 内置能力，不要默认寻找飞书、Lark、Apple Reminders 或其他外部任务系统。\n\
+如果当前 CLI 不能直接调用某个 App 内置动作，就向用户说明需要在 SalmonApp 内完成或补充必要信息，不要改用外部工具代替。\n\n\
+用户消息：\n{}",
+        content
+    )
 }
 
 #[tauri::command]
