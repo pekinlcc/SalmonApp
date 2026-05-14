@@ -881,9 +881,22 @@ pub async fn create_task(
 ) -> Result<crate::tasks::Task, String> {
     let cfg = state.oauth_cfg.clone();
     let db = state.db.clone();
-    crate::tasks::create_task_remote(&cfg, db, input)
-        .await
-        .map_err(map_err)
+    match crate::tasks::create_task_remote(&cfg, db.clone(), input.clone()).await {
+        Ok(task) => Ok(task),
+        Err(err) if should_create_task_locally(&err) => {
+            let guard = db.lock();
+            crate::tasks::create_task_local(&guard, input).map_err(map_err)
+        }
+        Err(err) => Err(map_err(err)),
+    }
+}
+
+fn should_create_task_locally(err: &anyhow::Error) -> bool {
+    let msg = err.to_string();
+    msg.contains("SERVICE_DISABLED")
+        || msg.contains("accessNotConfigured")
+        || msg.contains("Google Tasks API has not been used")
+        || msg.contains("tasks.googleapis.com")
 }
 
 #[tauri::command]

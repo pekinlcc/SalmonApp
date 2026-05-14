@@ -117,7 +117,7 @@ function SalmonActionCard({ raw }: { raw: string }) {
         detail: { title: message, kind: "done" },
       }));
     } catch (e: any) {
-      const msg = String(e);
+      const msg = readableActionError(e);
       setError(msg);
       window.dispatchEvent(new CustomEvent("salmon:toast", {
         detail: { title: "动作执行失败", body: msg, kind: "error" },
@@ -204,7 +204,7 @@ function MailActionCard({ action }: { action: Extract<SalmonAction, { kind: "mai
         detail: { title: message, kind: "done" },
       }));
     } catch (e: any) {
-      const msg = String(e);
+      const msg = readableActionError(e);
       setError(msg);
       window.dispatchEvent(new CustomEvent("salmon:toast", {
         detail: { title: isSend ? "邮件发送失败" : "草稿保存失败", body: msg, kind: "error" },
@@ -453,6 +453,19 @@ function formatMs(ms?: number | null): string {
 function formatRecipients(values?: string[]): string {
   const rows = (values || []).map((v) => v.trim()).filter(Boolean);
   return rows.length > 0 ? rows.join(", ") : "(Not specified)";
+}
+
+function readableActionError(error: unknown): string {
+  const text = String(error || "");
+  if (
+    text.includes("Google Tasks API has not been used") ||
+    text.includes("SERVICE_DISABLED") ||
+    text.includes("accessNotConfigured")
+  ) {
+    return "Google Tasks API 未启用。SalmonApp 会把待办先保存到本地，等账号/API 配好后再同步。";
+  }
+  if (text.length <= 260) return text;
+  return `${text.slice(0, 257)}...`;
 }
 
 function truncate(text: string, max: number): string {

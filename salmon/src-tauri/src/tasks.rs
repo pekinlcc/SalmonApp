@@ -135,6 +135,26 @@ fn upsert_task_local(db: &Db, t: &Task) -> Result<()> {
     Ok(())
 }
 
+pub fn create_task_local(db: &Db, input: CreateTaskInput) -> Result<Task> {
+    let now_ms = chrono::Utc::now().timestamp_millis();
+    let task = Task {
+        id: format!("local:{}", uuid::Uuid::new_v4()),
+        account_id: input.account_id,
+        list_id: None,
+        title: input.title,
+        notes: input.notes,
+        due_ms: input.due_ms,
+        completed: false,
+        completed_at_ms: None,
+        source_kind: input.source_kind.unwrap_or_else(|| "manual".into()),
+        source_brief_item_id: input.source_brief_item_id,
+        created_at: now_ms,
+        updated_at: now_ms,
+    };
+    upsert_task_local(db, &task)?;
+    Ok(task)
+}
+
 fn delete_task_local(db: &Db, task_id: &str) -> Result<()> {
     db.conn().execute("DELETE FROM tasks WHERE id = ?", params![task_id])?;
     Ok(())
