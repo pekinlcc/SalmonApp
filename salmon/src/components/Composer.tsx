@@ -59,8 +59,8 @@ export function Composer({ topicId, busy, disabled, sendMode, onSend, onInterrup
   }
 
   useEffect(() => {
-    if (!busy && !disabled) ref.current?.focus();
-  }, [busy, disabled]);
+    if (!disabled) ref.current?.focus();
+  }, [disabled]);
 
   // Auto-grow the textarea up to TEXTAREA_MAX_HEIGHT, then scroll. Reset
   // to "auto" first so shrinking back works (scrollHeight only grows).
@@ -270,7 +270,9 @@ export function Composer({ topicId, busy, disabled, sendMode, onSend, onInterrup
           placeholder={
             disabled
               ? "工作目录不可用,无法发送(选归档或删除该 Topic)"
-              : `问点什么...  ${sendShortcutLabel} 发送 · ${newlineShortcutLabel} 换行 · ↑ 恢复上一条 · 可拖拽文件`
+              : busy
+                ? `CLI 运行中,可继续追加消息...  ${sendShortcutLabel} 追加 · ${newlineShortcutLabel} 换行`
+                : `问点什么...  ${sendShortcutLabel} 发送 · ${newlineShortcutLabel} 换行 · ↑ 恢复上一条 · 可拖拽文件`
           }
           value={text}
           disabled={disabled}
@@ -329,12 +331,12 @@ export function Composer({ topicId, busy, disabled, sendMode, onSend, onInterrup
           )}
           <button
             className="send-btn"
-            disabled={busy || disabled || (!text.trim() && attachments.length === 0)}
+            disabled={disabled || (!text.trim() && attachments.length === 0)}
             onClick={submit}
             style={{ marginLeft: "auto" }}
-            title={`快捷键: ${sendShortcutLabel}`}
+            title={busy ? `追加到当前 CLI 会话队列: ${sendShortcutLabel}` : `快捷键: ${sendShortcutLabel}`}
           >
-            发送 {sendShortcutLabel}
+            {busy ? "追加" : "发送"} {sendShortcutLabel}
           </button>
         </div>
       </div>

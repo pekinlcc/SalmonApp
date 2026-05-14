@@ -385,6 +385,22 @@ export default function App() {
 
   const selectedIdRef = useRef<string | null>(null);
   selectedIdRef.current = selectedId;
+  // Messages sent while the CLI is already running are queued by the
+  // backend's per-topic EngineCmd channel. Track how many frontend sends are
+  // waiting for an `exited` event so the UI doesn't briefly mark the Topic
+  // idle between queued turns.
+  const queuedTurnsByTopicRef = useRef<Record<string, number>>({});
+
+  const incrementQueuedTurn = useCallback((topicId: string) => {
+    queuedTurnsByTopicRef.current[topicId] = (queuedTurnsByTopicRef.current[topicId] || 0) + 1;
+  }, []);
+
+  const consumeQueuedTurn = useCallback((topicId: string): number => {
+    const next = Math.max(0, (queuedTurnsByTopicRef.current[topicId] || 0) - 1);
+    if (next === 0) delete queuedTurnsByTopicRef.current[topicId];
+    else queuedTurnsByTopicRef.current[topicId] = next;
+    return next;
+  }, []);
 
   // handleStream is closed over in a mount-time listener (line ~470).
   // Reading `topics` directly from that closure would always give the
@@ -521,15 +537,21 @@ export default function App() {
         const now = Date.now();
         setMessagesByTopic((m) => {
           const list = [...(m[e.topicId] || [])];
-          let cur = list[list.length - 1];
-          if (!cur || cur.role !== "assistant" || !cur.pending) {
+          const pendingIdx = findLatestPendingAssistantIndex(list);
+          let cur = pendingIdx >= 0 ? list[pendingIdx] : null;
+          if (!cur) {
             cur = newAssistantMessage(e.messageId || cryptoId());
             list.push(cur);
           }
-          cur.blocks = [
-            ...cur.blocks,
-            { kind: "thinking", content: e.content, createdAt: now },
-          ];
+          const next: UiMessage = {
+            ...cur,
+            blocks: [
+              ...cur.blocks,
+              { kind: "thinking", content: e.content, createdAt: now },
+            ],
+          };
+          if (pendingIdx >= 0) list[pendingIdx] = next;
+          else list[list.length - 1] = next;
           return { ...m, [e.topicId]: list };
         });
         setBusyByTopic((b) => ({ ...b, [e.topicId]: true }));
@@ -548,21 +570,23 @@ export default function App() {
         // tail entry with a fresh object isolates the per-topic slot.
         setMessagesByTopic((m) => {
           const prev = m[e.topicId] || [];
-          const last = prev[prev.length - 1];
-          const appendToPending = !!last && last.role === "assistant" && !!last.pending;
+          const pendingIdx = findLatestPendingAssistantIndex(prev);
+          const pending = pendingIdx >= 0 ? prev[pendingIdx] : null;
           const newBlock: Block = { kind: "text", content: e.content, createdAt: now };
-          const cur: UiMessage = appendToPending
+          const cur: UiMessage = pending
             ? {
-                ...last,
-                blocks: [...last.blocks, newBlock],
-                content: (last.content ? last.content + "\n\n" : "") + e.content,
+                ...pending,
+                blocks: [...pending.blocks, newBlock],
+                content: (pending.content ? pending.content + "\n\n" : "") + e.content,
               }
             : {
                 ...newAssistantMessage(e.messageId || cryptoId()),
                 blocks: [newBlock],
                 content: e.content,
               };
-          const list = appendToPending ? [...prev.slice(0, -1), cur] : [...prev, cur];
+          const list = pending
+            ? [...prev.slice(0, pendingIdx), cur, ...prev.slice(pendingIdx + 1)]
+            : [...prev, cur];
           return { ...m, [e.topicId]: list };
         });
         // Mirror backend's touch_topic on assistant reply so the welcome
@@ -610,21 +634,23 @@ export default function App() {
       case "toolCall": {
         setMessagesByTopic((m) => {
           const prev = m[e.topicId] || [];
-          const last = prev[prev.length - 1];
-          const appendToPending = !!last && last.role === "assistant" && !!last.pending;
+          const pendingIdx = findLatestPendingAssistantIndex(prev);
+          const pending = pendingIdx >= 0 ? prev[pendingIdx] : null;
           const newBlock: Block = { kind: "tool", tool: e.tool, createdAt: Date.now() };
-          const cur: UiMessage = appendToPending
+          const cur: UiMessage = pending
             ? {
-                ...last,
-                blocks: [...last.blocks, newBlock],
-                tools: [...last.tools, e.tool],
+                ...pending,
+                blocks: [...pending.blocks, newBlock],
+                tools: [...pending.tools, e.tool],
               }
             : {
                 ...newAssistantMessage(cryptoId()),
                 blocks: [newBlock],
                 tools: [e.tool],
               };
-          const list = appendToPending ? [...prev.slice(0, -1), cur] : [...prev, cur];
+          const list = pending
+            ? [...prev.slice(0, pendingIdx), cur, ...prev.slice(pendingIdx + 1)]
+            : [...prev, cur];
           return { ...m, [e.topicId]: list };
         });
         break;
@@ -681,7 +707,7 @@ export default function App() {
       }
       case "error": {
         setErrorByTopic((er) => ({ ...er, [e.topicId]: e.message }));
-        setBusyByTopic((b) => ({ ...b, [e.topicId]: false }));
+        setBusyByTopic((b) => ({ ...b, [e.topicId]: (queuedTurnsByTopicRef.current[e.topicId] || 0) > 0 }));
         const topic = topicsRefForStream.current.find((t) => t.id === e.topicId);
         fireNotify({
           topicId: e.topicId,
@@ -692,7 +718,8 @@ export default function App() {
         break;
       }
       case "exited": {
-        setBusyByTopic((b) => ({ ...b, [e.topicId]: false }));
+        const queuedAfterThisTurn = consumeQueuedTurn(e.topicId);
+        setBusyByTopic((b) => ({ ...b, [e.topicId]: queuedAfterThisTurn > 0 }));
         const exitedAt = Date.now();
         // Mark current pending assistant as done, AND sweep any tool calls
         // still in `running`. The CLI subprocess can die mid tool-call (e.g.
@@ -705,17 +732,16 @@ export default function App() {
         setMessagesByTopic((m) => {
           const prev = m[e.topicId];
           if (!prev) return m;
-          let lastUserAt: number | null = null;
-          for (let i = prev.length - 1; i >= 0; i--) {
-            if (prev[i].role === "user") { lastUserAt = prev[i].createdAt; break; }
-          }
-          if (lastUserAt !== null) durationMs = exitedAt - lastUserAt;
-          let dirty = false;
-          // Find the index of the latest assistant so we can attach duration.
           let latestAssistantIdx = -1;
           for (let i = prev.length - 1; i >= 0; i--) {
             if (prev[i].role === "assistant") { latestAssistantIdx = i; break; }
           }
+          let lastUserAt: number | null = null;
+          for (let i = (latestAssistantIdx >= 0 ? latestAssistantIdx - 1 : prev.length - 1); i >= 0; i--) {
+            if (prev[i].role === "user") { lastUserAt = prev[i].createdAt; break; }
+          }
+          if (lastUserAt !== null) durationMs = exitedAt - lastUserAt;
+          let dirty = false;
           const list = prev.map((msg, idx) => {
             const pending =
               msg.role === "assistant" && msg.pending ? false : msg.pending;
@@ -766,14 +792,16 @@ export default function App() {
         // convention; engine drivers signal interruption with non-zero.
         const topic = topicsRefForStream.current.find((t) => t.id === e.topicId);
         const ok = e.code === null || e.code === 0;
-        fireNotify({
-          topicId: e.topicId,
-          kind: ok ? "done" : "crash",
-          title: ok
-            ? `${topic?.title || "Topic"} · 完成`
-            : `${topic?.title || "Topic"} · 异常退出 (code ${e.code})`,
-          body: ok ? "Agent 已交还控制权" : "Engine 进程异常结束,未必是任务失败",
-        });
+        if (queuedAfterThisTurn === 0) {
+          fireNotify({
+            topicId: e.topicId,
+            kind: ok ? "done" : "crash",
+            title: ok
+              ? `${topic?.title || "Topic"} · 完成`
+              : `${topic?.title || "Topic"} · 异常退出 (code ${e.code})`,
+            body: ok ? "Agent 已交还控制权" : "Engine 进程异常结束,未必是任务失败",
+          });
+        }
         setFilesRefreshKey((k) => k + 1);
         maybeAutoTitle(e.topicId);
         break;
@@ -1059,18 +1087,20 @@ export default function App() {
       setTopics((cur) => cur.map((t) => (t.id === topicId ? { ...t, updatedAt: now } : t)));
       setBusyByTopic((b) => ({ ...b, [topicId]: true }));
       setErrorByTopic((er) => ({ ...er, [topicId]: null }));
+      incrementQueuedTurn(topicId);
       try {
         await api.sendMessage(topicId, text);
       } catch (e: any) {
+        const remaining = consumeQueuedTurn(topicId);
         setMessagesByTopic((m) => ({
           ...m,
           [topicId]: (m[topicId] || []).filter((msg) => msg.id !== optimisticId),
         }));
         setErrorByTopic((er) => ({ ...er, [topicId]: String(e) }));
-        setBusyByTopic((b) => ({ ...b, [topicId]: false }));
+        setBusyByTopic((b) => ({ ...b, [topicId]: remaining > 0 }));
       }
     },
-    []
+    [consumeQueuedTurn, incrementQueuedTurn]
   );
 
   const onSend = useCallback(
@@ -1501,6 +1531,13 @@ function newAssistantMessage(id: string): UiMessage {
     pending: true,
     createdAt: Date.now(),
   };
+}
+
+function findLatestPendingAssistantIndex(messages: UiMessage[]): number {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].role === "assistant" && messages[i].pending) return i;
+  }
+  return -1;
 }
 
 function hydrate(msgs: Message[]): UiMessage[] {
