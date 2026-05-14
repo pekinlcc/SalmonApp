@@ -2544,3 +2544,103 @@ button { font-family: inherit; }
   width: 7px; height: 7px; border-radius: 50%;
   margin-right: 6px; vertical-align: 1px;
 }
+
+/* ----- Chat salmon-action confirmation cards */
+.salmon-action-card {
+  border: 1px solid var(--salmon-200);
+  border-radius: 8px;
+  background: #fffdfa;
+  padding: 12px;
+  margin: 10px 0;
+  max-width: 680px;
+  box-shadow: 0 1px 2px rgba(35, 28, 26, .04);
+}
+.salmon-action-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.salmon-action-kicker {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--salmon-700);
+}
+.salmon-action-kind {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-500);
+  background: var(--ink-50);
+  border: 1px solid var(--ink-100);
+  border-radius: 6px;
+  padding: 2px 6px;
+}
+.salmon-action-summary {
+  font-size: 13px;
+  color: var(--ink-800);
+  line-height: 1.45;
+}
+.salmon-action-details {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 10px 0;
+}
+.salmon-action-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border-left: 2px solid var(--salmon-300);
+  padding-left: 9px;
+  color: var(--ink-700);
+  font-size: 12.5px;
+}
+.salmon-action-row b {
+  color: var(--ink-900);
+  font-size: 13px;
+}
+.salmon-action-row small {
+  color: var(--ink-500);
+  line-height: 1.4;
+  white-space: pre-wrap;
+}
+.salmon-action-account {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--ink-600);
+}
+.salmon-action-account select {
+  min-width: 220px;
+  max-width: 100%;
+  border: 1px solid var(--ink-200);
+  border-radius: 6px;
+  background: white;
+  padding: 5px 8px;
+  font: inherit;
+}
+.salmon-action-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+.salmon-action-error {
+  color: #B7493D;
+  background: #FFF2F0;
+  border: 1px solid #F5C4BD;
+  border-radius: 6px;
+  padding: 7px 9px;
+  margin-top: 8px;
+  font-size: 12px;
+}
+.salmon-action-done {
+  color: #2E6B3F;
+  background: #EFF8F1;
+  border: 1px solid #BDE0C4;
+  border-radius: 6px;
+  padding: 7px 9px;
+  margin-top: 8px;
+  font-size: 12px;
+}
