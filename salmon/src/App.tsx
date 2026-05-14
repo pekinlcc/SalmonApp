@@ -356,6 +356,10 @@ export default function App() {
         e.preventDefault();
         toggleRight();
       }
+      if (e.metaKey && !e.ctrlKey && !e.altKey && e.key.toLowerCase() === "w") {
+        e.preventDefault();
+        getCurrentWindow().minimize().catch(() => {});
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
