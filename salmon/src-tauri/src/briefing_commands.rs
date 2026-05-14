@@ -353,15 +353,23 @@ pub async fn execute_action_step(
                     location: extracted.location.clone(),
                 };
                 match crate::calendar::create_event_remote(&cfg, db, create_input).await {
-                    Ok(ev) => results.push(StepResult::EventCreated {
-                        event_id: ev.id,
-                        account_email: acct_email,
-                        title: extracted.title,
-                        start_ms: extracted.start_ms,
-                        end_ms: extracted.end_ms,
-                        all_day: extracted.all_day,
-                        location: extracted.location,
-                    }),
+                    Ok(ev) => {
+                        // Creation is server-first, but immediately pull the
+                        // calendar window back down so the Calendar view is
+                        // consistent even when it started from an empty cache.
+                        if let Err(sync_err) = crate::calendar::sync_account_calendar(&cfg, state.db.clone(), &acct_id).await {
+                            eprintln!("[salmon][briefing] calendar post-create sync failed: {}", sync_err);
+                        }
+                        results.push(StepResult::EventCreated {
+                            event_id: ev.id,
+                            account_email: acct_email,
+                            title: extracted.title,
+                            start_ms: extracted.start_ms,
+                            end_ms: extracted.end_ms,
+                            all_day: extracted.all_day,
+                            location: extracted.location,
+                        });
+                    }
                     Err(err) => results.push(StepResult::Skipped {
                         reason: format!("写入日历失败: {}", err),
                     }),

@@ -393,8 +393,11 @@ function ContactBriefCard({ item, onActionDone }: { item: BriefItem; onActionDon
       const when = r.allDay
         ? new Date(r.startMs).toLocaleDateString("zh-CN")
         : new Date(r.startMs).toLocaleString("zh-CN", { hour: "2-digit", minute: "2-digit", month: "numeric", day: "numeric" });
-      title = `✓ 已加日历: ${r.title} (${when})`;
+      title = `✓ 已加日历: ${r.title} (${when}) · ${r.accountEmail}`;
       kind = "done";
+      window.dispatchEvent(new CustomEvent("salmon:calendar-events-changed", {
+        detail: { startMs: r.startMs, eventId: r.eventId },
+      }));
     } else if (r.kind === "TaskCreated") {
       const when = r.dueMs ? ` · 截止 ${new Date(r.dueMs).toLocaleDateString("zh-CN")}` : "";
       title = `✓ 已加待办: ${r.title}${when}`;

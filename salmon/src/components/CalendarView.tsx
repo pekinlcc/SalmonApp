@@ -39,6 +39,14 @@ export function CalendarView() {
     })();
   }, [loadEvents]);
 
+  useEffect(() => {
+    const onCalendarChanged = () => {
+      loadEvents();
+    };
+    window.addEventListener("salmon:calendar-events-changed", onCalendarChanged);
+    return () => window.removeEventListener("salmon:calendar-events-changed", onCalendarChanged);
+  }, [loadEvents]);
+
   // Auto-scroll to ~07:00 so the user lands somewhere useful instead of midnight.
   useEffect(() => {
     if (view === "week" && gridScrollRef.current) {

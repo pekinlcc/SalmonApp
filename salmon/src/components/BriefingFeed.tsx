@@ -131,7 +131,11 @@ export function BriefingFeed(props: Props) {
                     const when = r.allDay
                       ? new Date(r.startMs).toLocaleDateString("zh-CN")
                       : new Date(r.startMs).toLocaleString("zh-CN", { hour: "2-digit", minute: "2-digit", month: "numeric", day: "numeric" });
-                    msg = `✓ 已加日历: ${r.title} (${when})`; kind = "done";
+                    msg = `✓ 已加日历: ${r.title} (${when}) · ${r.accountEmail}`;
+                    kind = "done";
+                    window.dispatchEvent(new CustomEvent("salmon:calendar-events-changed", {
+                      detail: { startMs: r.startMs, eventId: r.eventId },
+                    }));
                   } else if (r.kind === "TaskCreated") {
                     const when = r.dueMs ? ` · 截止 ${new Date(r.dueMs).toLocaleDateString("zh-CN")}` : "";
                     msg = `✓ 已加待办: ${r.title}${when}`; kind = "done";
@@ -370,6 +374,39 @@ function DraftPanel({
         if (r.kind === "Skipped") {
           return (
             <div key={i} className="draft-skipped">⚠ 跳过一步: {r.reason}</div>
+          );
+        }
+        if (r.kind === "EventCreated") {
+          const when = r.allDay
+            ? new Date(r.startMs).toLocaleDateString("zh-CN")
+            : new Date(r.startMs).toLocaleString("zh-CN", {
+                month: "numeric",
+                day: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+              });
+          return (
+            <div key={i} className="draft-reply">
+              <div className="draft-label">📅 日历已创建</div>
+              <div className="salmon-action-row">
+                <b>{r.title}</b>
+                <span>{when} · {r.accountEmail}</span>
+                {r.location && <small>{r.location}</small>}
+              </div>
+            </div>
+          );
+        }
+        if (r.kind === "TaskCreated") {
+          const due = r.dueMs ? new Date(r.dueMs).toLocaleDateString("zh-CN") : "无截止日期";
+          return (
+            <div key={i} className="draft-reply">
+              <div className="draft-label">✓ 待办已创建</div>
+              <div className="salmon-action-row">
+                <b>{r.title}</b>
+                <span>{due} · {r.accountEmail}</span>
+                {r.notes && <small>{r.notes}</small>}
+              </div>
+            </div>
           );
         }
         return null;
