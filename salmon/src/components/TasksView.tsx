@@ -47,7 +47,19 @@ export function TasksView() {
           // Most likely cause: existing OAuth token doesn't have tasks scope.
           // Tell the user explicitly.
           const msg = String(e);
-          if (msg.includes("403") || msg.includes("insufficient")) {
+          if (
+            msg.includes("Google Tasks API has not been used") ||
+            msg.includes("SERVICE_DISABLED") ||
+            msg.includes("accessNotConfigured")
+          ) {
+            window.dispatchEvent(new CustomEvent("salmon:toast", {
+              detail: {
+                title: `${a.email} 的 Google Tasks API 未启用`,
+                body: "本地待办已保留。启用 API 后点击同步会上传到服务端。",
+                kind: "error",
+              },
+            }));
+          } else if (msg.includes("403") || msg.includes("insufficient")) {
             window.dispatchEvent(new CustomEvent("salmon:toast", {
               detail: { title: `${a.email} 需要重新登录以授权 tasks 权限`, kind: "error" },
             }));

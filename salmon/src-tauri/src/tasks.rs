@@ -229,6 +229,7 @@ pub async fn sync_account_tasks(
     account_id: &str,
 ) -> Result<usize> {
     let (provider, tokens) = ensure_access(cfg, &db, account_id).await?;
+    let pushed = push_pending_local_tasks(&provider, &tokens, &db, account_id).await?;
     let fetched = match provider.as_str() {
         "gmail" => fetch_google_tasks(&tokens.access_token, account_id).await?,
         "outlook" => fetch_graph_tasks(&tokens.access_token, account_id).await?,
@@ -249,6 +250,9 @@ pub async fn sync_account_tasks(
             rows.filter_map(|r| r.ok()).collect()
         };
         for lid in local_ids {
+            if lid.starts_with("local:") {
+                continue;
+            }
             if !server_ids.contains(&lid) {
                 delete_task_local(&guard, &lid)?;
             }
@@ -257,7 +261,75 @@ pub async fn sync_account_tasks(
             upsert_task_local(&guard, t)?;
         }
     }
-    Ok(fetched.len())
+    Ok(fetched.len() + pushed)
+}
+
+async fn push_pending_local_tasks(
+    provider: &str,
+    tokens: &OauthTokens,
+    db: &Arc<Mutex<Db>>,
+    account_id: &str,
+) -> Result<usize> {
+    let pending = {
+        let guard = db.lock();
+        list_pending_local_tasks(&guard, account_id)?
+    };
+    let mut pushed = 0usize;
+    for local in pending {
+        let input = CreateTaskInput {
+            account_id: local.account_id.clone(),
+            title: local.title.clone(),
+            notes: local.notes.clone(),
+            due_ms: local.due_ms,
+            source_kind: Some(local.source_kind.clone()),
+            source_brief_item_id: local.source_brief_item_id.clone(),
+        };
+        let mut remote = match provider {
+            "gmail" => create_google_task(&tokens.access_token, &input).await?,
+            "outlook" => create_graph_task(&tokens.access_token, &input).await?,
+            _ => return Err(anyhow!("tasks push not impl for {}", provider)),
+        };
+        let now_ms = chrono::Utc::now().timestamp_millis();
+        remote.source_kind = local.source_kind;
+        remote.source_brief_item_id = local.source_brief_item_id;
+        remote.created_at = local.created_at;
+        remote.updated_at = now_ms;
+        {
+            let guard = db.lock();
+            delete_task_local(&guard, &local.id)?;
+            upsert_task_local(&guard, &remote)?;
+        }
+        pushed += 1;
+    }
+    Ok(pushed)
+}
+
+fn list_pending_local_tasks(db: &Db, account_id: &str) -> Result<Vec<Task>> {
+    let mut stmt = db.conn().prepare(
+        "SELECT id, account_id, list_id, title, notes, due_ms, completed,
+                completed_at_ms, source_kind, source_brief_item_id,
+                created_at, updated_at
+         FROM tasks
+         WHERE account_id = ? AND id LIKE 'local:%'
+         ORDER BY created_at ASC",
+    )?;
+    let rows = stmt.query_map(params![account_id], |r| {
+        Ok(Task {
+            id: r.get(0)?,
+            account_id: r.get(1)?,
+            list_id: r.get(2)?,
+            title: r.get(3)?,
+            notes: r.get(4)?,
+            due_ms: r.get(5)?,
+            completed: r.get::<_, i64>(6)? != 0,
+            completed_at_ms: r.get(7)?,
+            source_kind: r.get(8)?,
+            source_brief_item_id: r.get(9)?,
+            created_at: r.get(10)?,
+            updated_at: r.get(11)?,
+        })
+    })?;
+    Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
 }
 
 async fn fetch_google_tasks(access: &str, account_id: &str) -> Result<Vec<Task>> {
