@@ -4,6 +4,7 @@ import type {
   BriefItem,
   ContactBundle,
   MailAccount,
+  StepResult,
   SuggestedAction,
   UnifiedContact,
 } from "../lib/types";
@@ -382,6 +383,33 @@ function ContactDetail({
 function ContactBriefCard({ item, onActionDone }: { item: BriefItem; onActionDone: (itemId: string) => void }) {
   const prioClass = item.priority === "high" ? "prio-high" : item.priority === "low" ? "prio-low" : "prio-medium";
   const prioLabel = item.priority === "high" ? "高" : item.priority === "low" ? "低" : "中";
+  const toastStepResult = (r: StepResult) => {
+    let title = "";
+    let kind: "done" | "info" | "error" = "info";
+    if (r.kind === "Acknowledged") {
+      title = r.message?.startsWith("open_topic:") ? "前往 Topic" : "✓ 已确认";
+      kind = "done";
+    } else if (r.kind === "EventCreated") {
+      const when = r.allDay
+        ? new Date(r.startMs).toLocaleDateString("zh-CN")
+        : new Date(r.startMs).toLocaleString("zh-CN", { hour: "2-digit", minute: "2-digit", month: "numeric", day: "numeric" });
+      title = `✓ 已加日历: ${r.title} (${when})`;
+      kind = "done";
+    } else if (r.kind === "TaskCreated") {
+      const when = r.dueMs ? ` · 截止 ${new Date(r.dueMs).toLocaleDateString("zh-CN")}` : "";
+      title = `✓ 已加待办: ${r.title}${when}`;
+      kind = "done";
+    } else if (r.kind === "ReplyDrafted") {
+      title = "回信草稿已生成，请到首页卡片审稿";
+      kind = "info";
+    } else if (r.kind === "Skipped") {
+      title = `跳过: ${r.reason}`;
+      kind = "error";
+    }
+    if (title) {
+      window.dispatchEvent(new CustomEvent("salmon:toast", { detail: { title, kind } }));
+    }
+  };
   return (
     <div className="brief-card" style={{ margin: "10px 18px" }}>
       <div className="brief-head">
@@ -413,15 +441,15 @@ function ContactBriefCard({ item, onActionDone }: { item: BriefItem; onActionDon
               className={`brief-btn ${i === 0 ? "primary" : ""}`}
               onClick={async () => {
                 try {
-                  await api.executeActionStep({
+                  const results = await api.executeActionStep({
                     itemId: item.id,
                     actionIndex: i,
                     stepIndices: null,
                   });
-                  window.dispatchEvent(new CustomEvent("salmon:toast", {
-                    detail: { title: `✓ 执行 ${a.label}`, kind: "done" },
-                  }));
-                  onActionDone(item.id);
+                  results.forEach(toastStepResult);
+                  if (results.some((r) => r.kind !== "Skipped")) {
+                    onActionDone(item.id);
+                  }
                 } catch (e: any) {
                   window.dispatchEvent(new CustomEvent("salmon:toast", {
                     detail: { title: `执行失败: ${e}`, kind: "error" },

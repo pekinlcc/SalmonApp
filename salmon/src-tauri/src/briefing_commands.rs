@@ -368,15 +368,6 @@ pub async fn execute_action_step(
                 }
             }
             "task" => {
-                let eng = match engine.as_deref() {
-                    Some(e) => e,
-                    None => {
-                        results.push(StepResult::Skipped {
-                            reason: "未检测到已登录的 Claude/Codex CLI".into(),
-                        });
-                        continue;
-                    }
-                };
                 let (acct_id, acct_email) = match chosen_account.clone() {
                     Some(a) => a,
                     None => {
@@ -392,12 +383,20 @@ pub async fn execute_action_step(
                 } else {
                     String::new()
                 };
-                let extracted = crate::task_extractor::extract(eng, &step.detail, &context_text).await
-                    .unwrap_or_else(|_| crate::task_extractor::ExtractedTask {
+                let extracted = if let Some(eng) = engine.as_deref() {
+                    crate::task_extractor::extract(eng, &step.detail, &context_text).await
+                        .unwrap_or_else(|_| crate::task_extractor::ExtractedTask {
+                            title: step.detail.clone(),
+                            due_ms: None,
+                            notes: None,
+                        })
+                } else {
+                    crate::task_extractor::ExtractedTask {
                         title: step.detail.clone(),
                         due_ms: None,
                         notes: None,
-                    });
+                    }
+                };
                 let cfg = state.oauth_cfg.clone();
                 let db = state.db.clone();
                 let create_input = crate::tasks::CreateTaskInput {

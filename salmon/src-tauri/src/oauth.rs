@@ -132,6 +132,82 @@ pub struct OauthResult {
     pub userinfo: GoogleUserInfo,
 }
 
+/// Persist refresh tokens outside SQLite where the platform gives us a
+/// credential store. Existing Linux installs keep the historical SQLite
+/// value; macOS stores a Keychain reference in `oauth_refresh_enc`.
+pub fn store_refresh_token_ref(
+    provider: &str,
+    account_id: &str,
+    refresh_token: Option<String>,
+) -> Result<Option<String>> {
+    let Some(token) = refresh_token else {
+        return Ok(None);
+    };
+    #[cfg(target_os = "macos")]
+    {
+        let service = keychain_service(provider, account_id);
+        let status = std::process::Command::new("/usr/bin/security")
+            .args([
+                "add-generic-password",
+                "-a",
+                account_id,
+                "-s",
+                &service,
+                "-w",
+                &token,
+                "-U",
+            ])
+            .status()
+            .context("store refresh token in macOS Keychain")?;
+        if !status.success() {
+            return Err(anyhow!("security add-generic-password exited {:?}", status.code()));
+        }
+        Ok(Some(format!("keychain:{}", service)))
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = provider;
+        let _ = account_id;
+        Ok(Some(token))
+    }
+}
+
+pub fn resolve_refresh_token(
+    account_id: &str,
+    refresh_ref: Option<String>,
+) -> Result<Option<String>> {
+    let Some(value) = refresh_ref else {
+        return Ok(None);
+    };
+    #[cfg(target_os = "macos")]
+    {
+        if let Some(service) = value.strip_prefix("keychain:") {
+            let out = std::process::Command::new("/usr/bin/security")
+                .args([
+                    "find-generic-password",
+                    "-a",
+                    account_id,
+                    "-s",
+                    service,
+                    "-w",
+                ])
+                .output()
+                .context("read refresh token from macOS Keychain")?;
+            if !out.status.success() {
+                return Err(anyhow!("security find-generic-password exited {:?}", out.status.code()));
+            }
+            let token = String::from_utf8_lossy(&out.stdout).trim().to_string();
+            return Ok(if token.is_empty() { None } else { Some(token) });
+        }
+    }
+    Ok(Some(value))
+}
+
+#[cfg(target_os = "macos")]
+fn keychain_service(provider: &str, account_id: &str) -> String {
+    format!("app.salmonapp.desktop.oauth.refresh.{}.{}", provider, account_id)
+}
+
 pub async fn run_google_oauth(
     cfg: &OauthConfig,
     broker: &OauthBroker,

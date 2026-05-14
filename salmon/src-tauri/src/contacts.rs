@@ -215,6 +215,7 @@ fn load_account(db: &Db, account_id: &str) -> Result<(String, OauthTokens)> {
         },
     )?;
     let (provider, access, refresh, expires) = row;
+    let refresh = crate::oauth::resolve_refresh_token(account_id, refresh)?;
     Ok((
         provider,
         OauthTokens {

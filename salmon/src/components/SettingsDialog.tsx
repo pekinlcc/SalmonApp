@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { ChatLayout, CliInfo, ComposerSendMode, DailyUsage, UsageSummary } from "../lib/types";
 import type { MailAccount, OauthStatus } from "../lib/types";
 import { api } from "../lib/api";
+import { playChime } from "../lib/notify";
 import pkg from "../../package.json";
 
 interface Props {
@@ -341,7 +342,7 @@ function PreferencesTab({
             className="btn"
             style={{ marginLeft: "auto", padding: "4px 10px", fontSize: 11.5 }}
             onClick={() => {
-              import("../lib/notify").then((m) => m.playChime()).catch(() => {});
+              playChime();
             }}
           >
             试听

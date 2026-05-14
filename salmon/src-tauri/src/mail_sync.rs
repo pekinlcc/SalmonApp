@@ -206,6 +206,7 @@ fn load_account_full(
         .ok();
     let (provider, email, access, refresh, expires) =
         row.ok_or_else(|| anyhow!("account {} not found", account_id))?;
+    let refresh = crate::oauth::resolve_refresh_token(account_id, refresh)?;
     let tokens = OauthTokens {
         access_token: access.unwrap_or_default(),
         refresh_token: refresh,
@@ -217,6 +218,16 @@ fn load_account_full(
 }
 
 pub fn persist_tokens(db: &Db, account_id: &str, tokens: &OauthTokens) -> Result<()> {
+    let provider: String = db.conn().query_row(
+        "SELECT provider FROM mail_accounts WHERE id = ?",
+        params![account_id],
+        |r| r.get(0),
+    )?;
+    let refresh_ref = crate::oauth::store_refresh_token_ref(
+        &provider,
+        account_id,
+        tokens.refresh_token.clone(),
+    )?;
     db.conn().execute(
         "UPDATE mail_accounts SET
            oauth_access = ?,
@@ -225,7 +236,7 @@ pub fn persist_tokens(db: &Db, account_id: &str, tokens: &OauthTokens) -> Result
          WHERE id = ?",
         params![
             tokens.access_token,
-            tokens.refresh_token,
+            refresh_ref,
             tokens.expires_at_ms,
             account_id,
         ],

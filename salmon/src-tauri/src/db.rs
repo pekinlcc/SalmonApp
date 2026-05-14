@@ -110,7 +110,7 @@ impl Db {
                 provider          TEXT NOT NULL,              -- 'gmail' | 'outlook'
                 email             TEXT NOT NULL,
                 display_name      TEXT,
-                oauth_refresh_enc BLOB,                       -- AES-encrypted; key in OS keyring
+                oauth_refresh_enc TEXT,                       -- macOS Keychain ref or legacy raw token
                 oauth_access      TEXT,
                 oauth_expires_at  INTEGER,
                 added_at          INTEGER NOT NULL,

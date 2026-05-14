@@ -151,7 +151,14 @@ pub async fn start_gmail_oauth(
     // Persist account + tokens. Email is the natural unique key per
     // provider (the schema's UNIQUE INDEX on (provider, email)). Re-add
     // of the same Gmail address refreshes the tokens in place.
-    let account_id = uuid::Uuid::new_v4().to_string();
+    let account_id = existing_account_id(&db_arc, "gmail", &result.userinfo.email)
+        .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+    let refresh_ref = oauth::store_refresh_token_ref(
+        "gmail",
+        &account_id,
+        result.tokens.refresh_token.clone(),
+    )
+    .map_err(map_err)?;
     let now_ms = chrono::Utc::now().timestamp_millis();
     {
         let mut db_guard = db_arc.lock();
@@ -172,7 +179,7 @@ pub async fn start_gmail_oauth(
                 "gmail",
                 result.userinfo.email,
                 result.userinfo.name,
-                result.tokens.refresh_token,
+                refresh_ref,
                 result.tokens.access_token,
                 result.tokens.expires_at_ms,
                 now_ms,
@@ -212,7 +219,14 @@ pub async fn start_outlook_oauth(
         .map_err(map_err)?;
     let _ = app.emit("salmon-oauth-status", "finished");
 
-    let account_id = uuid::Uuid::new_v4().to_string();
+    let account_id = existing_account_id(&db_arc, "outlook", &result.userinfo.email)
+        .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+    let refresh_ref = oauth::store_refresh_token_ref(
+        "outlook",
+        &account_id,
+        result.tokens.refresh_token.clone(),
+    )
+    .map_err(map_err)?;
     let now_ms = chrono::Utc::now().timestamp_millis();
     {
         let mut db_guard = db_arc.lock();
@@ -233,7 +247,7 @@ pub async fn start_outlook_oauth(
                 "outlook",
                 result.userinfo.email,
                 result.userinfo.name,
-                result.tokens.refresh_token,
+                refresh_ref,
                 result.tokens.access_token,
                 result.tokens.expires_at_ms,
                 now_ms,
@@ -726,6 +740,7 @@ fn load_account(
         },
     )?;
     let (provider, email, name, access, refresh, expires) = row;
+    let refresh = oauth::resolve_refresh_token(account_id, refresh)?;
     let tokens = oauth::OauthTokens {
         access_token: access.unwrap_or_default(),
         refresh_token: refresh,
@@ -734,6 +749,22 @@ fn load_account(
         scope: None,
     };
     Ok((provider, email, name, tokens))
+}
+
+fn existing_account_id(
+    db: &std::sync::Arc<parking_lot::Mutex<crate::db::Db>>,
+    provider: &str,
+    email: &str,
+) -> Option<String> {
+    let guard = db.lock();
+    guard
+        .conn()
+        .query_row(
+            "SELECT id FROM mail_accounts WHERE provider = ? AND email = ?",
+            rusqlite::params![provider, email],
+            |r| r.get::<_, String>(0),
+        )
+        .ok()
 }
 
 async fn maybe_refresh(
