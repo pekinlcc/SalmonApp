@@ -79,6 +79,10 @@ interface MailActionItem {
 
 function SalmonActionCard({ raw }: { raw: string }) {
   const parsed = useMemo(() => parseSalmonAction(raw), [raw]);
+  if (parsed.ok && (parsed.action.kind === "mail.send" || parsed.action.kind === "mail.draft")) {
+    return <MailActionCard action={parsed.action} />;
+  }
+
   const [accounts, setAccounts] = useState<MailAccount[]>([]);
   const [accountId, setAccountId] = useState("");
   const [busy, setBusy] = useState(false);
@@ -158,6 +162,111 @@ function SalmonActionCard({ raw }: { raw: string }) {
           {busy ? "执行中..." : done ? "已执行" : "确认执行"}
         </button>
       </div>
+    </div>
+  );
+}
+
+function MailActionCard({ action }: { action: Extract<SalmonAction, { kind: "mail.send" | "mail.draft" }> }) {
+  const [accounts, setAccounts] = useState<MailAccount[]>([]);
+  const [accountId, setAccountId] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    api.listMailAccounts()
+      .then((rows) => {
+        if (cancelled) return;
+        setAccounts(rows);
+        setAccountId((cur) => cur || rows[0]?.id || "");
+      })
+      .catch((e) => {
+        if (!cancelled) setError(String(e));
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  const mail = action.kind === "mail.send" ? action.mail : action.draft;
+  const isSend = action.kind === "mail.send";
+  const canRun = !!mail && !!accountId && !busy && !done;
+  const title = isSend ? "Ready to send email" : "Ready to save draft";
+  const buttonLabel = isSend ? "Send Email" : "Save Draft";
+
+  const onConfirm = async () => {
+    if (!mail) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const message = await executeSalmonAction(action, accountId);
+      setDone(message);
+      window.dispatchEvent(new CustomEvent("salmon:toast", {
+        detail: { title: message, kind: "done" },
+      }));
+    } catch (e: any) {
+      const msg = String(e);
+      setError(msg);
+      window.dispatchEvent(new CustomEvent("salmon:toast", {
+        detail: { title: isSend ? "邮件发送失败" : "草稿保存失败", body: msg, kind: "error" },
+      }));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="mail-action-card">
+      <div className="mail-action-head">
+        <div>
+          <div className="mail-action-title">{title}</div>
+          <div className="mail-action-subtitle">
+            Review the details below. SalmonApp will use the selected local account only after confirmation.
+          </div>
+        </div>
+        <span className="mail-action-pill">{isSend ? "mail.send" : "mail.draft"}</span>
+      </div>
+
+      <div className="mail-action-grid">
+        <MailMeta label="Subject" value={mail?.subject || "(No subject)"} strong />
+        <MailMeta label="To" value={formatRecipients(mail?.to)} />
+        {(mail?.cc || []).length > 0 && <MailMeta label="Cc" value={formatRecipients(mail?.cc)} />}
+        {(mail?.bcc || []).length > 0 && <MailMeta label="Bcc" value={formatRecipients(mail?.bcc)} />}
+      </div>
+
+      <div className="mail-action-body">
+        <div className="mail-action-body-label">Message</div>
+        <div className="mail-action-body-text">{mail?.bodyText?.trim() || "(Empty body)"}</div>
+      </div>
+
+      {accounts.length === 0 && !error && (
+        <div className="salmon-action-error">没有可用邮件账号。请先登录邮件账号。</div>
+      )}
+      {accounts.length > 0 && (
+        <label className="mail-action-account">
+          <span>From</span>
+          <select value={accountId} onChange={(e) => setAccountId(e.target.value)} disabled={busy || !!done}>
+            {accounts.map((a) => (
+              <option key={a.id} value={a.id}>{a.email} ({a.provider})</option>
+            ))}
+          </select>
+        </label>
+      )}
+      {error && <div className="salmon-action-error">{error}</div>}
+      {done && <div className="salmon-action-done">{done}</div>}
+      <div className="mail-action-actions">
+        <button className="btn primary mail-send-btn" onClick={onConfirm} disabled={!canRun}>
+          {busy ? (isSend ? "Sending..." : "Saving...") : done ? "Done" : buttonLabel}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function MailMeta({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
+  return (
+    <div className="mail-action-meta">
+      <span>{label}</span>
+      <b className={strong ? "strong" : undefined}>{value}</b>
     </div>
   );
 }
@@ -339,6 +448,11 @@ function resolveLocalTime(ms?: number | null, local?: string | null, dateOnlyAtM
 function formatMs(ms?: number | null): string {
   if (!ms) return "未填写时间";
   return new Date(ms).toLocaleString("zh-CN", { dateStyle: "short", timeStyle: "short" });
+}
+
+function formatRecipients(values?: string[]): string {
+  const rows = (values || []).map((v) => v.trim()).filter(Boolean);
+  return rows.length > 0 ? rows.join(", ") : "(Not specified)";
 }
 
 function truncate(text: string, max: number): string {
