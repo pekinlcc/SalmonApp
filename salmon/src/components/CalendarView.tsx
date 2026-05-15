@@ -220,25 +220,25 @@ function WeekGrid({
   const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart]);
   const today = new Date().toDateString();
 
-  // Bucket events: all-day per day, timed per day.
+  // Bucket events: all-day as week-spanning segments, timed per day.
   const buckets = useMemo(() => {
-    const allDay = new Map<string, CalEvent[]>();
     const timed = new Map<string, CalEvent[]>();
     for (const ev of events) {
       const dayKey = new Date(ev.startMs).toDateString();
-      if (ev.allDay) {
-        if (!allDay.has(dayKey)) allDay.set(dayKey, []);
-        allDay.get(dayKey)!.push(ev);
-      } else {
+      if (!ev.allDay) {
         if (!timed.has(dayKey)) timed.set(dayKey, []);
         timed.get(dayKey)!.push(ev);
       }
     }
     for (const arr of timed.values()) arr.sort((a, b) => a.startMs - b.startMs);
-    return { allDay, timed };
+    return { timed };
   }, [events]);
 
-  const maxAllDayCount = Math.max(0, ...days.map((d) => (buckets.allDay.get(d.toDateString()) || []).length));
+  const allDaySegments = useMemo(
+    () => assignAllDayLanes(events.filter((ev) => ev.allDay), weekStart),
+    [events, weekStart],
+  );
+  const maxAllDayCount = Math.max(0, ...allDaySegments.map((s) => s.laneIdx + 1));
   const allDayHeight = ALL_DAY_BAND_H + maxAllDayCount * 22;
 
   // "Now" indicator line position.
@@ -273,23 +273,25 @@ function WeekGrid({
       {/* All-day band */}
       <div className="cal-allday-row" style={{ height: allDayHeight }}>
         <div className="cal-allday-label">全天</div>
-        {days.map((d) => {
-          const evs = buckets.allDay.get(d.toDateString()) || [];
-          return (
-            <div key={d.toDateString()} className="cal-allday-cell">
-              {evs.map((ev) => (
-                <div
-                  key={ev.id}
-                  className="cal-allday-pill"
-                  title={ev.title || ""}
-                  onClick={(e) => { e.stopPropagation(); onEventClick(ev); }}
-                >
-                  {ev.title || "(无标题)"}
-                </div>
-              ))}
+        <div className="cal-allday-grid">
+          {days.map((d) => (
+            <div key={d.toDateString()} className="cal-allday-cell" />
+          ))}
+          {allDaySegments.map(({ ev, startIdx, span, laneIdx }) => (
+            <div
+              key={ev.id}
+              className={`cal-allday-pill ${ev.id === highlightEventId ? "highlight" : ""}`}
+              title={ev.title || ""}
+              style={{
+                gridColumn: `${startIdx + 1} / span ${span}`,
+                top: 3 + laneIdx * 22,
+              }}
+              onClick={(e) => { e.stopPropagation(); onEventClick(ev); }}
+            >
+              {ev.title || "(无标题)"}
             </div>
-          );
-        })}
+          ))}
+        </div>
       </div>
 
       {/* Scrollable body: hour ruler + day columns */}
@@ -681,6 +683,67 @@ function toDateInput(d: Date): string {
 }
 function toTimeInput(d: Date): string {
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
+function startOfDay(d: Date): Date {
+  const r = new Date(d);
+  r.setHours(0, 0, 0, 0);
+  return r;
+}
+
+function dayDiff(a: Date, b: Date): number {
+  const aa = startOfDay(a).getTime();
+  const bb = startOfDay(b).getTime();
+  return Math.round((bb - aa) / 86_400_000);
+}
+
+function allDayEndExclusive(ev: CalEvent): Date {
+  const start = startOfDay(new Date(ev.startMs));
+  const rawEnd = new Date(ev.endMs);
+  let end = startOfDay(rawEnd);
+  if (ev.endMs <= ev.startMs) return addDays(start, 1);
+  if (
+    rawEnd.getHours() !== 0 ||
+    rawEnd.getMinutes() !== 0 ||
+    rawEnd.getSeconds() !== 0 ||
+    rawEnd.getMilliseconds() !== 0
+  ) {
+    end = addDays(end, 1);
+  }
+  return end <= start ? addDays(start, 1) : end;
+}
+
+function assignAllDayLanes(
+  events: CalEvent[],
+  weekStart: Date,
+): { ev: CalEvent; startIdx: number; span: number; laneIdx: number }[] {
+  const weekEnd = addDays(weekStart, 7);
+  const segments = events
+    .map((ev) => {
+      const start = startOfDay(new Date(ev.startMs));
+      const end = allDayEndExclusive(ev);
+      const visibleStart = start < weekStart ? weekStart : start;
+      const visibleEnd = end > weekEnd ? weekEnd : end;
+      if (visibleEnd <= visibleStart) return null;
+      const startIdx = dayDiff(weekStart, visibleStart);
+      const span = Math.max(1, dayDiff(visibleStart, visibleEnd));
+      return { ev, startIdx, span };
+    })
+    .filter((s): s is { ev: CalEvent; startIdx: number; span: number } => s !== null)
+    .sort((a, b) => a.startIdx - b.startIdx || b.span - a.span || a.ev.startMs - b.ev.startMs);
+
+  const laneEnds: number[] = [];
+  return segments.map((seg) => {
+    const endIdx = seg.startIdx + seg.span;
+    let laneIdx = laneEnds.findIndex((laneEnd) => laneEnd <= seg.startIdx);
+    if (laneIdx === -1) {
+      laneIdx = laneEnds.length;
+      laneEnds.push(endIdx);
+    } else {
+      laneEnds[laneIdx] = endIdx;
+    }
+    return { ...seg, laneIdx };
+  });
 }
 
 /**
