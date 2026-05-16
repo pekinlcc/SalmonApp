@@ -387,6 +387,22 @@ pub async fn execute_action_step(
                     results.push(StepResult::Acknowledged {
                         message: format!("open_topic:{}", rest),
                     });
+                } else if step.detail == "done_externally" {
+                    // v1.13.0: user reports the underlying real-world action
+                    // was already completed outside SalmonApp. We write
+                    // status='done_external' (distinct from 'acted', which
+                    // means user used an in-app action button) so the next
+                    // briefing run can feed this back to the LLM and avoid
+                    // re-suggesting the same kind of card.
+                    let now_ms = chrono::Utc::now().timestamp_millis();
+                    let db = state.db.lock();
+                    let _ = db.conn().execute(
+                        "UPDATE brief_items SET status='done_external', decided_at=? WHERE id=?",
+                        params![now_ms, input.item_id],
+                    );
+                    results.push(StepResult::Acknowledged {
+                        message: "done_externally".into(),
+                    });
                 } else {
                     results.push(StepResult::Acknowledged {
                         message: "ack".into(),

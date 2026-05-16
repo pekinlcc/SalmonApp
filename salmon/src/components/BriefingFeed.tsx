@@ -150,11 +150,22 @@ export function BriefingFeed(props: Props) {
                   let msg = ""; let kind: "done" | "info" | "error" = "info";
                   let actions: any[] | undefined;
                   if (r.kind === "Acknowledged") {
-                    msg = r.message.startsWith("open_topic:") ? "前往 Topic" : "✓ 已确认";
-                    kind = "done";
-                    if (r.message.startsWith("open_topic:")) {
+                    if (r.message === "done_externally") {
+                      // Backend already set status='done_external'. Prune from
+                      // pending list so the card disappears immediately, and
+                      // tell the user we've registered the offline completion.
+                      msg = "✓ 已记录为线下完成 · 下次不会再推同类";
+                      kind = "done";
+                      setItems((cur) => cur.filter((x) => x.id !== selected.id));
+                      setSelectedId(null);
+                    } else if (r.message.startsWith("open_topic:")) {
+                      msg = "前往 Topic";
+                      kind = "done";
                       const topicId = r.message.slice("open_topic:".length);
                       actions = topicId ? [{ label: "查看 Topic", primary: true, target: { view: "topic", topicId } }] : undefined;
+                    } else {
+                      msg = "✓ 已确认";
+                      kind = "done";
                     }
                   } else if (r.kind === "EventCreated") {
                     const when = r.allDay
@@ -248,9 +259,27 @@ export function BriefingFeed(props: Props) {
 function BriefListRow({ item, active, onClick }: { item: BriefItem; active: boolean; onClick: () => void }) {
   const prioCls = item.priority === "high" ? "prio-high" : item.priority === "low" ? "prio-low" : "prio-medium";
   const prioLabel = item.priority === "high" ? "高" : item.priority === "low" ? "低" : "中";
-  const icon = item.kind === "cross" ? "🔗" : item.kind === "topic" ? "💬" : item.kind === "event" ? "📅" : "📧";
-  const pillBg = item.kind === "cross" ? "#D8F0DD" : item.kind === "topic" ? "#ECE0FB" : item.kind === "event" ? "#E6F0FF" : "#FFE4DA";
-  const pillFg = item.kind === "cross" ? "#266B33" : item.kind === "topic" ? "#6F44B4" : item.kind === "event" ? "#2F5BB7" : "#B7493D";
+  const icon =
+    item.kind === "cross" ? "🔗"
+    : item.kind === "topic" ? "💬"
+    : item.kind === "event" ? "📅"
+    : item.kind === "task" ? "✓"
+    : item.kind === "gap" ? "⚠"
+    : "📧";
+  const pillBg =
+    item.kind === "cross" ? "#D8F0DD"
+    : item.kind === "topic" ? "#ECE0FB"
+    : item.kind === "event" ? "#E6F0FF"
+    : item.kind === "task" ? "#FFF4D6"
+    : item.kind === "gap"  ? "#FBE3E3"
+    : "#FFE4DA";
+  const pillFg =
+    item.kind === "cross" ? "#266B33"
+    : item.kind === "topic" ? "#6F44B4"
+    : item.kind === "event" ? "#2F5BB7"
+    : item.kind === "task" ? "#7A5B00"
+    : item.kind === "gap"  ? "#A8302C"
+    : "#B7493D";
   return (
     <div className={`topic ${active ? "active" : ""}`} onClick={onClick} style={{ cursor: "pointer" }}>
       <div className="t-row">
@@ -483,6 +512,13 @@ function StepResultView({ result: r }: { result: StepResult }) {
           );
         }
         if (r.kind === "Acknowledged") {
+          if (r.message === "done_externally") {
+            return (
+              <div className="draft-reply">
+                <div className="draft-label">📌 已记录: 这件事在 SalmonApp 之外已经完成</div>
+              </div>
+            );
+          }
           const topicId = r.message.startsWith("open_topic:") ? r.message.slice("open_topic:".length) : "";
           return (
             <div className="draft-reply">

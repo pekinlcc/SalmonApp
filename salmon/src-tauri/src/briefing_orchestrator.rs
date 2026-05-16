@@ -63,6 +63,16 @@ pub async fn run_briefing(
     let engine = llm::pick_engine();
     let used_llm = engine.is_some();
     let rubric_text = rubric::load().unwrap_or_else(|_| rubric::DEFAULT_RUBRIC.to_string());
+    // v1.13.0 learning loop: append samples of items the user marked
+    // "我已线下完成" (status='done_external') in the last 14 days so the
+    // LLM avoids re-suggesting items that the user is already resolving
+    // out-of-band.
+    let done_external_hint = build_done_external_hint(&db);
+    let rubric_with_feedback = if done_external_hint.is_empty() {
+        rubric_text.clone()
+    } else {
+        format!("{}\n\n{}", rubric_text, done_external_hint)
+    };
 
     // ── Roost ────────────────────────────────────────────────────────
     emit(&app, "roost", 0, 0, None);
@@ -84,7 +94,7 @@ pub async fn run_briefing(
         for (idx, bundle) in bundles.iter().enumerate() {
             let bundle = bundle.clone();
             let eng = eng.to_string();
-            let rubric_text = rubric_text.clone();
+            let rubric_text = rubric_with_feedback.clone();
             let sem = sem.clone();
             let app = app.clone();
             handles.push(tokio::spawn(async move {
@@ -155,7 +165,7 @@ pub async fn run_briefing(
     // total per briefing run (not per contact), so the cost stays bounded.
     let gap_items: Vec<PulseItem> = if let Some(eng) = engine.as_deref() {
         emit(&app, "cross-pulse", 0, 1, None);
-        match cross_pulse::analyse(eng, &db).await {
+        match cross_pulse::analyse(eng, &done_external_hint, &db).await {
             Ok(items) => items,
             Err(e) => {
                 eprintln!("[salmon][cross_pulse] failed: {} — continuing without gap items", e);
@@ -180,7 +190,7 @@ pub async fn run_briefing(
             }
         } else {
             emit(&app, "briefing", 0, 1, None);
-            match briefing_llm::rank_and_dedup(eng, &rubric_text, &flat).await {
+            match briefing_llm::rank_and_dedup(eng, &rubric_with_feedback, &flat).await {
                 Ok(g) => g,
                 Err(e) => {
                     eprintln!("[salmon][briefing] global step failed: {} — falling back", e);
@@ -716,6 +726,38 @@ fn write_items(
     }
 
     Ok(count)
+}
+
+fn build_done_external_hint(db: &Arc<Mutex<Db>>) -> String {
+    let guard = db.lock();
+    let cutoff = chrono::Utc::now().timestamp_millis() - 14 * 24 * 3600_000;
+    let mut stmt = match guard.conn().prepare(
+        "SELECT title FROM brief_items
+         WHERE status = 'done_external' AND decided_at >= ?
+         ORDER BY decided_at DESC LIMIT 10",
+    ) {
+        Ok(s) => s,
+        Err(_) => return String::new(),
+    };
+    let titles: Vec<String> = match stmt.query_map(params![cutoff], |r| r.get::<_, String>(0)) {
+        Ok(rows) => rows.filter_map(|r| r.ok()).collect(),
+        Err(_) => return String::new(),
+    };
+    if titles.is_empty() {
+        return String::new();
+    }
+    let bullets = titles
+        .iter()
+        .map(|t| format!("- {}", t))
+        .collect::<Vec<_>>()
+        .join("\n");
+    format!(
+        "【用户最近 14 天告诉过你「我已线下完成」的事项样本（共 {} 条）】\n{}\n\n\
+         如果这次你想推荐的事跟上面任何一条同类（即用户已经在物理世界处理掉的同类事情），\
+         直接不要再推 —— 用户已经说过他不需要 SalmonApp 提醒。",
+        titles.len(),
+        bullets
+    )
 }
 
 fn truncate(s: &str, max: usize) -> String {

@@ -85,7 +85,17 @@ fn build_system(rubric: &str) -> String {
          - contact_vip / contact_unvip: 标 / 取消该卡 contact_email 对应联系人 VIP — detail 留空\n\
          - contact_note: 给该卡 contact_email 对应联系人写本地备注 — detail = 备注内容（≤60 字；为空字符串表示清空备注）\n\
          - acknowledge: 兜底\"我已知晓\" — detail = \"\"\n\
+         - acknowledge with detail=\"done_externally\": 用户告诉你这件事**已经在 SalmonApp 看不到的物理世界里完成了**（线下办、当面谈、电话沟通、去现场办事），不要再推荐同类事项。这次反馈会进下一轮 prompt 让模型学习。\n\
          （archive / star / mark_read / contact_vip 等都直接执行，不需要 LLM 二次推理；contact_note 的 detail 是真正写入的备注文本。）\n\n\
+         【硬规则: 物理世界 vs 应用内 / 必带 done_externally 兜底】\n\
+         如果卡片要推动用户做的事，**完成动作不存在 SalmonApp 写接口**（即不能通过 reply / draft / calendar create / task complete / archive / star 等 step 完成），那它属于\"物理世界的事\"。判断口径：标题或正文里出现\
+         \"打印 / 取 / 缴 / 现场 / 当面 / 电话 / 见面 / 寄 / 邮 / 去 X 地方 / 面试 / 拜访 / 出差\"\
+         之类词汇。\n\
+         这类卡片 suggestedActions **必须**按此顺序包含：\n\
+         1. （可选）应用内能做的最相关一步（例如\"更新待办截止日\"），有就放最前；没有就跳过。\n\
+         2. **必须**: {{\"label\": \"我已线下完成\", \"steps\": [{{\"kind\": \"acknowledge\", \"detail\": \"done_externally\"}}]}}\n\
+         3. **必须**: {{\"label\": \"我已知晓\", \"steps\": [{{\"kind\": \"acknowledge\", \"detail\": \"\"}}]}}\n\
+         如果是纯应用内能完成的事（回邮件、归档、标星等），则不需要 done_externally —— 用户会用真正的执行按钮。\n\n\
          【输出格式 - 严格 JSON，无其他文字，不要 markdown 代码块】\n\
          {{\n  \"items\": [\n    {{\n      \
          \"title\": \"≤24 个汉字\",\n      \

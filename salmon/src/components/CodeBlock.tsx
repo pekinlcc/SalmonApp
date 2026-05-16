@@ -582,30 +582,196 @@ async function executeSalmonQuery(query: SalmonQuery): Promise<SalmonQueryResult
 }
 
 function formatQueryResult(query: SalmonQuery, result: SalmonQueryResult): string {
-  return [
-    `查询: ${summarizeQuery(query)}`,
-    `结果: ${result.summary}`,
+  // v1.13.0: replace the raw JSON dump with per-kind markdown rendering.
+  // The CLI used to receive (and the chat used to display) a giant
+  // {"id":"...","accountId":"...",...} blob for every query result; that
+  // was technically faithful but visually a debugger dump. Markdown lists
+  // are easier for both the user and the next LLM turn to scan, and they
+  // still preserve the ids the agent needs for follow-up actions.
+  const header = `**${summarizeQuery(query)}** · ${result.summary}`;
+  const body = renderQueryBody(query, result.data);
+  return [header, "", body].join("\n");
+}
+
+function renderQueryBody(query: SalmonQuery, data: any): string {
+  switch (query.kind) {
+    case "mail.search":
+    case "mail.recent":
+    case "mail.contact":
+    case "mail.thread":
+      return renderMailListBody(query, data);
+    case "mail.get":
+      return renderMailDetailBody(data);
+    case "contacts.detail":
+      return renderContactDetailBody(query, data);
+    case "calendar.list":
+      return renderEventListBody(data);
+    case "tasks.list":
+      return renderTaskListBody(data);
+  }
+}
+
+function renderMailListBody(query: SalmonQuery, data: any): string {
+  // mail.recent and mail.contact return [{account, messages: []}],
+  // others return MailListItem[] directly. Flatten to a single list.
+  let rows: any[] = [];
+  if (Array.isArray(data)) {
+    if (data.length > 0 && data[0] && typeof data[0] === "object" && "messages" in data[0]) {
+      for (const group of data) {
+        for (const m of group.messages || []) rows.push(m);
+      }
+    } else {
+      rows = data;
+    }
+  }
+  if (rows.length === 0) {
+    return emptyMailFallback(query);
+  }
+  const lines = rows.slice(0, 30).map((m, i) => {
+    const date = m.dateMs ? formatLocal(m.dateMs) : "(无日期)";
+    const sender = m.fromName?.trim() || m.fromEmail?.trim() || "(unknown)";
+    const subject = (m.subject || "(无主题)").trim();
+    const snippet = (m.snippet || "").trim().replace(/\s+/g, " ").slice(0, 120);
+    const flags = [
+      m.unread ? "未读" : null,
+      m.starred ? "★" : null,
+      m.hasAttachments ? "📎" : null,
+    ].filter(Boolean).join(" ");
+    return `${i + 1}. **${subject}** — ${sender} · ${date}${flags ? " · " + flags : ""}\n   id: \`${m.id}\` · ${snippet}`;
+  });
+  return lines.join("\n");
+}
+
+function renderMailDetailBody(m: any): string {
+  if (!m || typeof m !== "object") return "_(无邮件详情)_";
+  const date = m.dateMs ? formatLocal(m.dateMs) : "(无日期)";
+  const sender = m.fromName?.trim()
+    ? `${m.fromName.trim()} <${m.fromEmail || ""}>`
+    : (m.fromEmail || "(unknown)");
+  const recipients = formatEmails(m.toEmails);
+  const ccs = formatEmails(m.ccEmails);
+  const body = truncate(String(m.bodyText || "").replace(/\r\n/g, "\n").trim(), 4000) || "_(无正文)_";
+  const lines = [
+    `- **主题**: ${(m.subject || "(无主题)").trim()}`,
+    `- **发件人**: ${sender}`,
+    recipients ? `- **收件人**: ${recipients}` : null,
+    ccs ? `- **抄送**: ${ccs}` : null,
+    `- **时间**: ${date}`,
+    `- **id**: \`${m.id}\`${m.threadId ? ` · thread \`${m.threadId}\`` : ""}`,
     "",
-    "```json",
-    JSON.stringify(compactQueryData(result.data), null, 2),
-    "```",
+    "正文:",
+    body.split("\n").map((l: string) => `> ${l}`).join("\n"),
+  ].filter(Boolean) as string[];
+  return lines.join("\n");
+}
+
+function formatEmails(emails: any): string {
+  if (!Array.isArray(emails) || emails.length === 0) return "";
+  return emails
+    .map((a: any) => a?.name ? `${a.name} <${a.email}>` : (a?.email || ""))
+    .filter(Boolean)
+    .join(", ");
+}
+
+function renderContactDetailBody(query: SalmonQuery, bundle: any): string {
+  const email = (query.kind === "contacts.detail" ? query.email : null) || "(unknown)";
+  if (!bundle || typeof bundle !== "object") {
+    return `本地没有 ${email} 的 30 天聚合。可能原因:\n` + threeFactorFallback();
+  }
+  const lines: string[] = [];
+  lines.push(`**${bundle.displayName?.trim() || email}**${bundle.isVip ? " · VIP" : ""} · 30 天互动 ${bundle.interactionCount || 0} 次 · 最近 ${bundle.lastSeenMs ? formatLocal(bundle.lastSeenMs) : "无"}`);
+  const msgs = Array.isArray(bundle.messages) ? bundle.messages : [];
+  if (msgs.length > 0) {
+    lines.push("");
+    lines.push(`最近邮件（${msgs.length} 封${bundle.omittedMessageCount ? `, 省略 ${bundle.omittedMessageCount} 封` : ""}）:`);
+    for (const [i, m] of msgs.slice(0, 12).entries()) {
+      const dir = m.fromMe ? "→" : "←";
+      const subject = (m.subject || "(无主题)").trim();
+      const snippet = (m.snippet || "").trim().replace(/\s+/g, " ").slice(0, 80);
+      const date = m.dateMs ? formatLocal(m.dateMs) : "";
+      lines.push(`${i + 1}. ${dir} ${date} · **${subject}** — ${snippet}\n   id: \`${m.id}\``);
+    }
+  }
+  const events = Array.isArray(bundle.events) ? bundle.events : [];
+  if (events.length > 0) {
+    lines.push("");
+    lines.push(`共同日历事件（${events.length}）:`);
+    for (const e of events.slice(0, 10)) {
+      const when = e.allDay ? formatLocalDate(e.startMs) : formatLocal(e.startMs);
+      lines.push(`- ${when} · **${(e.title || "(无标题)").trim()}**${e.location ? " @ " + e.location : ""}\n  id: \`${e.id}\``);
+    }
+  }
+  if (msgs.length === 0 && events.length === 0) {
+    lines.push("");
+    lines.push("本地 30 天内没有跟这个联系人的邮件或共同日程。");
+    lines.push(threeFactorFallback());
+  }
+  return lines.join("\n");
+}
+
+function renderEventListBody(data: any): string {
+  const rows = Array.isArray(data) ? data : [];
+  if (rows.length === 0) {
+    return "本地日历窗口里没事件。可能原因:\n" + threeFactorFallback();
+  }
+  const lines = rows.slice(0, 30).map((e: any, i: number) => {
+    const start = e.allDay ? formatLocalDate(e.startMs) : formatLocal(e.startMs);
+    const end = e.allDay ? "" : ` - ${formatLocal(e.endMs).slice(-5)}`;
+    const title = (e.title || "(无标题)").trim();
+    const attendees = Array.isArray(e.attendees) && e.attendees.length > 0
+      ? ` · 与会 ${e.attendees.slice(0, 4).map((a: any) => a.name || a.email).join(", ")}${e.attendees.length > 4 ? "..." : ""}`
+      : "";
+    return `${i + 1}. **${start}${end}** · ${title}${e.location ? " @ " + e.location : ""}${attendees}\n   id: \`${e.id}\``;
+  });
+  return lines.join("\n");
+}
+
+function renderTaskListBody(data: any): string {
+  const rows = Array.isArray(data) ? data : [];
+  if (rows.length === 0) {
+    return "本地待办列表为空。可能原因:\n" + threeFactorFallback();
+  }
+  const now = Date.now();
+  const lines = rows.slice(0, 30).map((t: any, i: number) => {
+    const due = t.dueMs ? formatLocal(t.dueMs) : "无截止";
+    const overdue = t.dueMs && t.dueMs < now ? "⚠ 已逾期 · " : "";
+    const completed = t.completed ? "✓ " : "";
+    const notes = t.notes ? ` · ${String(t.notes).slice(0, 60)}` : "";
+    return `${i + 1}. ${completed}${overdue}**${t.title || "(无标题)"}** · 截止 ${due}${notes}\n   id: \`${t.id}\``;
+  });
+  return lines.join("\n");
+}
+
+function emptyMailFallback(query: SalmonQuery): string {
+  const queryText = query.kind === "mail.search" && (query as any).query
+    ? `（查 "${(query as any).query}"）`
+    : "";
+  return `本地缓存里没找到匹配邮件${queryText}。可能原因:\n${threeFactorFallback()}`;
+}
+
+function threeFactorFallback(): string {
+  return [
+    "- (a) 邮件账号未登录 / 未同步 — 设置里检查 Gmail/Outlook 账号；",
+    "- (b) 邮件在你问的时间窗外 — 本地缓存可能没拉过那段历史；",
+    "- (c) 关键词不在本地索引 — 试一下发件人邮箱、主题片段或具体词。",
+    "",
+    "让用户挑一个核对再继续，不要直接结束。",
   ].join("\n");
 }
 
-function compactQueryData(value: any): any {
-  if (Array.isArray(value)) return value.slice(0, 20).map(compactQueryData);
-  if (!value || typeof value !== "object") return value;
-  if ("bodyText" in value || "bodyHtml" in value) {
-    return {
-      ...value,
-      bodyText: truncate(String(value.bodyText || ""), 6000),
-      bodyHtml: value.bodyHtml ? "[html omitted]" : null,
-    };
-  }
-  if ("messages" in value && Array.isArray(value.messages)) {
-    return { ...value, messages: value.messages.slice(0, 20).map(compactQueryData) };
-  }
-  return value;
+function formatLocal(ms?: number | null): string {
+  if (!ms) return "";
+  return new Date(ms).toLocaleString("zh-CN", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function formatLocalDate(ms?: number | null): string {
+  if (!ms) return "";
+  return new Date(ms).toLocaleDateString("zh-CN");
 }
 
 function summarizeAction(action: SalmonAction): string {

@@ -86,7 +86,11 @@ struct LlmResponse {
     gaps: Option<Vec<LlmGap>>,
 }
 
-pub async fn analyse(engine: &str, db: &parking_lot::Mutex<Db>) -> Result<Vec<PulseItem>> {
+pub async fn analyse(
+    engine: &str,
+    learning_hint: &str,
+    db: &parking_lot::Mutex<Db>,
+) -> Result<Vec<PulseItem>> {
     let snapshot = {
         let guard = db.lock();
         build_snapshot(&guard)?
@@ -96,7 +100,7 @@ pub async fn analyse(engine: &str, db: &parking_lot::Mutex<Db>) -> Result<Vec<Pu
         return Ok(Vec::new());
     }
     let prompt = build_prompt(&snapshot);
-    let system = build_system();
+    let system = build_system(learning_hint);
     let raw = call_llm(engine, &system, &prompt).await?;
     parse(&raw)
 }
@@ -191,8 +195,13 @@ fn build_snapshot(db: &Db) -> Result<Snapshot> {
     Ok(Snapshot { mails, events, tasks })
 }
 
-fn build_system() -> String {
-    "你是 SalmonApp 内的跨域分析助手。任务是在用户最近的【邮件 / 日历 / 待办】快照里发现\
+fn build_system(learning_hint: &str) -> String {
+    let hint_section = if learning_hint.is_empty() {
+        String::new()
+    } else {
+        format!("\n{}\n", learning_hint)
+    };
+    let body = "你是 SalmonApp 内的跨域分析助手。任务是在用户最近的【邮件 / 日历 / 待办】快照里发现\
      【明显缺口】 —— 三类信号原本应该互相对应、但其中一边没有：\n\n\
      【寻找哪类缺口】\n\
      1. 邮件正文/主题里提到了**具体日期 + 时间**的会面或截止，但日历窗口里查不到对应事件。\n\
@@ -207,7 +216,9 @@ fn build_system() -> String {
        calendar（创建日程 / detail 写自然语言事件描述）、\n\
        reply（起草准备邮件 / detail 写应该如何写）、\n\
        task（创建跟进 task / detail 写任务描述）、\n\
-       acknowledge（仅提示用户、不执行 / detail 留空）。\n\n\
+       acknowledge（仅提示用户、不执行 / detail 留空）。\n\
+     - 如果缺口对应的真实完成动作发生在 SalmonApp 看不到的物理世界（去现场、打电话、当面办、打印），\
+     suggestedAction 应选 acknowledge with detail=\"done_externally\"，给用户一个\"我已线下完成\"反馈通道。\n\n\
      【输出 - 严格 JSON，无其他文字】\n\
      {\n  \"gaps\": [\n    {\n      \"title\": \"≤24 个汉字\",\n      \
      \"summary\": \"≤80 字概述具体缺什么\",\n      \
@@ -216,8 +227,8 @@ fn build_system() -> String {
      \"relatedMailIds\": [\"邮件 id\"],\n      \
      \"relatedEventIds\": [\"事件 id\"],\n      \
      \"suggestedAction\": { \"label\": \"≤14 汉字\", \"kind\": \"calendar|reply|task|acknowledge\", \"detail\": \"≤40 字\" }\n    \
-     }\n  ]\n}\n"
-        .into()
+     }\n  ]\n}\n";
+    format!("{}{}", body, hint_section)
 }
 
 fn build_prompt(s: &Snapshot) -> String {
