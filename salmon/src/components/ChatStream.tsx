@@ -16,6 +16,11 @@ interface Props {
   errorBanner: string | null;
   chatLayout: ChatLayout;
   busy?: boolean;
+  /** v1.15.0: extra "engine work coming" signal — true while any salmon-query
+   *  card on this topic is executing its API calls and a continueWithLocalContext
+   *  call is about to fire. Keeps typing dots visible across the gap between
+   *  the previous turn's `exited` and the next turn's `started` events. */
+  anticipating?: boolean;
   workdirMissing?: boolean;
   onArchive?: () => void;
   onDelete?: () => void;
@@ -27,7 +32,7 @@ interface Props {
 }
 
 export function ChatStream(props: Props) {
-  const { topic, messages, pendingPermission, errorBanner, chatLayout, busy, workdirMissing } = props;
+  const { topic, messages, pendingPermission, errorBanner, chatLayout, busy, anticipating, workdirMissing } = props;
   const streamRef = useRef<HTMLDivElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const mdComponents = useMemo(() => markdownComponents(topic.workdir, topic.id), [topic.workdir, topic.id]);
@@ -39,11 +44,17 @@ export function ChatStream(props: Props) {
   // stay until `exited` flips busy back off, so the user always has a
   // running "still thinking" signal in addition to the per-tool spinners.
   const showTyping = (() => {
-    if (!busy) return false;
+    // Anticipating means a salmon-query card is running and a回灌 will
+    // hit the engine momentarily. Show dots even if busy briefly dipped.
+    if (!busy && !anticipating) return false;
     if (pendingPermission) return false;
     const last = messages[messages.length - 1];
     if (!last) return true;
     if (last.role === "user") return true;
+    // While anticipating, the last assistant message may be marked "done"
+    // (the previous turn finished) but more output is on the way — keep
+    // dots on.
+    if (anticipating) return true;
     return last.pending;
   })();
 

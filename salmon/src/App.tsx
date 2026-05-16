@@ -390,6 +390,12 @@ export default function App() {
   const [runningIds, setRunningIds] = useState<Set<string>>(new Set());
   const [spawningId, setSpawningId] = useState<string | null>(null);
   const [busyByTopic, setBusyByTopic] = useState<Record<string, boolean>>({});
+  // v1.15.0: per-topic "engine anticipating" counter. Bumped by salmon-query
+  // cards while they're mid-API-call so the typing dots stay on through
+  // the window where the previous engine turn has emitted `exited` but
+  // continueWithLocalContext hasn't fired yet. Without this, the dots
+  // briefly disappear and users think the AI stopped.
+  const [anticipatingByTopic, setAnticipatingByTopic] = useState<Record<string, number>>({});
   const [pendingPermByTopic, setPendingPermByTopic] = useState<Record<string, PendingPerm | null>>({});
   const [errorByTopic, setErrorByTopic] = useState<Record<string, string | null>>({});
   const [selectedTool, setSelectedTool] = useState<ToolCall | null>(null);
@@ -1193,6 +1199,20 @@ export default function App() {
     return () => window.removeEventListener("salmon:local-context", onLocalContext);
   }, [continueWithLocalContext]);
 
+  useEffect(() => {
+    const onAnticipate = (event: Event) => {
+      const detail = (event as CustomEvent<{ topicId?: string; delta?: number }>).detail;
+      if (!detail?.topicId || typeof detail.delta !== "number") return;
+      setAnticipatingByTopic((m) => {
+        const cur = m[detail.topicId!] || 0;
+        const next = Math.max(0, cur + detail.delta!);
+        return { ...m, [detail.topicId!]: next };
+      });
+    };
+    window.addEventListener("salmon:anticipate-engine", onAnticipate);
+    return () => window.removeEventListener("salmon:anticipate-engine", onAnticipate);
+  }, []);
+
   const onSend = useCallback(
     async (text: string) => {
       if (!selectedId) return;
@@ -1468,6 +1488,7 @@ export default function App() {
             <ChatStream
               key={selectedTopic.id}
               topic={selectedTopic}
+              anticipating={(anticipatingByTopic[selectedTopic.id] || 0) > 0}
               messages={selectedMessages}
               pendingPermission={pendingPermByTopic[selectedTopic.id] || null}
               errorBanner={errorByTopic[selectedTopic.id] || null}

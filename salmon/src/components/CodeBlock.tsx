@@ -141,23 +141,50 @@ function SalmonQueryCard({ raw, topicId }: { raw: string; topicId?: string }) {
     if (!topicId || !parsed.ok || status !== "pending") return;
     let cancelled = false;
     setStatus("running");
+    // v1.15.0: bump the per-topic "engine anticipating" counter so the
+    // chat stream's typing dots stay on through the API-call window.
+    // Without this, the engine's `exited` event for the previous turn
+    // fires before we dispatch salmon:local-context for the next turn,
+    // leaving a multi-second gap where the user sees nothing animating
+    // and assumes the AI has stopped.
+    window.dispatchEvent(new CustomEvent("salmon:anticipate-engine", {
+      detail: { topicId, delta: 1 },
+    }));
+    let anticipateOpen = true;
+    const closeAnticipate = () => {
+      if (!anticipateOpen) return;
+      anticipateOpen = false;
+      window.dispatchEvent(new CustomEvent("salmon:anticipate-engine", {
+        detail: { topicId, delta: -1 },
+      }));
+    };
     executeSalmonQuery(parsed.query)
       .then(async (result) => {
-        if (cancelled) return;
+        if (cancelled) { closeAnticipate(); return; }
         const content = formatQueryResult(parsed.query, result);
         sessionStorage.setItem(key, "1");
         setMessage(result.summary);
         setStatus("done");
+        // Dispatch local-context BEFORE closing anticipate so App's
+        // continueWithLocalContext sets busy=true within the same tick
+        // and we never visibly drop to zero. Close happens just after
+        // — by then the engine event handler has already taken over.
         window.dispatchEvent(new CustomEvent("salmon:local-context", {
           detail: { topicId, content },
         }));
+        closeAnticipate();
       })
       .catch((e: any) => {
-        if (cancelled) return;
+        if (cancelled) { closeAnticipate(); return; }
         setMessage(String(e?.message || e));
         setStatus("error");
+        closeAnticipate();
       });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      // Unmount mid-run still must decrement so the counter doesn't leak.
+      closeAnticipate();
+    };
   }, [key, parsed, status, topicId]);
 
   const label = parsed.ok ? parsed.query.kind : "invalid";
