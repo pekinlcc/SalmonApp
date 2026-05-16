@@ -13,7 +13,7 @@ export function CodeBlock({ children, topicId }: { children?: React.ReactNode; t
   }
 
   if (detected.language === "salmon-action") {
-    return <SalmonActionCard raw={detected.text} />;
+    return <SalmonActionCard raw={detected.text} topicId={topicId} />;
   }
 
   const onCopy = async () => {
@@ -191,7 +191,7 @@ function SalmonQueryCard({ raw, topicId }: { raw: string; topicId?: string }) {
   );
 }
 
-function SalmonActionCard({ raw }: { raw: string }) {
+function SalmonActionCard({ raw, topicId }: { raw: string; topicId?: string }) {
   const parsed = useMemo(() => parseSalmonAction(raw), [raw]);
   if (
     parsed.ok &&
@@ -199,13 +199,16 @@ function SalmonActionCard({ raw }: { raw: string }) {
       || parsed.action.kind === "mail.draft"
       || parsed.action.kind === "mail.reply")
   ) {
-    return <MailActionCard action={parsed.action} />;
+    return <MailActionCard action={parsed.action} topicId={topicId} />;
   }
+
+  const persistKey = useMemo(() => `${topicId || "none"}:${hashText(raw)}`, [topicId, raw]);
+  const persisted = useMemo(() => loadExecutedAction(persistKey), [persistKey]);
 
   const [accounts, setAccounts] = useState<MailAccount[]>([]);
   const [accountId, setAccountId] = useState("");
   const [busy, setBusy] = useState(false);
-  const [done, setDone] = useState<string | null>(null);
+  const [done, setDone] = useState<string | null>(persisted?.message || null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -232,6 +235,7 @@ function SalmonActionCard({ raw }: { raw: string }) {
     try {
       const result = await executeSalmonAction(parsed.action, accountId);
       setDone(result.message);
+      markExecutedAction(persistKey, result);
       window.dispatchEvent(new CustomEvent("salmon:toast", {
         detail: { title: result.message, kind: "done", actions: result.actions },
       }));
@@ -285,11 +289,27 @@ function SalmonActionCard({ raw }: { raw: string }) {
   );
 }
 
-function MailActionCard({ action }: { action: Extract<SalmonAction, { kind: "mail.send" | "mail.draft" | "mail.reply" }> }) {
+function MailActionCard({
+  action,
+  topicId,
+}: {
+  action: Extract<SalmonAction, { kind: "mail.send" | "mail.draft" | "mail.reply" }>;
+  topicId?: string;
+}) {
+  // Persist execution state so navigating away and back doesn't expose a
+  // re-clickable "Send Email" button after the email was already sent.
+  // The key includes both the topic and the raw action content so two
+  // distinct send-attempts in different conversations don't collide.
+  const persistKey = useMemo(
+    () => `${topicId || "none"}:${hashText(JSON.stringify(action))}`,
+    [topicId, action]
+  );
+  const persisted = useMemo(() => loadExecutedAction(persistKey), [persistKey]);
+
   const [accounts, setAccounts] = useState<MailAccount[]>([]);
   const [accountId, setAccountId] = useState("");
   const [busy, setBusy] = useState(false);
-  const [done, setDone] = useState<string | null>(null);
+  const [done, setDone] = useState<string | null>(persisted?.message || null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -327,6 +347,7 @@ function MailActionCard({ action }: { action: Extract<SalmonAction, { kind: "mai
     try {
       const result = await executeSalmonAction(action, accountId);
       setDone(result.message);
+      markExecutedAction(persistKey, result);
       window.dispatchEvent(new CustomEvent("salmon:toast", {
         detail: { title: result.message, kind: "done", actions: result.actions },
       }));
@@ -1247,4 +1268,51 @@ function hashText(text: string): string {
     hash = Math.imul(hash, 16777619);
   }
   return (hash >>> 0).toString(16);
+}
+
+// v1.14.0: persist salmon-action execution state across component remounts.
+// Without this, navigating to another conversation and back exposes an
+// already-executed send/create/delete button as if it were fresh — the
+// user could re-trigger a real-world side effect by accident.
+//
+// localStorage (not sessionStorage) so the disabled state survives app
+// restarts too. Key includes both the topic id and a hash of the action
+// payload so identical actions in two conversations stay isolated.
+const ACTION_PERSIST_PREFIX = "salmon-action-done:";
+
+interface PersistedAction {
+  message: string;
+  // We deliberately drop the toast `actions` field on persistence —
+  // navigation targets like {view: "mail", accountId} could go stale
+  // (account deleted, etc). The card just needs to show "Done" with
+  // the message; the original toast already gave the user a chance to
+  // open the result when fresh.
+  executedAt: number;
+}
+
+function loadExecutedAction(key: string): PersistedAction | null {
+  try {
+    if (typeof localStorage === "undefined") return null;
+    const v = localStorage.getItem(ACTION_PERSIST_PREFIX + key);
+    if (!v) return null;
+    const parsed = JSON.parse(v);
+    if (!parsed || typeof parsed.message !== "string") return null;
+    return parsed as PersistedAction;
+  } catch {
+    return null;
+  }
+}
+
+function markExecutedAction(key: string, result: SalmonActionExecution): void {
+  try {
+    if (typeof localStorage === "undefined") return;
+    const payload: PersistedAction = {
+      message: result.message,
+      executedAt: Date.now(),
+    };
+    localStorage.setItem(ACTION_PERSIST_PREFIX + key, JSON.stringify(payload));
+  } catch {
+    // Quota exceeded / private mode / etc. Silently drop — the live
+    // session state still shows done.
+  }
 }
