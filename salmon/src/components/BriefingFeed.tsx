@@ -502,6 +502,15 @@ function StepResultView({ result: r }: { result: StepResult }) {
             </div>
           );
         }
+        if (r.kind === "MailArchived") {
+          return <div className="draft-reply"><div className="draft-label">📥 已归档邮件 · {r.mailId.slice(0, 12)}</div></div>;
+        }
+        if (r.kind === "MailStarred") {
+          return <div className="draft-reply"><div className="draft-label">{r.starred ? "★" : "☆"} {r.starred ? "已加星" : "已取消星标"} · {r.mailId.slice(0, 12)}</div></div>;
+        }
+        if (r.kind === "MailMarkedRead") {
+          return <div className="draft-reply"><div className="draft-label">{r.read ? "✓ 已标已读" : "● 已标未读"} · {r.mailId.slice(0, 12)}</div></div>;
+        }
         return null;
 }
 

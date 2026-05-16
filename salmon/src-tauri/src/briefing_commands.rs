@@ -288,6 +288,10 @@ pub enum StepResult {
         due_ms: Option<i64>,
         notes: Option<String>,
     },
+    /// v1.10.0: briefing-driven mail mutations on the parent_mail.
+    MailArchived { mail_id: String },
+    MailStarred { mail_id: String, starred: bool },
+    MailMarkedRead { mail_id: String, read: bool },
     Skipped { reason: String },
 }
 
@@ -548,6 +552,60 @@ pub async fn execute_action_step(
                     }),
                     Err(e) => results.push(StepResult::Skipped {
                         reason: format!("writer: {}", e),
+                    }),
+                }
+            }
+            "archive" => {
+                let Some(mid) = parent_mail.clone() else {
+                    results.push(StepResult::Skipped {
+                        reason: "archive 步骤需要 parent_mail，但该 brief item 没有关联邮件".into(),
+                    });
+                    continue;
+                };
+                match crate::mail_commands::archive_mail(state.clone(), mid.clone()).await {
+                    Ok(()) => results.push(StepResult::MailArchived { mail_id: mid }),
+                    Err(e) => results.push(StepResult::Skipped {
+                        reason: format!("archive 失败: {}", e),
+                    }),
+                }
+            }
+            "star" | "unstar" => {
+                let Some(mid) = parent_mail.clone() else {
+                    results.push(StepResult::Skipped {
+                        reason: "star 步骤需要 parent_mail，但该 brief item 没有关联邮件".into(),
+                    });
+                    continue;
+                };
+                // detail = "on"/"off"/"true"/"false"; default = on for "star",
+                // off for "unstar"
+                let starred = if step.kind == "unstar" {
+                    false
+                } else {
+                    !matches!(step.detail.trim().to_ascii_lowercase().as_str(), "off" | "false" | "no" | "0")
+                };
+                match crate::mail_commands::set_mail_star(state.clone(), mid.clone(), starred).await {
+                    Ok(()) => results.push(StepResult::MailStarred { mail_id: mid, starred }),
+                    Err(e) => results.push(StepResult::Skipped {
+                        reason: format!("star 失败: {}", e),
+                    }),
+                }
+            }
+            "mark_read" | "mark_unread" => {
+                let Some(mid) = parent_mail.clone() else {
+                    results.push(StepResult::Skipped {
+                        reason: "mark_read 步骤需要 parent_mail，但该 brief item 没有关联邮件".into(),
+                    });
+                    continue;
+                };
+                let read = if step.kind == "mark_unread" {
+                    false
+                } else {
+                    !matches!(step.detail.trim().to_ascii_lowercase().as_str(), "false" | "no" | "0" | "unread")
+                };
+                match crate::mail_commands::mark_mail_read(state.clone(), mid.clone(), read).await {
+                    Ok(()) => results.push(StepResult::MailMarkedRead { mail_id: mid, read }),
+                    Err(e) => results.push(StepResult::Skipped {
+                        reason: format!("mark_read 失败: {}", e),
                     }),
                 }
             }

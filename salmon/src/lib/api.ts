@@ -134,6 +134,25 @@ export const api = {
     allDay: boolean;
     location: string | null;
   }) => invoke<CalEvent>("create_calendar_event", { input }),
+  updateCalendarEvent: (input: {
+    accountId: string;
+    eventId: string;
+    title?: string | null;
+    startMs?: number | null;
+    endMs?: number | null;
+    allDay?: boolean | null;
+    location?: string | null;
+  }) => invoke<CalEvent>("update_calendar_event", {
+    input: {
+      accountId: input.accountId,
+      eventId: input.eventId,
+      title: input.title ?? null,
+      startMs: input.startMs ?? null,
+      endMs: input.endMs ?? null,
+      allDay: input.allDay ?? null,
+      location: input.location ?? null,
+    },
+  }),
   deleteCalendarEvent: (accountId: string, eventId: string) =>
     invoke<void>("delete_calendar_event", { accountId, eventId }),
   // ── v0.9.1: Tasks ───────────────────────────────────────────────────
@@ -164,6 +183,10 @@ export const api = {
     invoke<ContactBundle | null>("get_contact_roost_bundle", { email }),
   setContactVip: (contactId: string, vip: boolean) =>
     invoke<void>("set_contact_vip", { contactId, vip }),
+  setContactNote: (contactId: string, note: string | null) =>
+    invoke<void>("set_contact_note", { contactId, note }),
+  getContactNote: (contactId: string) =>
+    invoke<string | null>("get_contact_note", { contactId }),
   // ── v0.9.0-alpha.6: home feed (heuristic, kept as fallback) ────────
   buildHomeFeed: () => invoke<BriefingFeed>("build_home_feed"),
   // ── v0.9.1: LLM briefing pipeline ───────────────────────────────────

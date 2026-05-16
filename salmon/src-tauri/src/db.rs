@@ -292,6 +292,11 @@ impl Db {
             "ALTER TABLE brief_items ADD COLUMN action_results TEXT",
             [],
         );
+        // v1.10.0: per-contact note. Stored locally only — not synced to
+        // Google/Outlook because the People/Contacts API note semantics
+        // differ across providers and we don't want our agent to overwrite
+        // upstream notes that the user wrote elsewhere.
+        let _ = conn.execute("ALTER TABLE contacts ADD COLUMN note TEXT", []);
         Ok(Self { conn })
     }
 

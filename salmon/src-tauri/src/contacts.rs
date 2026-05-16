@@ -353,6 +353,29 @@ pub fn set_vip(db: &Db, contact_id: &str, vip: bool) -> Result<()> {
     Ok(())
 }
 
+pub fn set_note(db: &Db, contact_id: &str, note: Option<&str>) -> Result<()> {
+    let normalized: Option<String> = note
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
+    db.conn().execute(
+        "UPDATE contacts SET note = ? WHERE id = ?",
+        params![normalized, contact_id],
+    )?;
+    Ok(())
+}
+
+pub fn get_note(db: &Db, contact_id: &str) -> Result<Option<String>> {
+    let note: Option<Option<String>> = db
+        .conn()
+        .query_row(
+            "SELECT note FROM contacts WHERE id = ?",
+            params![contact_id],
+            |r| r.get::<_, Option<String>>(0),
+        )
+        .ok();
+    Ok(note.flatten())
+}
+
 // ── Unified contacts view (v1.1) ───────────────────────────────────────
 //
 // `list_contacts` (above) returns only rows synced from Google People /

@@ -399,11 +399,13 @@ fn prompt_with_salmon_capabilities(content: &str) -> String {
 - mail.archive_mail(messageId)：归档邮件（Gmail 摘 INBOX label / Outlook 移到 Archive 文件夹），同时从本地缓存删除。\n\
 - mail.forward_mail(messageId, to, cc?, bodyPrefix?)：后端拉原文 + 加 Forwarded 头 + 发送。\n\
 - calendar.list_calendar_events(startMs, endMs)：本地日历窗口。\n\
-- calendar.create_calendar_event(input) / calendar.delete_calendar_event(accountId, eventId)：创建 / 删除。\n\
+- calendar.create_calendar_event(input) / calendar.update_calendar_event(input) / calendar.delete_calendar_event(accountId, eventId)：创建 / 更新 / 删除。\n\
 - tasks.list_tasks(accountId?, includeCompleted?)：本地待办列表。\n\
 - tasks.create_task / tasks.update_task / tasks.delete_task：CRUD。\n\
 - contacts.list_contacts(accountId?) / contacts.list_unified_contacts()：联系人。\n\
-- contacts.set_contact_vip(contactId, vip)：设置 VIP。\n\n\
+- contacts.set_contact_vip(contactId, vip)：设置 VIP。\n\
+- contacts.set_contact_note(contactId, note)：本地备注（不上传 Google/Outlook）。\n\
+- contacts.get_contact_note(contactId)：读本地备注。\n\n\
 \
 【4. salmon-query — 只读查询协议】\n\
 需要本地上下文时，用 fenced JSON 代码块，语言 `salmon-query`，SalmonApp 自动执行并回灌结果。**只读、无副作用、可缓存**。不要把 salmon-query 和 salmon-action 混在同一个代码块里。一次查不够就连续输出多个 salmon-query 代码块。\n\
@@ -428,6 +430,7 @@ fn prompt_with_salmon_capabilities(content: &str) -> String {
 \n\
 日历（calendar）：\n\
 - 创建：{{\"kind\":\"calendar.create\",\"event\":{{\"title\":\"...\",\"startLocal\":\"YYYY-MM-DDTHH:mm:ss\",\"endLocal\":\"YYYY-MM-DDTHH:mm:ss\",\"allDay\":false,\"location\":null}},\"requiresConfirmation\":true}}\n\
+- 更新（patch 字段都可选；改时间时 startLocal 和 endLocal 都要给）：{{\"kind\":\"calendar.update\",\"eventId\":\"...\",\"patch\":{{\"title\":null,\"startLocal\":null,\"endLocal\":null,\"allDay\":null,\"location\":null}},\"requiresConfirmation\":true}}\n\
 - 删除：{{\"kind\":\"calendar.delete\",\"eventId\":\"...\",\"requiresConfirmation\":true}}（accountId 由 UI 选择）\n\
 \n\
 邮件（mail）：\n\
@@ -441,6 +444,7 @@ fn prompt_with_salmon_capabilities(content: &str) -> String {
 \n\
 联系人（contacts）：\n\
 - 标 VIP：{{\"kind\":\"contacts.vip\",\"contactId\":\"...\",\"vip\":true,\"requiresConfirmation\":false}}\n\
+- 本地备注（仅本地存储，不同步到 Google/Outlook；note 传空字符串等同清空）：{{\"kind\":\"contacts.note\",\"contactId\":\"...\",\"note\":\"...\",\"requiresConfirmation\":true}}\n\
 \n\
 工作流 / 组合动作（workflow）—— 需要按顺序执行多个动作时（例如“约会议 + 发邀请邮件”），用一个 workflow 代码块，UI 渲染为多步确认卡，用户一次确认按顺序执行；任一步失败立即停下：\n\
 - {{\"kind\":\"workflow\",\"title\":\"...简短描述...\",\"steps\":[<action JSON>, <action JSON>, ...],\"requiresConfirmation\":true}}\n\
@@ -1208,7 +1212,7 @@ fn render_feedback_block(fb: &[Recommendation]) -> String {
     if decided.is_empty() {
         return "(用户暂无反馈历史)\n".to_string();
     }
-    let mut out = String::new();
+    let mut out = render_ignore_stats(&decided);
     for r in decided.iter().take(REC_FEEDBACK_HISTORY) {
         out.push_str(&format!(
             "- [{}] {} ({}): {}{}\n",
@@ -1223,6 +1227,70 @@ fn render_feedback_block(fb: &[Recommendation]) -> String {
         ));
     }
     out
+}
+
+/// v1.10.0 learning loop: feed aggregate ignore-rate stats back into the
+/// recommendation prompt so the LLM can self-tighten when the user is
+/// consistently saying "no". Per-engine breakdown lets a noisier engine
+/// get the message even if the other engine is hitting the mark.
+fn render_ignore_stats(decided: &[&Recommendation]) -> String {
+    let n = decided.len();
+    if n < 5 {
+        // Sample too small for stats to be meaningful — skip the header.
+        return String::new();
+    }
+    let ignored = decided.iter().filter(|r| r.status == "ignored").count();
+    let pct = (ignored as f64 / n as f64 * 100.0).round() as i64;
+    let mut per_engine: std::collections::HashMap<String, (usize, usize)> =
+        std::collections::HashMap::new();
+    for r in decided {
+        let entry = per_engine.entry(r.source_engine.clone()).or_insert((0, 0));
+        entry.0 += 1;
+        if r.status == "ignored" {
+            entry.1 += 1;
+        }
+    }
+    let mut engines: Vec<_> = per_engine.iter().collect();
+    engines.sort_by(|a, b| a.0.cmp(b.0));
+    let engine_summary = engines
+        .iter()
+        .map(|(e, (total, ig))| {
+            let p = (*ig as f64 / *total as f64 * 100.0).round() as i64;
+            format!("{} {}% 忽略 ({}/{})", e, p, ig, total)
+        })
+        .collect::<Vec<_>>()
+        .join(" · ");
+    let headline = if pct >= 70 {
+        format!(
+            "【⚠ 高忽略率警告】最近 {} 条推荐里 {} 条被忽略 ({}%) — 用户基本不接受这种推荐，请把 self_value 阈值再收紧，宁可只交 1 条。{}\n\n",
+            n,
+            ignored,
+            pct,
+            if engine_summary.is_empty() {
+                String::new()
+            } else {
+                format!("分引擎: {}.", engine_summary)
+            }
+        )
+    } else if pct >= 40 {
+        format!(
+            "【ℹ 忽略率提示】最近 {} 条推荐 {}% 被忽略；偏严一点比偏松好。{}\n\n",
+            n,
+            pct,
+            if engine_summary.is_empty() {
+                String::new()
+            } else {
+                format!("分引擎: {}.", engine_summary)
+            }
+        )
+    } else {
+        // Healthy hit rate — keep prompt brief, just acknowledge the data.
+        format!(
+            "【反馈节奏】最近 {} 条推荐 {}% 被忽略 — 当前节奏 OK，继续保持。\n\n",
+            n, pct,
+        )
+    };
+    headline
 }
 
 fn parse_recommendation_json(

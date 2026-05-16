@@ -55,6 +55,7 @@ type SalmonAction =
   | { kind: "tasks.delete"; taskId?: string; requiresConfirmation?: boolean }
   | { kind: "tasks.toggle"; taskId?: string; completed?: boolean; requiresConfirmation?: boolean }
   | { kind: "calendar.create"; event?: CalendarActionItem; events?: CalendarActionItem[]; requiresConfirmation?: boolean }
+  | { kind: "calendar.update"; eventId?: string; accountId?: string | null; patch?: CalendarUpdatePatch; requiresConfirmation?: boolean }
   | { kind: "calendar.delete"; eventId?: string; accountId?: string | null; requiresConfirmation?: boolean }
   | { kind: "mail.draft"; draft?: MailActionItem; requiresConfirmation?: boolean }
   | { kind: "mail.send"; mail?: MailActionItem; requiresConfirmation?: boolean }
@@ -64,6 +65,7 @@ type SalmonAction =
   | { kind: "mail.star"; messageId?: string; starred?: boolean; requiresConfirmation?: boolean }
   | { kind: "mail.archive"; messageId?: string; requiresConfirmation?: boolean }
   | { kind: "contacts.vip"; contactId?: string; vip?: boolean; requiresConfirmation?: boolean }
+  | { kind: "contacts.note"; contactId?: string; note?: string | null; requiresConfirmation?: boolean }
   | { kind: "workflow"; title?: string; steps?: SalmonAction[]; requiresConfirmation?: boolean };
 
 type SalmonQuery =
@@ -93,6 +95,16 @@ interface TaskUpdatePatch {
 
 interface CalendarActionItem {
   title?: string;
+  startLocal?: string | null;
+  endLocal?: string | null;
+  startMs?: number | null;
+  endMs?: number | null;
+  allDay?: boolean | null;
+  location?: string | null;
+}
+
+interface CalendarUpdatePatch {
+  title?: string | null;
   startLocal?: string | null;
   endLocal?: string | null;
   startMs?: number | null;
@@ -414,6 +426,7 @@ const ACTION_KINDS = new Set([
   "tasks.delete",
   "tasks.toggle",
   "calendar.create",
+  "calendar.update",
   "calendar.delete",
   "mail.draft",
   "mail.send",
@@ -423,6 +436,7 @@ const ACTION_KINDS = new Set([
   "mail.star",
   "mail.archive",
   "contacts.vip",
+  "contacts.note",
   "workflow",
 ]);
 
@@ -606,6 +620,8 @@ function summarizeAction(action: SalmonAction): string {
       return `准备将待办 ${action.taskId || "(未指定)"} 标为 ${action.completed ? "已完成" : "未完成"}。`;
     case "calendar.create":
       return `准备创建 ${calendarItems(action).length || 1} 个日历事件，确认后由 SalmonApp 本地接口执行。`;
+    case "calendar.update":
+      return `准备更新日历事件 ${action.eventId || "(未指定)"}。`;
     case "calendar.delete":
       return `准备删除日历事件 ${action.eventId || "(未指定)"}。删除不可恢复，请确认。`;
     case "mail.draft":
@@ -624,6 +640,10 @@ function summarizeAction(action: SalmonAction): string {
       return `准备归档邮件 ${action.messageId || "(未指定)"}。`;
     case "contacts.vip":
       return `准备将联系人 ${action.contactId || "(未指定)"} ${action.vip === false ? "取消 VIP" : "标为 VIP"}。`;
+    case "contacts.note":
+      return action.note && action.note.trim().length > 0
+        ? `准备给联系人 ${action.contactId || "(未指定)"} 写本地备注。`
+        : `准备清空联系人 ${action.contactId || "(未指定)"} 的本地备注。`;
     case "workflow":
       return `${action.title ? action.title + " · " : ""}${(action.steps || []).length} 步工作流，按顺序执行；任一步失败立即停下。`;
   }
@@ -688,6 +708,21 @@ function renderActionDetails(action: SalmonAction) {
       </>
     );
   }
+  if (action.kind === "calendar.update") {
+    const patch = action.patch || {};
+    const changes: string[] = [];
+    if (patch.title != null) changes.push(`标题: ${patch.title}`);
+    if (patch.startLocal != null || patch.startMs != null) changes.push(`新开始: ${patch.startLocal ?? formatMs(patch.startMs)}`);
+    if (patch.endLocal != null || patch.endMs != null) changes.push(`新结束: ${patch.endLocal ?? formatMs(patch.endMs)}`);
+    if (patch.allDay != null) changes.push(`全天: ${patch.allDay ? "是" : "否"}`);
+    if (patch.location != null) changes.push(`地点: ${patch.location || "(清空)"}`);
+    return (
+      <div className="salmon-action-row">
+        <b>事件 {action.eventId || "(未指定)"}</b>
+        {changes.length > 0 ? <span>{changes.join(" · ")}</span> : <small>未提供任何更新字段。</small>}
+      </div>
+    );
+  }
   if (action.kind === "calendar.delete") {
     return (
       <div className="salmon-action-row">
@@ -735,6 +770,15 @@ function renderActionDetails(action: SalmonAction) {
       <div className="salmon-action-row">
         <b>联系人 {action.contactId || "(未指定)"}</b>
         <span>{action.vip === false ? "取消 VIP 标记" : "标为 VIP"}</span>
+      </div>
+    );
+  }
+  if (action.kind === "contacts.note") {
+    const text = action.note?.trim();
+    return (
+      <div className="salmon-action-row">
+        <b>联系人 {action.contactId || "(未指定)"}</b>
+        {text ? <small>{truncate(text, 200)}</small> : <small>清空本地备注</small>}
       </div>
     );
   }
@@ -846,6 +890,36 @@ async function executeSalmonAction(action: SalmonAction, accountId: string): Pro
       }
       return { message: `已创建 ${events.length} 个日历事件`, actions };
     }
+    case "calendar.update": {
+      if (!action.eventId) throw new Error("calendar.update 缺少 eventId。");
+      const account = action.accountId || accountId;
+      if (!account) throw new Error("calendar.update 缺少 accountId（请在选择器里选）。");
+      const patch = action.patch || {};
+      const allDay = patch.allDay ?? null;
+      const startMs = patch.startMs != null
+        ? patch.startMs
+        : (patch.startLocal != null ? resolveLocalTime(null, patch.startLocal, !!allDay) : null);
+      const endMs = patch.endMs != null
+        ? patch.endMs
+        : (patch.endLocal != null ? resolveLocalTime(null, patch.endLocal, !!allDay) : null);
+      const updated = await api.updateCalendarEvent({
+        accountId: account,
+        eventId: action.eventId,
+        title: patch.title ?? null,
+        startMs,
+        endMs,
+        allDay,
+        location: patch.location ?? null,
+      });
+      return {
+        message: "已更新日历事件",
+        actions: [{
+          label: "查看日历",
+          primary: true,
+          target: { view: "calendar", eventId: updated.id, accountId: account, startMs: updated.startMs },
+        }],
+      };
+    }
     case "calendar.delete": {
       if (!action.eventId) throw new Error("calendar.delete 缺少 eventId。");
       const account = action.accountId || accountId;
@@ -915,6 +989,12 @@ async function executeSalmonAction(action: SalmonAction, accountId: string): Pro
       if (!action.contactId) throw new Error("contacts.vip 缺少 contactId。");
       await api.setContactVip(action.contactId, action.vip !== false);
       return { message: action.vip === false ? "已取消 VIP" : "已设为 VIP" };
+    }
+    case "contacts.note": {
+      if (!action.contactId) throw new Error("contacts.note 缺少 contactId。");
+      const trimmed = action.note?.trim() ?? null;
+      await api.setContactNote(action.contactId, trimmed && trimmed.length > 0 ? trimmed : null);
+      return { message: trimmed ? "已写入联系人本地备注" : "已清空联系人本地备注" };
     }
     case "workflow": {
       const steps = action.steps || [];

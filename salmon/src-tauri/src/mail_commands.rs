@@ -1167,6 +1167,18 @@ pub async fn create_calendar_event(
 }
 
 #[tauri::command]
+pub async fn update_calendar_event(
+    state: State<'_, AppState>,
+    input: crate::calendar::UpdateEventInput,
+) -> Result<crate::calendar::CalEvent, String> {
+    let cfg = state.oauth_cfg.clone();
+    let db = state.db.clone();
+    crate::calendar::update_event_remote(&cfg, db, input)
+        .await
+        .map_err(map_err)
+}
+
+#[tauri::command]
 pub async fn delete_calendar_event(
     state: State<'_, AppState>,
     account_id: String,
@@ -1380,6 +1392,25 @@ pub fn set_contact_vip(
 ) -> Result<(), String> {
     let db = state.db.lock();
     crate::contacts::set_vip(&db, &contact_id, vip).map_err(map_err)
+}
+
+#[tauri::command]
+pub fn set_contact_note(
+    state: State<'_, AppState>,
+    contact_id: String,
+    note: Option<String>,
+) -> Result<(), String> {
+    let db = state.db.lock();
+    crate::contacts::set_note(&db, &contact_id, note.as_deref()).map_err(map_err)
+}
+
+#[tauri::command]
+pub fn get_contact_note(
+    state: State<'_, AppState>,
+    contact_id: String,
+) -> Result<Option<String>, String> {
+    let db = state.db.lock();
+    crate::contacts::get_note(&db, &contact_id).map_err(map_err)
 }
 
 // ── alpha.6: home-feed briefing ──────────────────────────────────────

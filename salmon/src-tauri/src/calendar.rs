@@ -689,6 +689,238 @@ pub async fn delete_event_remote(
     Ok(())
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateEventInput {
+    pub account_id: String,
+    pub event_id: String,
+    pub title: Option<String>,
+    pub start_ms: Option<i64>,
+    pub end_ms: Option<i64>,
+    pub all_day: Option<bool>,
+    pub location: Option<String>,
+}
+
+pub async fn update_event_remote(
+    cfg: &OauthConfig,
+    db: Arc<Mutex<Db>>,
+    input: UpdateEventInput,
+) -> Result<CalEvent> {
+    let (provider, mut tokens) = {
+        let guard = db.lock();
+        load_account(&guard, &input.account_id)?
+    };
+    let now_ms = chrono::Utc::now().timestamp_millis();
+    if tokens.expires_at_ms - now_ms < 60_000 {
+        let rt = tokens
+            .refresh_token
+            .clone()
+            .ok_or_else(|| anyhow!("no refresh_token for update-event"))?;
+        let new = match provider.as_str() {
+            "gmail" => refresh_google_access(cfg, &rt).await?,
+            "outlook" => refresh_microsoft_access(cfg, &rt).await?,
+            _ => return Err(anyhow!("update-event not impl for {}", provider)),
+        };
+        tokens.access_token = new.access_token;
+        tokens.expires_at_ms = new.expires_at_ms;
+        if let Some(r) = new.refresh_token {
+            tokens.refresh_token = Some(r);
+        }
+        let guard = db.lock();
+        crate::mail_sync::persist_tokens(&guard, &input.account_id, &tokens)?;
+    }
+
+    match provider.as_str() {
+        "gmail" => update_google_event(&tokens.access_token, &input).await?,
+        "outlook" => update_graph_event(&tokens.access_token, &input).await?,
+        other => return Err(anyhow!("update-event not impl for {}", other)),
+    };
+
+    // Reflect locally — read the (possibly partially-updated) row, overlay
+    // the fields the caller actually changed, write back. The next sync
+    // will reconcile against the authoritative remote.
+    let cur = {
+        let guard = db.lock();
+        list_events_window(&guard, i64::MIN / 2, i64::MAX / 2)?
+            .into_iter()
+            .find(|e| e.id == input.event_id)
+    };
+    let updated = CalEvent {
+        id: input.event_id.clone(),
+        account_id: input.account_id.clone(),
+        calendar_id: cur.as_ref().and_then(|e| e.calendar_id.clone()),
+        start_ms: input.start_ms.or(cur.as_ref().map(|e| e.start_ms)).unwrap_or(0),
+        end_ms: input.end_ms.or(cur.as_ref().map(|e| e.end_ms)).unwrap_or(0),
+        all_day: input
+            .all_day
+            .unwrap_or_else(|| cur.as_ref().map(|e| e.all_day).unwrap_or(false)),
+        title: input.title.clone().or_else(|| cur.as_ref().and_then(|e| e.title.clone())),
+        location: input
+            .location
+            .clone()
+            .or_else(|| cur.as_ref().and_then(|e| e.location.clone())),
+        description: cur.as_ref().and_then(|e| e.description.clone()),
+        attendees: cur.as_ref().map(|e| e.attendees.clone()).unwrap_or_default(),
+        organizer: cur.as_ref().and_then(|e| e.organizer.clone()),
+        recurrence: cur.as_ref().and_then(|e| e.recurrence.clone()),
+        status: cur.as_ref().and_then(|e| e.status.clone()),
+        my_response: cur.as_ref().and_then(|e| e.my_response.clone()),
+    };
+    {
+        let guard = db.lock();
+        upsert_event(&guard, &updated)?;
+    }
+    Ok(updated)
+}
+
+async fn update_google_event(access: &str, input: &UpdateEventInput) -> Result<()> {
+    // Google Calendar accepts PATCH with only the fields you want to change.
+    // We pass start/end as a pair if either is set, since Google validates
+    // start < end on every write.
+    let mut body = serde_json::Map::new();
+    if let Some(title) = &input.title {
+        body.insert("summary".into(), serde_json::Value::String(title.clone()));
+    }
+    if let Some(location) = &input.location {
+        body.insert("location".into(), serde_json::Value::String(location.clone()));
+    }
+    let touches_time = input.start_ms.is_some() || input.end_ms.is_some() || input.all_day.is_some();
+    if touches_time {
+        let all_day = input.all_day.unwrap_or(false);
+        let start_ms = input
+            .start_ms
+            .ok_or_else(|| anyhow!("calendar.update: 调整时间时 startMs 必填"))?;
+        let end_ms = input
+            .end_ms
+            .ok_or_else(|| anyhow!("calendar.update: 调整时间时 endMs 必填"))?;
+        if all_day {
+            let start_d = chrono::DateTime::<chrono::Utc>::from_timestamp_millis(start_ms)
+                .map(|t| t.with_timezone(&chrono::Local).date_naive())
+                .ok_or_else(|| anyhow!("bad start_ms for all-day update"))?;
+            let mut end_d = chrono::DateTime::<chrono::Utc>::from_timestamp_millis(end_ms)
+                .map(|t| t.with_timezone(&chrono::Local).date_naive())
+                .unwrap_or(start_d);
+            if end_d <= start_d {
+                end_d = start_d.succ_opt().unwrap_or(start_d);
+            }
+            body.insert(
+                "start".into(),
+                serde_json::json!({ "date": start_d.format("%Y-%m-%d").to_string() }),
+            );
+            body.insert(
+                "end".into(),
+                serde_json::json!({ "date": end_d.format("%Y-%m-%d").to_string() }),
+            );
+        } else {
+            let start = chrono::DateTime::<chrono::Utc>::from_timestamp_millis(start_ms)
+                .map(|t| t.format("%Y-%m-%dT%H:%M:%SZ").to_string())
+                .unwrap_or_default();
+            let end = chrono::DateTime::<chrono::Utc>::from_timestamp_millis(end_ms)
+                .map(|t| t.format("%Y-%m-%dT%H:%M:%SZ").to_string())
+                .unwrap_or(start.clone());
+            body.insert(
+                "start".into(),
+                serde_json::json!({ "dateTime": start, "timeZone": "UTC" }),
+            );
+            body.insert(
+                "end".into(),
+                serde_json::json!({ "dateTime": end, "timeZone": "UTC" }),
+            );
+        }
+    }
+    let url = format!(
+        "{}/calendars/primary/events/{}",
+        GOOGLE_CAL_BASE, input.event_id
+    );
+    let resp = reqwest::Client::new()
+        .patch(&url)
+        .bearer_auth(access)
+        .json(&serde_json::Value::Object(body))
+        .send()
+        .await
+        .context("google cal patch")?;
+    let status = resp.status();
+    let text = resp.text().await.unwrap_or_default();
+    if !status.is_success() {
+        return Err(anyhow!("google cal patch failed ({}): {}", status, text));
+    }
+    Ok(())
+}
+
+async fn update_graph_event(access: &str, input: &UpdateEventInput) -> Result<()> {
+    let mut body = serde_json::Map::new();
+    if let Some(title) = &input.title {
+        body.insert("subject".into(), serde_json::Value::String(title.clone()));
+    }
+    if let Some(location) = &input.location {
+        body.insert(
+            "location".into(),
+            serde_json::json!({ "displayName": location }),
+        );
+    }
+    if let Some(all_day) = input.all_day {
+        body.insert("isAllDay".into(), serde_json::Value::Bool(all_day));
+    }
+    let touches_time = input.start_ms.is_some() || input.end_ms.is_some() || input.all_day.is_some();
+    if touches_time {
+        let all_day = input.all_day.unwrap_or(false);
+        let start_ms = input
+            .start_ms
+            .ok_or_else(|| anyhow!("calendar.update: 调整时间时 startMs 必填"))?;
+        let end_ms = input
+            .end_ms
+            .ok_or_else(|| anyhow!("calendar.update: 调整时间时 endMs 必填"))?;
+        if all_day {
+            let start_d = chrono::DateTime::<chrono::Utc>::from_timestamp_millis(start_ms)
+                .map(|t| t.with_timezone(&chrono::Local).date_naive())
+                .ok_or_else(|| anyhow!("bad start_ms for all-day update"))?;
+            let mut end_d = chrono::DateTime::<chrono::Utc>::from_timestamp_millis(end_ms)
+                .map(|t| t.with_timezone(&chrono::Local).date_naive())
+                .unwrap_or(start_d);
+            if end_d <= start_d {
+                end_d = start_d.succ_opt().unwrap_or(start_d);
+            }
+            body.insert(
+                "start".into(),
+                serde_json::json!({ "dateTime": format!("{}T00:00:00", start_d.format("%Y-%m-%d")), "timeZone": "UTC" }),
+            );
+            body.insert(
+                "end".into(),
+                serde_json::json!({ "dateTime": format!("{}T00:00:00", end_d.format("%Y-%m-%d")), "timeZone": "UTC" }),
+            );
+        } else {
+            let start = chrono::DateTime::<chrono::Utc>::from_timestamp_millis(start_ms)
+                .map(|t| t.format("%Y-%m-%dT%H:%M:%S").to_string())
+                .unwrap_or_default();
+            let end = chrono::DateTime::<chrono::Utc>::from_timestamp_millis(end_ms)
+                .map(|t| t.format("%Y-%m-%dT%H:%M:%S").to_string())
+                .unwrap_or(start.clone());
+            body.insert(
+                "start".into(),
+                serde_json::json!({ "dateTime": start, "timeZone": "UTC" }),
+            );
+            body.insert(
+                "end".into(),
+                serde_json::json!({ "dateTime": end, "timeZone": "UTC" }),
+            );
+        }
+    }
+    let url = format!("{}/me/events/{}", GRAPH_BASE, input.event_id);
+    let resp = reqwest::Client::new()
+        .patch(&url)
+        .bearer_auth(access)
+        .json(&serde_json::Value::Object(body))
+        .send()
+        .await
+        .context("graph event patch")?;
+    let status = resp.status();
+    let text = resp.text().await.unwrap_or_default();
+    if !status.is_success() {
+        return Err(anyhow!("graph event patch failed ({}): {}", status, text));
+    }
+    Ok(())
+}
+
 pub fn list_events_window(
     db: &Db,
     start_ms: i64,

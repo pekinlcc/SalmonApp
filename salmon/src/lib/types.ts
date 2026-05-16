@@ -412,6 +412,9 @@ export type StepResult =
   | { kind: "ReplyDrafted"; draft: string; replyToMailId: string }
   | { kind: "EventCreated"; eventId: string; accountEmail: string; title: string; startMs: number; endMs: number; allDay: boolean; location?: string | null }
   | { kind: "TaskCreated"; taskId: string; accountEmail: string; title: string; dueMs?: number | null; notes?: string | null }
+  | { kind: "MailArchived"; mailId: string }
+  | { kind: "MailStarred"; mailId: string; starred: boolean }
+  | { kind: "MailMarkedRead"; mailId: string; read: boolean }
   | { kind: "Skipped"; reason: string };
 
 // v0.9.1: Tasks (Google Tasks + Microsoft Graph Todo)
