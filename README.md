@@ -1,8 +1,8 @@
 # SalmonApp
 
-> A three-pane desktop client for the **Claude Code CLI** and **Codex CLI** — Linux + macOS.
+> A local AI command center for coding, mail, calendar, contacts, and tasks — Linux + macOS.
 >
-> SalmonApp wraps a locally-logged-in `claude` or `codex` and reuses its credentials — no second account to manage. See [Releases](https://github.com/pekinlcc/SalmonApp/releases) for the changelog.
+> SalmonApp runs your locally logged-in `claude` or `codex` CLI, connects to your Gmail / Outlook workspace, and turns project + inbox context into actionable briefings. No model API key or second AI account required. See [Releases](https://github.com/pekinlcc/SalmonApp/releases) for the changelog.
 >
 > Note: deliberately named **SalmonApp** (one word) to avoid colliding with the bioinformatics `salmon` package on Linux distros.
 
@@ -16,14 +16,39 @@
 
 ## Why
 
-If you already use `claude` (Claude Code) or `codex` (OpenAI Codex CLI) in a terminal, you've hit the same speed bumps:
+SalmonApp started as a visual desktop shell for `claude` (Claude Code) and `codex` (OpenAI Codex CLI). It has grown into a local AI workspace for the things those agents need around you: code conversations, mail, calendars, contacts, tasks, and the next actions hiding across all of them.
+
+The positioning is simple: **SalmonApp is a local command center for people who already trust CLI agents, but want their work context organized into a usable desktop app.**
+
+It still solves the original terminal pain:
 
 - Long transcripts are painful to read in a scroll-back buffer
 - Multiple projects all share one shell history
 - Tool-call diffs need a second `cat`/`ls` to inspect
 - Switching between Claude and Codex means switching terminals
 
-SalmonApp wraps the CLI you're already running and gives it a chat UI:
+And it now adds the missing personal workflow layer:
+
+- Mail from Gmail / Outlook, cached locally
+- Calendar, contacts, and task views backed by the same connected accounts
+- AI briefings that rank important threads, extract follow-ups, and create calendar events or tasks
+- Contact-centric context, so a conversation, related mail, and suggested actions are visible together
+- Topic-aware coding sessions that can coexist with mail and planning work
+
+## Product Surface
+
+SalmonApp is organized around a left rail of work modes:
+
+| Area | What it does |
+|---|---|
+| **Home / Briefing** | Summarizes what needs attention across topics, mail, calendar, and tasks |
+| **Topics** | Persistent Claude Code / Codex sessions bound to real work directories |
+| **Mail** | Gmail / Outlook reader, sync, send, archive, read state, and local cache |
+| **Contacts** | Unified contact view with related mail and AI-generated action context |
+| **Calendar** | Calendar browsing and event creation from extracted dates or briefing actions |
+| **Tasks** | Google / Microsoft task sync plus AI-suggested follow-ups |
+
+The coding view keeps the original three-pane model:
 
 | Pane | What it shows |
 |---|---|
@@ -33,7 +58,7 @@ SalmonApp wraps the CLI you're already running and gives it a chat UI:
 
 A **Topic** is mentally a *terminal tab pinned to a workdir* — open many at once, each with its own engine + persistent CLI session. Closing a Topic SIGTERMs its child PTY but keeps the CLI's transcript in `~/.claude/...` or `~/.codex/...` exactly as the CLI itself stores it. Re-opening lazily re-spawns via `claude --resume <session-id>` (or the Codex equivalent). Detach / attach, basically.
 
-SalmonApp **does not** speak to Anthropic or OpenAI directly. It owns no API key. Credentials and session storage live entirely with the CLI.
+SalmonApp **does not** speak to Anthropic or OpenAI directly. It owns no model API key. Model credentials and session storage live with the CLI. Mail / calendar OAuth tokens are stored locally through the desktop app and are used only for the accounts you connect.
 
 ## Install
 
@@ -86,6 +111,8 @@ codex    # auth flow
 ```
 
 SalmonApp detects whichever is on `PATH` and offers to use them per-Topic.
+
+Mail, calendar, contacts, and tasks are optional. To use them, configure Google / Microsoft OAuth once; see [OAUTH-SETUP.md](OAUTH-SETUP.md).
 
 ### Optional: Office document preview
 
@@ -148,9 +175,14 @@ npm run tauri:dev
 ```
 salmon/
 ├── src/                    React + TypeScript UI (Vite)
-│   ├── App.tsx                top-level layout, routing between Topics
+│   ├── App.tsx                top-level layout, routing between workspace views
 │   ├── components/
 │   │   ├── LeftSidebar.tsx       Topic list, search, grouping
+│   │   ├── BriefingFeed.tsx      Home briefing and suggested actions
+│   │   ├── MailView.tsx          Gmail / Outlook mailbox
+│   │   ├── CalendarView.tsx      Calendar view and event actions
+│   │   ├── ContactsView.tsx      Unified contacts + related context
+│   │   ├── TasksView.tsx         Task sync and follow-up workflow
 │   │   ├── ChatStream.tsx        Markdown / tool-call rendering
 │   │   ├── Composer.tsx          Input box, /-command pass-through
 │   │   ├── ToolCallCard.tsx      Per-tool result rendering
@@ -164,6 +196,11 @@ salmon/
         ├── lib.rs              Tauri builder, plugin wiring
         ├── commands.rs         Tauri commands invoked from React
         ├── engine.rs           PTY child management, JSONL parse loop
+        ├── gmail.rs / graph.rs Gmail and Microsoft Graph integrations
+        ├── briefing*.rs        Briefing orchestration and LLM analysis
+        ├── calendar.rs         Calendar sync and actions
+        ├── contacts.rs         Contact aggregation
+        ├── tasks.rs            Task sync and actions
         ├── db.rs               SQLite schema + topic / message CRUD
         └── types.rs            Shared Rust ↔ TS types
 ```
@@ -172,16 +209,17 @@ Key choices:
 
 - **Tauri 2** — native window, system WebKit, ~3 MB app vs. an Electron equivalent
 - **Per-Topic PTY** — each Topic owns one `tokio::process::Child` running `claude` (or `codex`) in JSONL streaming mode. Stream events flow through an unbounded mpsc channel and out to the UI as Tauri events.
-- **SQLite** in `~/.local/share/app.salmonapp.desktop/salmon.db` — Topics, messages, tool calls, permission decisions, token counts. Plain text. Export / clear available from the UI.
-- **No API calls from SalmonApp itself** — every model interaction is a child process invocation.
+- **SQLite** in `~/.local/share/app.salmonapp.desktop/salmon.db` — Topics, messages, mail cache, contacts, events, tasks, briefings, permission decisions, token counts. Export / clear available from the UI where implemented.
+- **Local-first model execution** — every model interaction is a child process invocation through `claude` or `codex`; SalmonApp does not call model APIs itself.
 
 ## Limitations
 
-- Single window, single profile — no multi-account
+- Single window, single profile
 - No cloud sync, no team workspace (out of scope per [PRD](PRD.md))
 - Windows build not yet wired
 - macOS build is unsigned / unnotarized — first launch needs the `xattr` workaround above
 - Token-usage display only counts what the CLI emits in stream events
 - Office preview blocks the UI thread for ~2-3 s on first render (LibreOffice cold-start); cached after
+- Mail / calendar / contacts / tasks require user-provided OAuth client configuration for now
 
 See [PRD.md](PRD.md) for the full design rationale and roadmap.

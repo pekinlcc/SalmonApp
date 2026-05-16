@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Salmon — desktop client for Claude Code & Codex CLI</title>
-<meta name="description" content="A three-pane Linux + macOS desktop client wrapping the Claude Code CLI and Codex CLI. Reuses your CLI login — no API key, no second account." />
-<meta property="og:title" content="Salmon — desktop client for Claude Code & Codex CLI" />
-<meta property="og:description" content="Linux + macOS desktop client wrapping `claude` / `codex`. Three-pane UI, peer-validated recommendations agent, your CLI login." />
+<title>Salmon — local AI command center</title>
+<meta name="description" content="A local AI command center for coding, mail, calendar, contacts, and tasks. Runs your logged-in Claude Code or Codex CLI, keeps context on-device, and turns work into actionable briefings." />
+<meta property="og:title" content="Salmon — local AI command center" />
+<meta property="og:description" content="Coding topics, Gmail/Outlook mail, calendar, contacts, tasks, and AI briefings in one local desktop app. Powered by your Claude Code or Codex CLI login." />
 <meta property="og:image" content="https://pekinlcc.github.io/SalmonApp/icon.png" />
 <link rel="icon" href="icon.svg" type="image/svg+xml" />
 <link rel="alternate icon" href="icon.png" type="image/png" />
@@ -182,10 +182,10 @@
 <!-- ── HERO ───────────────────────────────────────────────────────────── -->
 <section class="hero">
   <img class="logo" src="icon.svg" alt="Salmon icon" />
-  <h1>给已经在用 CLI 的你<br/>一个<span class="accent">三栏式可视化</span>窗口</h1>
+  <h1>把代码、邮件、日程和待办<br/>收进一个<span class="accent">本地 AI 工作台</span></h1>
   <p class="lead">
-    Salmon 包装你本机已登录好的 <code>claude</code> 或 <code>codex</code> CLI,把命令行 AI 体验图形化。
-    不接 API,不存 Key,凭证完全留在 CLI。Linux + macOS。
+    Salmon 运行你本机已登录好的 <code>claude</code> 或 <code>codex</code> CLI,同时接入 Gmail / Outlook、日历、联系人和待办。
+    它不接模型 API,不要求第二个 AI 账号,把分散的工作上下文整理成可执行的 briefing。Linux + macOS。
   </p>
   <div class="cta">
     <a class="btn btn-primary" href="https://github.com/pekinlcc/SalmonApp/releases/latest">
@@ -196,9 +196,10 @@
     </a>
   </div>
   <div class="badges">
-    <span>✓ 完全本机运行</span>
+    <span>✓ 本地优先</span>
     <span>✓ 复用 CLI 登录</span>
-    <span>✓ 双引擎(Claude Code + Codex)</span>
+    <span>✓ 邮件 / 日历 / 待办</span>
+    <span>✓ Claude Code + Codex</span>
     <span>✓ 开源 / 三方非官方</span>
   </div>
 </section>
@@ -206,8 +207,8 @@
 <!-- ── THREE-PANE ILLUSTRATION ────────────────────────────────────────── -->
 <section class="three-pane">
   <div class="container">
-    <h2 style="text-align:center;margin:0 0 8px;font-size:24px;">三栏布局,一眼看清正在发生什么</h2>
-    <p style="text-align:center;color:var(--ink-500);margin:0 0 36px;font-size:14.5px;">左:Topic 列表 · 中:对话 · 右:文件 / Diff / 预览 / 日志</p>
+    <h2 style="text-align:center;margin:0 0 8px;font-size:24px;">从 briefing 到执行,一眼看清正在发生什么</h2>
+    <p style="text-align:center;color:var(--ink-500);margin:0 0 36px;font-size:14.5px;">Home:重要事项 · Topics:AI 编码会话 · Mail / Calendar / Contacts / Tasks:个人工作流</p>
     <div class="pane-grid">
       <div class="pane pane-left">
         <div class="pane-label">Topics</div>
@@ -260,62 +261,62 @@
 <!-- ── FEATURES ───────────────────────────────────────────────────────── -->
 <section class="features" id="features">
   <div class="container">
-    <h2>为啥要用 Salmon</h2>
-    <p class="sub">不是要替代 CLI ——而是把已有 CLI 的能力变得能扫一眼就懂。</p>
+    <h2>Salmon 现在是什么</h2>
+    <p class="sub">不是单纯替代 CLI ——而是把 CLI agent、收件箱、日程和待办组织成一个本地工作台。</p>
     <div class="feature-grid">
 
       <div class="feature-card">
         <div class="ic">⌘</div>
-        <h3>不接 API,不存 Key</h3>
-        <p>Salmon 自己不调任何 LLM。每条消息都是 spawn 你本机的 <code>claude</code> 或 <code>codex</code> 子进程,凭证完全归 CLI 管。</p>
+        <h3>模型执行仍在本机 CLI</h3>
+        <p>Salmon 自己不调任何模型 API。AI 分析和编码会话都通过你本机的 <code>claude</code> 或 <code>codex</code> 子进程完成。</p>
       </div>
 
       <div class="feature-card">
         <div class="ic">▤</div>
-        <h3>Topic = Terminal Tab</h3>
-        <p>每个 Topic 绑定一个工作目录 + 一个常驻 CLI session;关掉 Salmon 也不丢,下次 <code>--resume</code> 接回原来的会话。</p>
+        <h3>Topic = 可恢复的 AI 工作间</h3>
+        <p>每个 Topic 绑定一个工作目录 + 一个 CLI session;重开 Salmon 后可以继续接回原来的编码上下文。</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="ic">@</div>
+        <h3>Gmail / Outlook 工作流</h3>
+        <p>邮件同步到本地缓存,支持阅读、发送、归档、已读状态,并能把相关邮件链接到联系人和 briefing。</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="ic">◷</div>
+        <h3>日历 / 联系人 / 待办</h3>
+        <p>同一份 OAuth 账号驱动日历、联系人和 Tasks,AI 从邮件和会话里抽取事件与后续动作。</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="ic">✦</div>
+        <h3>Briefing 首页</h3>
+        <p>主页把未读邮件、重要联系人、待办、日程和 Topic 状态排进一个可操作的列表,不是只给摘要。</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="ic">✓</div>
+        <h3>从建议到行动</h3>
+        <p>Briefing 里的建议可以直接跳转到邮件、联系人、日历或待办,把 AI 发现变成可执行动作。</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="ic">📄</div>
+        <h3>文件 / Diff / 预览</h3>
+        <p>编码 Topic 右栏仍然能看文件树、Diff、Markdown / HTML / Office 预览,不用在终端里来回 <code>cat</code>。</p>
       </div>
 
       <div class="feature-card">
         <div class="ic">≡</div>
         <h3>权限审批 UI</h3>
-        <p>CLI 想跑 <code>rm -rf</code> 之类需要确认时,中栏弹审批卡片,你能看清完整命令再点 Allow / Deny。</p>
-      </div>
-
-      <div class="feature-card">
-        <div class="ic">📄</div>
-        <h3>真的预览文件</h3>
-        <p>右栏的 Preview 直接渲染 Markdown / HTML,以及 .pptx / .docx / .xlsx ——后台调 LibreOffice 转 PDF 切页,缓存到本地。</p>
-      </div>
-
-      <div class="feature-card">
-        <div class="ic">✦</div>
-        <h3>欢迎页 · 推荐 agent</h3>
-        <p>主页汇总待审批 / 未读 Topic;另起 agent loop 把 Claude 和 Codex 的建议互相评分,**双方都认为高价值的**才默认展开。</p>
-      </div>
-
-      <div class="feature-card">
-        <div class="ic">⛶</div>
-        <h3>对话布局两种风格</h3>
-        <p>"折叠思考"风(突出最终答案)或"内联交错"风(完整时序)。设置里随时切。</p>
-      </div>
-
-      <div class="feature-card">
-        <div class="ic">↻</div>
-        <h3>Topic 自动归档</h3>
-        <p>工作目录被删除/移走时,Salmon 立刻识别,弹 banner 让你归档或删除,不会傻乎乎反复让 CLI 跑挂。</p>
-      </div>
-
-      <div class="feature-card">
-        <div class="ic">💬</div>
-        <h3>实时反馈</h3>
-        <p>消息发出后立刻显示头像 + 三个跳点,工具调用进行中带 spinner,流式块逐段渲染。</p>
+        <p>CLI 想跑危险命令需要确认时,中栏弹审批卡片,你能看清完整命令再点 Allow / Deny。</p>
       </div>
 
       <div class="feature-card">
         <div class="ic">∅</div>
-        <h3>零网络</h3>
-        <p>App 自身一行 fetch 都没有(除了你看的这个 GitHub Pages)。所有 LLM 流量都走 CLI。</p>
+        <h3>本地优先</h3>
+        <p>模型凭证留在 CLI;邮件、日历和任务 token 留在本机。Salmon 的定位不是云端代理,而是本地桌面工作台。</p>
       </div>
 
     </div>
@@ -326,7 +327,7 @@
 <section class="install" id="install">
   <div class="container">
     <h2>装上 Salmon</h2>
-    <p class="sub">前提:本机至少有一个 <code>claude</code> 或 <code>codex</code> CLI 已经登录。</p>
+    <p class="sub">前提:本机至少有一个 <code>claude</code> 或 <code>codex</code> CLI 已经登录。邮件 / 日历 / 待办需要额外配置 OAuth。</p>
     <div class="install-grid">
 
       <div class="install-card">
@@ -379,7 +380,7 @@ brew install --cask libreoffice && brew install poppler</code></pre>
 <section class="why" id="why">
   <div class="container">
     <h2>设计动机</h2>
-    <p class="sub">如果你已经在 Terminal 里用 <code>claude</code> 或 <code>codex</code>,大概都遇到过:</p>
+    <p class="sub">真正的问题不只是 CLI 难看,而是 AI coding、邮件、日程和后续动作被拆在不同地方。</p>
     <div class="why-grid">
       <div class="why-card">
         <div class="pain">长对话历史在 scroll-back 里像噩梦</div>
@@ -394,12 +395,12 @@ brew install --cask libreoffice && brew install poppler</code></pre>
         <div class="fix">右栏 Files 实时高亮 A / M;选中工具调用直接看 Diff;Preview 给你 Markdown / HTML / Office。</div>
       </div>
       <div class="why-card">
-        <div class="pain">同时用 Claude Code 和 Codex 要切终端</div>
-        <div class="fix">每个 Topic 自己选引擎;首页推荐区把双方意见都展示,互评筛选噪声。</div>
+        <div class="pain">重要邮件和代码上下文互相断开</div>
+        <div class="fix">Briefing 把 Topic、邮件、联系人和待办放在同一个决策流里。</div>
       </div>
       <div class="why-card">
-        <div class="pain">第三方 GUI 总要再开账号、再付一次费</div>
-        <div class="fix">Salmon 不接管凭证、不读 <code>~/.claude</code>、零网络调用。CLI 怎么登的就怎么用。</div>
+        <div class="pain">第三方 AI GUI 总要再开账号、再付一次费</div>
+        <div class="fix">Salmon 不接管模型凭证、不读 <code>~/.claude</code>。CLI 怎么登的就怎么用。</div>
       </div>
       <div class="why-card">
         <div class="pain">权限弹窗在终端容易点错</div>
@@ -413,7 +414,7 @@ brew install --cask libreoffice && brew install poppler</code></pre>
 <section class="compare" id="compare">
   <div class="container">
     <h2>跟其它方案的差别</h2>
-    <p class="sub">不是替代品 ——定位是 "已经在用 <code>claude</code> / <code>codex</code> 的人想要更好的视图"。</p>
+    <p class="sub">新的定位是本地 AI 工作台:既保留 CLI agent 的能力,又把个人工作流收进来。</p>
     <table>
       <thead>
         <tr>
@@ -461,13 +462,25 @@ brew install --cask libreoffice && brew install poppler</code></pre>
           <td class="no">✗</td>
         </tr>
         <tr>
+          <td>邮件 / 日历 / 联系人 / 待办</td>
+          <td class="yes">✓</td>
+          <td class="no">✗</td>
+          <td class="meh">通常分散在别处</td>
+        </tr>
+        <tr>
+          <td>跨上下文 briefing</td>
+          <td class="yes">✓</td>
+          <td class="no">✗</td>
+          <td class="meh">部分</td>
+        </tr>
+        <tr>
           <td>权限请求 UI</td>
           <td class="yes">✓ PreToolUse</td>
           <td class="yes">CLI 自带</td>
           <td class="meh">不一致</td>
         </tr>
         <tr>
-          <td>零网络</td>
+          <td>不直连模型 API</td>
           <td class="yes">✓</td>
           <td class="yes">✓(CLI)</td>
           <td class="no">✗</td>
@@ -483,7 +496,7 @@ brew install --cask libreoffice && brew install poppler</code></pre>
     <div>
       <h4>Salmon</h4>
       <p style="color:var(--ink-300);font-size:13.5px;line-height:1.65;margin:0;">
-        Unofficial Linux + macOS desktop client wrapping the Claude Code CLI and Codex CLI.<br/>
+        Local AI command center for coding, mail, calendar, contacts, and tasks.<br/>
         三方非官方 — 跟 Anthropic 和 OpenAI 都没关系。
       </p>
     </div>

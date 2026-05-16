@@ -29,8 +29,8 @@
     "active": true,
     "targets": "all",
     "category": "DeveloperTool",
-    "shortDescription": "SalmonApp — desktop client for Claude Code / Codex CLI",
-    "longDescription": "SalmonApp is a desktop client that drives your locally-logged-in Claude Code or Codex CLI in a three-pane GUI: topic list, chat, and live file/diff preview. It does not store API keys — credentials stay with the CLI. Linux (deb / AppImage) and macOS (dmg).",
+    "shortDescription": "SalmonApp — local AI command center",
+    "longDescription": "SalmonApp is a local AI command center for coding, mail, calendar, contacts, and tasks. It drives your locally logged-in Claude Code or Codex CLI, connects to Gmail / Outlook through desktop OAuth, and turns project plus inbox context into actionable briefings. Model credentials stay with the CLI; workspace data stays local. Linux (deb / AppImage / rpm) and macOS (dmg).",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
