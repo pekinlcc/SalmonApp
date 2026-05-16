@@ -127,6 +127,13 @@ pub fn list_mail_accounts(state: State<'_, AppState>) -> Result<Vec<MailAccountR
 }
 
 #[tauri::command]
+pub fn get_oauth_config_path() -> Result<String, String> {
+    crate::oauth_config::config_file_path()
+        .map(|p| p.to_string_lossy().into_owned())
+        .ok_or_else(|| "无法解析 OAuth 配置目录".to_string())
+}
+
+#[tauri::command]
 pub async fn start_gmail_oauth(
     app: AppHandle,
     state: State<'_, AppState>,
@@ -136,10 +143,12 @@ pub async fn start_gmail_oauth(
     let db_arc = state.db.clone();
 
     if !cfg.google_configured() {
-        return Err(
-            "Google OAuth 未配置 — 把 client_id / client_secret 填进 oauth_config.toml 后重启 SalmonApp"
-                .into(),
-        );
+        let path = crate::oauth_config::config_file_path()
+            .map(|p| p.to_string_lossy().into_owned())
+            .unwrap_or_else(|| "oauth_config.toml".to_string());
+        return Err(format!(
+            "Google OAuth 未配置 — 把 client_id / client_secret 填进 {path} 后重启 SalmonApp"
+        ));
     }
 
     let _ = app.emit("salmon-oauth-status", "starting");
@@ -210,7 +219,12 @@ pub async fn start_outlook_oauth(
     let db_arc = state.db.clone();
 
     if !cfg.microsoft_configured() {
-        return Err("Microsoft OAuth 未配置".into());
+        let path = crate::oauth_config::config_file_path()
+            .map(|p| p.to_string_lossy().into_owned())
+            .unwrap_or_else(|| "oauth_config.toml".to_string());
+        return Err(format!(
+            "Microsoft OAuth 未配置 — 把 client_id 填进 {path} 后重启 SalmonApp"
+        ));
     }
 
     let _ = app.emit("salmon-oauth-status", "starting");
@@ -554,6 +568,42 @@ pub fn search_mail_messages(
     Ok(out)
 }
 
+#[tauri::command]
+pub fn list_thread_mail(
+    state: State<'_, AppState>,
+    thread_id: String,
+    limit: Option<i64>,
+) -> Result<Vec<MailListRow>, String> {
+    let thread_id = thread_id.trim();
+    if thread_id.is_empty() {
+        return Ok(Vec::new());
+    }
+    let limit = limit.unwrap_or(50).max(1).min(200);
+    let db = state.db.lock();
+    let mut stmt = db
+        .conn()
+        .prepare(
+            "SELECT id, account_id, thread_id, from_email, from_name, subject,
+                    snippet, date_ms, unread, starred, has_attachments
+             FROM mail_messages
+             WHERE thread_id = ?
+             ORDER BY date_ms ASC
+             LIMIT ?",
+        )
+        .map_err(map_err)?;
+    let rows = stmt
+        .query_map(
+            rusqlite::params![thread_id, limit],
+            mail_list_row_from_sql,
+        )
+        .map_err(map_err)?;
+    let mut out = Vec::new();
+    for row in rows {
+        out.push(row.map_err(map_err)?);
+    }
+    Ok(out)
+}
+
 fn escape_like(s: &str) -> String {
     s.replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_")
 }
@@ -803,6 +853,204 @@ pub async fn mark_mail_read(
         )
         .map_err(map_err)?;
     Ok(())
+}
+
+#[tauri::command]
+pub async fn set_mail_star(
+    state: State<'_, AppState>,
+    message_id: String,
+    starred: bool,
+) -> Result<(), String> {
+    let cfg = state.oauth_cfg.clone();
+    let db = state.db.clone();
+    let account_id: Option<String> = {
+        let db_guard = db.lock();
+        db_guard
+            .conn()
+            .query_row(
+                "SELECT account_id FROM mail_messages WHERE id = ?",
+                rusqlite::params![message_id],
+                |r| r.get::<_, String>(0),
+            )
+            .ok()
+    };
+    let account_id = account_id.ok_or_else(|| "message not found".to_string())?;
+    let (provider, _email, _name, mut tokens) =
+        load_account(&db, &account_id).map_err(map_err)?;
+    if let Some(new) = maybe_refresh(&cfg, &provider, &mut tokens).await.map_err(map_err)? {
+        persist(&db, &account_id, &new).map_err(map_err)?;
+        tokens = new;
+    }
+    match provider.as_str() {
+        "gmail" => {
+            let (add, remove): (Vec<&str>, Vec<&str>) = if starred {
+                (vec!["STARRED"], vec![])
+            } else {
+                (vec![], vec!["STARRED"])
+            };
+            crate::gmail_send::modify_labels(&tokens, &message_id, &add, &remove)
+                .await
+                .map_err(map_err)?;
+        }
+        "outlook" => {
+            crate::graph_send::set_flag(&tokens, &message_id, starred)
+                .await
+                .map_err(map_err)?;
+        }
+        _ => return Err(format!("set_star not implemented for {}", provider)),
+    }
+    let db_guard = db.lock();
+    db_guard
+        .conn()
+        .execute(
+            "UPDATE mail_messages SET starred = ? WHERE id = ?",
+            rusqlite::params![if starred { 1 } else { 0 }, message_id],
+        )
+        .map_err(map_err)?;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn archive_mail(
+    state: State<'_, AppState>,
+    message_id: String,
+) -> Result<(), String> {
+    let cfg = state.oauth_cfg.clone();
+    let db = state.db.clone();
+    let account_id: Option<String> = {
+        let db_guard = db.lock();
+        db_guard
+            .conn()
+            .query_row(
+                "SELECT account_id FROM mail_messages WHERE id = ?",
+                rusqlite::params![message_id],
+                |r| r.get::<_, String>(0),
+            )
+            .ok()
+    };
+    let account_id = account_id.ok_or_else(|| "message not found".to_string())?;
+    let (provider, _email, _name, mut tokens) =
+        load_account(&db, &account_id).map_err(map_err)?;
+    if let Some(new) = maybe_refresh(&cfg, &provider, &mut tokens).await.map_err(map_err)? {
+        persist(&db, &account_id, &new).map_err(map_err)?;
+        tokens = new;
+    }
+    match provider.as_str() {
+        "gmail" => {
+            crate::gmail_send::modify_labels(&tokens, &message_id, &[], &["INBOX"])
+                .await
+                .map_err(map_err)?;
+        }
+        "outlook" => {
+            // Outlook uses well-known folder id "archive" for the default
+            // Archive folder. Users who renamed/disabled it will need a
+            // different destinationId; we surface the underlying API error
+            // verbatim in that case.
+            crate::graph_send::move_message(&tokens, &message_id, "archive")
+                .await
+                .map_err(map_err)?;
+        }
+        _ => return Err(format!("archive not implemented for {}", provider)),
+    }
+    // Drop the row locally so it disappears from the inbox list immediately.
+    // The next sync will reconcile if the remote archive failed silently
+    // (e.g. provider-specific quirks).
+    let db_guard = db.lock();
+    db_guard
+        .conn()
+        .execute(
+            "DELETE FROM mail_messages WHERE id = ?",
+            rusqlite::params![message_id],
+        )
+        .map_err(map_err)?;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn forward_mail(
+    state: State<'_, AppState>,
+    message_id: String,
+    to: Vec<String>,
+    cc: Option<Vec<String>>,
+    body_prefix: Option<String>,
+) -> Result<String, String> {
+    if to.is_empty() {
+        return Err("forward_mail: 收件人列表为空。".to_string());
+    }
+    // Pull the original message so we can quote it in the forward body.
+    let original = get_mail_message(state.clone(), message_id.clone())?;
+    let account_id = original.account_id.clone();
+    let original_subject = original.subject.clone().unwrap_or_default();
+    let from_label = match (&original.from_name, &original.from_email) {
+        (Some(name), Some(email)) if !name.is_empty() => format!("{} <{}>", name, email),
+        (_, Some(email)) => email.clone(),
+        _ => "(unknown sender)".to_string(),
+    };
+    let date_label = chrono::DateTime::<chrono::Utc>::from_timestamp_millis(original.date_ms)
+        .map(|t| {
+            t.with_timezone(&chrono::Local)
+                .format("%Y-%m-%d %H:%M:%S")
+                .to_string()
+        })
+        .unwrap_or_default();
+    let to_label = original
+        .to_emails
+        .as_array()
+        .map(|arr| {
+            arr.iter()
+                .map(|v| {
+                    let email = v.get("email").and_then(|x| x.as_str()).unwrap_or_default();
+                    let name = v.get("name").and_then(|x| x.as_str()).filter(|s| !s.is_empty());
+                    match name {
+                        Some(n) => format!("{} <{}>", n, email),
+                        None => email.to_string(),
+                    }
+                })
+                .collect::<Vec<_>>()
+                .join(", ")
+        })
+        .unwrap_or_default();
+    let mut body = String::new();
+    if let Some(prefix) = body_prefix {
+        if !prefix.trim().is_empty() {
+            body.push_str(prefix.trim());
+            body.push_str("\n\n");
+        }
+    }
+    body.push_str("---------- Forwarded message ----------\n");
+    body.push_str(&format!("From: {}\n", from_label));
+    body.push_str(&format!("Date: {}\n", date_label));
+    body.push_str(&format!("Subject: {}\n", original_subject));
+    if !to_label.is_empty() {
+        body.push_str(&format!("To: {}\n", to_label));
+    }
+    body.push('\n');
+    if let Some(text) = &original.body_text {
+        body.push_str(text);
+    }
+
+    let fwd_subject = if original_subject.to_lowercase().starts_with("fwd:")
+        || original_subject.to_lowercase().starts_with("fw:")
+    {
+        original_subject.clone()
+    } else {
+        format!("Fwd: {}", original_subject)
+    };
+
+    let input = ComposeInput {
+        account_id,
+        to,
+        cc: cc.unwrap_or_default(),
+        bcc: Vec::new(),
+        subject: fwd_subject,
+        body_text: body,
+        body_html: None,
+        attachment_paths: Vec::new(),
+        // Treat forward as a fresh send (no reply threading). Forwarding
+        // typically goes to brand-new recipients in a new thread.
+        reply_to_message_id: None,
+    };
+    send_mail(state, input).await
 }
 
 fn load_account(

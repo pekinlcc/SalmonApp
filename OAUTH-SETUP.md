@@ -158,18 +158,36 @@ Microsoft 不用 client secret（公共客户端走 PKCE），所以只有这一
 
 ---
 
-## Part 3 · 把值给我
+## Part 3 · 写入 SalmonApp 配置文件
 
-把以下 3 个值丢给我（不用很安全的渠道，因为前面说了 desktop secret 实质 public）：
+SalmonApp 启动时会读取 `oauth_config.toml`。安装版 Mac app 的推荐路径是：
 
 ```
-Google Client ID:     ____.apps.googleusercontent.com
-Google Client Secret: GOCSPX-____
-Microsoft Client ID:  ____-____-____-____
+~/Library/Application Support/app.salmonapp.desktop/oauth_config.toml
 ```
 
-我会在 alpha.2 commit 里把它们设成构建期常量（嵌进二进制 + 公开源码也 OK 没风险），
-然后接 OAuth flow。
+创建目录并写入配置：
+
+```bash
+mkdir -p "$HOME/Library/Application Support/app.salmonapp.desktop"
+cp salmon/src-tauri/oauth_config.toml.example \
+  "$HOME/Library/Application Support/app.salmonapp.desktop/oauth_config.toml"
+open -e "$HOME/Library/Application Support/app.salmonapp.desktop/oauth_config.toml"
+```
+
+然后把前面拿到的值填进去：
+
+```toml
+[google]
+client_id = "____.apps.googleusercontent.com"
+client_secret = "GOCSPX-____"
+
+[microsoft]
+client_id = "____-____-____-____"
+```
+
+保存后重启 SalmonApp。开发模式仍可使用 `salmon/src-tauri/oauth_config.toml`，
+但安装版 Mac app 不读取源码目录里的配置。
 
 ---
 

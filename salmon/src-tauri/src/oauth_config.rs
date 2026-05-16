@@ -61,12 +61,24 @@ impl OauthConfig {
     }
 
     pub fn google_configured(&self) -> bool {
-        !self.google.client_id.is_empty() && !self.google.client_secret.is_empty()
+        is_filled(&self.google.client_id) && is_filled(&self.google.client_secret)
     }
 
     pub fn microsoft_configured(&self) -> bool {
-        !self.microsoft.client_id.is_empty()
+        is_filled(&self.microsoft.client_id)
     }
+}
+
+fn is_filled(value: &str) -> bool {
+    let v = value.trim();
+    !v.is_empty()
+        && !v.contains("PASTE")
+        && !v.contains("____")
+        && !v.contains("YOUR-")
+}
+
+pub fn config_file_path() -> Option<PathBuf> {
+    crate::path_dirs::config_dir().map(|base| base.join("oauth_config.toml"))
 }
 
 fn resolve_path() -> Option<PathBuf> {
@@ -74,8 +86,7 @@ fn resolve_path() -> Option<PathBuf> {
         let pb = PathBuf::from(p);
         if pb.exists() { return Some(pb); }
     }
-    if let Some(base) = crate::path_dirs::config_dir() {
-        let pb = base.join("oauth_config.toml");
+    if let Some(pb) = config_file_path() {
         if pb.exists() { return Some(pb); }
     }
     if let Ok(exe) = std::env::current_exe() {
@@ -90,4 +101,41 @@ fn resolve_path() -> Option<PathBuf> {
     let pb = PathBuf::from("salmon/src-tauri/oauth_config.toml");
     if pb.exists() { return Some(pb); }
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn placeholder_values_are_not_configured() {
+        let cfg = OauthConfig {
+            google: GoogleConfig {
+                client_id: "PASTE-YOUR-GOOGLE-CLIENT-ID.apps.googleusercontent.com".into(),
+                client_secret: "PASTE-YOUR-GOOGLE-CLIENT-SECRET".into(),
+            },
+            microsoft: MicrosoftConfig {
+                client_id: "____-____-____-____".into(),
+            },
+        };
+
+        assert!(!cfg.google_configured());
+        assert!(!cfg.microsoft_configured());
+    }
+
+    #[test]
+    fn real_values_are_configured() {
+        let cfg = OauthConfig {
+            google: GoogleConfig {
+                client_id: "abc.apps.googleusercontent.com".into(),
+                client_secret: "GOCSPX-secret".into(),
+            },
+            microsoft: MicrosoftConfig {
+                client_id: "12345678-abcd-1234-abcd-123456789abc".into(),
+            },
+        };
+
+        assert!(cfg.google_configured());
+        assert!(cfg.microsoft_configured());
+    }
 }

@@ -359,6 +359,7 @@ function AccountsTab() {
     googleConfigured: false,
     microsoftConfigured: false,
   });
+  const [oauthConfigPath, setOauthConfigPath] = useState("oauth_config.toml");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<"gmail" | "outlook" | "delete" | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -366,12 +367,14 @@ function AccountsTab() {
   const load = async () => {
     setError(null);
     try {
-      const [status, rows] = await Promise.all([
+      const [status, rows, configPath] = await Promise.all([
         api.getOauthStatus(),
         api.listMailAccounts(),
+        api.getOauthConfigPath().catch(() => "oauth_config.toml"),
       ]);
       setOauthStatus(status);
       setAccounts(rows);
+      setOauthConfigPath(configPath);
     } catch (e: any) {
       setError(String(e));
     } finally {
@@ -441,7 +444,15 @@ function AccountsTab() {
         </div>
         {(!oauthStatus.googleConfigured || !oauthStatus.microsoftConfigured) && (
           <div className="settings-section-desc" style={{ marginTop: 8 }}>
-            未配置的服务需要先填写 <code>salmon/src-tauri/oauth_config.toml</code>，设置方法见仓库根目录 <code>OAUTH-SETUP.md</code>。
+            未配置的服务需要先填写 <code>{oauthConfigPath}</code>，重启 SalmonApp 后生效。安装版 Mac 不读取源码目录；设置方法见仓库根目录 <code>OAUTH-SETUP.md</code>。
+            <button
+              type="button"
+              className="btn"
+              style={{ marginLeft: 8, padding: "3px 8px", fontSize: 11.5 }}
+              onClick={() => navigator.clipboard?.writeText(oauthConfigPath).catch(() => {})}
+            >
+              复制路径
+            </button>
           </div>
         )}
       </section>

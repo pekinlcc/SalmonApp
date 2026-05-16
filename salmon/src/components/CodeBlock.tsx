@@ -51,15 +51,28 @@ export function CodeBlock({ children, topicId }: { children?: React.ReactNode; t
 
 type SalmonAction =
   | { kind: "tasks.create"; items?: TaskActionItem[]; requiresConfirmation?: boolean }
+  | { kind: "tasks.update"; taskId?: string; patch?: TaskUpdatePatch; requiresConfirmation?: boolean }
+  | { kind: "tasks.delete"; taskId?: string; requiresConfirmation?: boolean }
+  | { kind: "tasks.toggle"; taskId?: string; completed?: boolean; requiresConfirmation?: boolean }
   | { kind: "calendar.create"; event?: CalendarActionItem; events?: CalendarActionItem[]; requiresConfirmation?: boolean }
+  | { kind: "calendar.delete"; eventId?: string; accountId?: string | null; requiresConfirmation?: boolean }
   | { kind: "mail.draft"; draft?: MailActionItem; requiresConfirmation?: boolean }
-  | { kind: "mail.send"; mail?: MailActionItem; requiresConfirmation?: boolean };
+  | { kind: "mail.send"; mail?: MailActionItem; requiresConfirmation?: boolean }
+  | { kind: "mail.reply"; mail?: MailActionItem; requiresConfirmation?: boolean }
+  | { kind: "mail.forward"; messageId?: string; to?: string[]; cc?: string[]; bodyPrefix?: string | null; requiresConfirmation?: boolean }
+  | { kind: "mail.mark_read"; messageId?: string; read?: boolean; requiresConfirmation?: boolean }
+  | { kind: "mail.star"; messageId?: string; starred?: boolean; requiresConfirmation?: boolean }
+  | { kind: "mail.archive"; messageId?: string; requiresConfirmation?: boolean }
+  | { kind: "contacts.vip"; contactId?: string; vip?: boolean; requiresConfirmation?: boolean }
+  | { kind: "workflow"; title?: string; steps?: SalmonAction[]; requiresConfirmation?: boolean };
 
 type SalmonQuery =
   | { kind: "mail.search"; query?: string; accountId?: string | null; limit?: number }
   | { kind: "mail.get"; messageId?: string }
   | { kind: "mail.recent"; accountId?: string | null; limit?: number }
   | { kind: "mail.contact"; accountId?: string | null; email?: string; limit?: number }
+  | { kind: "mail.thread"; threadId?: string; limit?: number }
+  | { kind: "contacts.detail"; email?: string }
   | { kind: "calendar.list"; startLocal?: string; endLocal?: string; startMs?: number; endMs?: number }
   | { kind: "tasks.list"; accountId?: string | null; includeCompleted?: boolean };
 
@@ -68,6 +81,14 @@ interface TaskActionItem {
   notes?: string | null;
   dueLocal?: string | null;
   dueMs?: number | null;
+}
+
+interface TaskUpdatePatch {
+  title?: string | null;
+  notes?: string | null;
+  dueLocal?: string | null;
+  dueMs?: number | null;
+  completed?: boolean | null;
 }
 
 interface CalendarActionItem {
@@ -160,7 +181,12 @@ function SalmonQueryCard({ raw, topicId }: { raw: string; topicId?: string }) {
 
 function SalmonActionCard({ raw }: { raw: string }) {
   const parsed = useMemo(() => parseSalmonAction(raw), [raw]);
-  if (parsed.ok && (parsed.action.kind === "mail.send" || parsed.action.kind === "mail.draft")) {
+  if (
+    parsed.ok &&
+    (parsed.action.kind === "mail.send"
+      || parsed.action.kind === "mail.draft"
+      || parsed.action.kind === "mail.reply")
+  ) {
     return <MailActionCard action={parsed.action} />;
   }
 
@@ -247,7 +273,7 @@ function SalmonActionCard({ raw }: { raw: string }) {
   );
 }
 
-function MailActionCard({ action }: { action: Extract<SalmonAction, { kind: "mail.send" | "mail.draft" }> }) {
+function MailActionCard({ action }: { action: Extract<SalmonAction, { kind: "mail.send" | "mail.draft" | "mail.reply" }> }) {
   const [accounts, setAccounts] = useState<MailAccount[]>([]);
   const [accountId, setAccountId] = useState("");
   const [busy, setBusy] = useState(false);
@@ -268,11 +294,19 @@ function MailActionCard({ action }: { action: Extract<SalmonAction, { kind: "mai
     return () => { cancelled = true; };
   }, []);
 
-  const mail = action.kind === "mail.send" ? action.mail : action.draft;
-  const isSend = action.kind === "mail.send";
+  const mail = action.kind === "mail.draft" ? action.draft : action.mail;
+  const isSend = action.kind === "mail.send" || action.kind === "mail.reply";
   const canRun = !!mail && !!accountId && !busy && !done;
-  const title = isSend ? "Ready to send email" : "Ready to save draft";
-  const buttonLabel = isSend ? "Send Email" : "Save Draft";
+  const title = action.kind === "mail.reply"
+    ? "Ready to send reply"
+    : isSend
+      ? "Ready to send email"
+      : "Ready to save draft";
+  const buttonLabel = action.kind === "mail.reply"
+    ? "Send Reply"
+    : isSend
+      ? "Send Email"
+      : "Save Draft";
 
   const onConfirm = async () => {
     if (!mail) return;
@@ -304,7 +338,7 @@ function MailActionCard({ action }: { action: Extract<SalmonAction, { kind: "mai
             Review the details below. SalmonApp will use the selected local account only after confirmation.
           </div>
         </div>
-        <span className="mail-action-pill">{isSend ? "mail.send" : "mail.draft"}</span>
+        <span className="mail-action-pill">{action.kind}</span>
       </div>
 
       <div className="mail-action-grid">
@@ -374,14 +408,54 @@ function textFromNode(node: React.ReactNode): string {
   return "";
 }
 
+const ACTION_KINDS = new Set([
+  "tasks.create",
+  "tasks.update",
+  "tasks.delete",
+  "tasks.toggle",
+  "calendar.create",
+  "calendar.delete",
+  "mail.draft",
+  "mail.send",
+  "mail.reply",
+  "mail.forward",
+  "mail.mark_read",
+  "mail.star",
+  "mail.archive",
+  "contacts.vip",
+  "workflow",
+]);
+
+const QUERY_KINDS = new Set([
+  "mail.search",
+  "mail.get",
+  "mail.recent",
+  "mail.contact",
+  "mail.thread",
+  "contacts.detail",
+  "calendar.list",
+  "tasks.list",
+]);
+
 function parseSalmonAction(raw: string): { ok: true; action: SalmonAction } | { ok: false; error: string } {
   try {
     const value = JSON.parse(raw.trim());
     if (!value || typeof value !== "object" || typeof value.kind !== "string") {
       return { ok: false, error: "动作 JSON 必须包含 kind 字段。" };
     }
-    if (!["tasks.create", "calendar.create", "mail.draft", "mail.send"].includes(value.kind)) {
+    if (!ACTION_KINDS.has(value.kind)) {
       return { ok: false, error: `暂不支持的动作: ${value.kind}` };
+    }
+    if (value.kind === "workflow") {
+      const steps = Array.isArray(value.steps) ? value.steps : [];
+      for (const step of steps) {
+        if (!step || typeof step !== "object" || typeof step.kind !== "string" || !ACTION_KINDS.has(step.kind)) {
+          return { ok: false, error: `workflow 含未识别的子动作: ${step?.kind ?? "(missing)"}` };
+        }
+        if (step.kind === "workflow") {
+          return { ok: false, error: "workflow 不能嵌套 workflow。" };
+        }
+      }
     }
     return { ok: true, action: value as SalmonAction };
   } catch (e: any) {
@@ -395,7 +469,7 @@ function parseSalmonQuery(raw: string): { ok: true; query: SalmonQuery } | { ok:
     if (!value || typeof value !== "object" || typeof value.kind !== "string") {
       return { ok: false, error: "查询 JSON 必须包含 kind 字段。" };
     }
-    if (!["mail.search", "mail.get", "mail.recent", "mail.contact", "calendar.list", "tasks.list"].includes(value.kind)) {
+    if (!QUERY_KINDS.has(value.kind)) {
       return { ok: false, error: `暂不支持的查询: ${value.kind}` };
     }
     return { ok: true, query: value as SalmonQuery };
@@ -414,6 +488,10 @@ function summarizeQuery(query: SalmonQuery): string {
       return `读取最近 ${query.limit || 20} 封邮件`;
     case "mail.contact":
       return `读取联系人邮件: ${query.email || "(未指定)"}`;
+    case "mail.thread":
+      return `读取 thread: ${query.threadId || "(未指定)"}`;
+    case "contacts.detail":
+      return `读取联系人 30 天 360: ${query.email || "(未指定)"}`;
     case "calendar.list":
       return "读取日历事件窗口";
     case "tasks.list":
@@ -460,6 +538,21 @@ async function executeSalmonQuery(query: SalmonQuery): Promise<SalmonQueryResult
       const count = data.reduce((n, x) => n + x.messages.length, 0);
       return { summary: `读取 ${email} 相关邮件 ${count} 封`, data };
     }
+    case "mail.thread": {
+      const threadId = query.threadId?.trim();
+      if (!threadId) throw new Error("mail.thread 缺少 threadId。");
+      const rows = await api.listThreadMail(threadId, query.limit || 20);
+      return { summary: `读取 thread ${threadId} 共 ${rows.length} 封`, data: rows };
+    }
+    case "contacts.detail": {
+      const email = query.email?.trim();
+      if (!email) throw new Error("contacts.detail 缺少 email。");
+      const bundle = await api.getContactRoostBundle(email);
+      if (!bundle) {
+        return { summary: `本地未找到 ${email} 的 30 天聚合`, data: null };
+      }
+      return { summary: `读取 ${email} 30 天聚合（邮件 ${bundle.messages.length} 封, 事件 ${bundle.events.length} 个）`, data: bundle };
+    }
     case "calendar.list": {
       const startMs = resolveLocalTime(query.startMs, query.startLocal, false);
       const endMs = resolveLocalTime(query.endMs, query.endLocal, false);
@@ -505,12 +598,34 @@ function summarizeAction(action: SalmonAction): string {
   switch (action.kind) {
     case "tasks.create":
       return `准备创建 ${(action.items || []).length || 1} 个待办，确认后由 SalmonApp 本地接口执行。`;
+    case "tasks.update":
+      return `准备更新待办 ${action.taskId || "(未指定)"}，确认后写回。`;
+    case "tasks.delete":
+      return `准备删除待办 ${action.taskId || "(未指定)"}。删除不可恢复，请确认。`;
+    case "tasks.toggle":
+      return `准备将待办 ${action.taskId || "(未指定)"} 标为 ${action.completed ? "已完成" : "未完成"}。`;
     case "calendar.create":
       return `准备创建 ${calendarItems(action).length || 1} 个日历事件，确认后由 SalmonApp 本地接口执行。`;
+    case "calendar.delete":
+      return `准备删除日历事件 ${action.eventId || "(未指定)"}。删除不可恢复，请确认。`;
     case "mail.draft":
       return "准备保存邮件草稿，确认后由 SalmonApp 本地接口执行。";
     case "mail.send":
       return "准备发送邮件。请仔细核对收件人、主题和正文，确认后才会发送。";
+    case "mail.reply":
+      return "准备回复邮件。请核对收件人、主题、正文，确认后才会发送。";
+    case "mail.forward":
+      return `准备转发邮件 ${action.messageId || "(未指定)"} 给 ${(action.to || []).join(", ") || "未填写收件人"}。`;
+    case "mail.mark_read":
+      return `准备将邮件标为 ${action.read === false ? "未读" : "已读"}。`;
+    case "mail.star":
+      return `准备 ${action.starred === false ? "取消" : "添加"} 邮件 ${action.messageId || "(未指定)"} 的星标。`;
+    case "mail.archive":
+      return `准备归档邮件 ${action.messageId || "(未指定)"}。`;
+    case "contacts.vip":
+      return `准备将联系人 ${action.contactId || "(未指定)"} ${action.vip === false ? "取消 VIP" : "标为 VIP"}。`;
+    case "workflow":
+      return `${action.title ? action.title + " · " : ""}${(action.steps || []).length} 步工作流，按顺序执行；任一步失败立即停下。`;
   }
 }
 
@@ -528,6 +643,38 @@ function renderActionDetails(action: SalmonAction) {
       </>
     );
   }
+  if (action.kind === "tasks.update") {
+    const patch = action.patch || {};
+    const changes: string[] = [];
+    if (patch.title != null) changes.push(`标题: ${patch.title}`);
+    if (patch.notes != null) changes.push(`备注: ${truncate(patch.notes, 80)}`);
+    if (patch.dueLocal != null) changes.push(`截止: ${patch.dueLocal}`);
+    if (patch.completed != null) changes.push(`状态: ${patch.completed ? "已完成" : "未完成"}`);
+    return (
+      <div className="salmon-action-row">
+        <b>任务 {action.taskId || "(未指定)"}</b>
+        {changes.length > 0
+          ? <span>{changes.join(" · ")}</span>
+          : <small>未提供任何更新字段。</small>}
+      </div>
+    );
+  }
+  if (action.kind === "tasks.delete") {
+    return (
+      <div className="salmon-action-row">
+        <b>删除任务 {action.taskId || "(未指定)"}</b>
+        <small>删除后不可恢复。</small>
+      </div>
+    );
+  }
+  if (action.kind === "tasks.toggle") {
+    return (
+      <div className="salmon-action-row">
+        <b>任务 {action.taskId || "(未指定)"}</b>
+        <span>切换为 {action.completed ? "已完成" : "未完成"}</span>
+      </div>
+    );
+  }
   if (action.kind === "calendar.create") {
     return (
       <>
@@ -536,6 +683,68 @@ function renderActionDetails(action: SalmonAction) {
             <b>{event.title || "未命名日程"}</b>
             <span>{event.startLocal || formatMs(event.startMs)} - {event.endLocal || formatMs(event.endMs)}</span>
             {event.location && <small>{event.location}</small>}
+          </div>
+        ))}
+      </>
+    );
+  }
+  if (action.kind === "calendar.delete") {
+    return (
+      <div className="salmon-action-row">
+        <b>删除日历事件 {action.eventId || "(未指定)"}</b>
+        <small>删除后不可恢复。</small>
+      </div>
+    );
+  }
+  if (action.kind === "mail.mark_read") {
+    return (
+      <div className="salmon-action-row">
+        <b>邮件 {action.messageId || "(未指定)"}</b>
+        <span>标记为 {action.read === false ? "未读" : "已读"}</span>
+      </div>
+    );
+  }
+  if (action.kind === "mail.star") {
+    return (
+      <div className="salmon-action-row">
+        <b>邮件 {action.messageId || "(未指定)"}</b>
+        <span>{action.starred === false ? "取消星标" : "添加星标"}</span>
+      </div>
+    );
+  }
+  if (action.kind === "mail.archive") {
+    return (
+      <div className="salmon-action-row">
+        <b>归档邮件 {action.messageId || "(未指定)"}</b>
+        <small>Gmail 摘掉 INBOX 标签 / Outlook 移到 Archive 文件夹。</small>
+      </div>
+    );
+  }
+  if (action.kind === "mail.forward") {
+    return (
+      <div className="salmon-action-row">
+        <b>转发邮件 {action.messageId || "(未指定)"}</b>
+        <span>收件人: {(action.to || []).join(", ") || "未填写"}</span>
+        {action.cc && action.cc.length > 0 && <span>抄送: {action.cc.join(", ")}</span>}
+        {action.bodyPrefix && <small>{truncate(action.bodyPrefix, 160)}</small>}
+      </div>
+    );
+  }
+  if (action.kind === "contacts.vip") {
+    return (
+      <div className="salmon-action-row">
+        <b>联系人 {action.contactId || "(未指定)"}</b>
+        <span>{action.vip === false ? "取消 VIP 标记" : "标为 VIP"}</span>
+      </div>
+    );
+  }
+  if (action.kind === "workflow") {
+    return (
+      <>
+        {(action.steps || []).map((step, i) => (
+          <div className="salmon-action-row" key={i}>
+            <b>{i + 1}. {step.kind}</b>
+            <small>{summarizeAction(step)}</small>
           </div>
         ))}
       </>
@@ -576,6 +785,39 @@ async function executeSalmonAction(action: SalmonAction, accountId: string): Pro
       }
       return { message: `已创建 ${items.length} 个待办`, actions };
     }
+    case "tasks.update": {
+      if (!action.taskId) throw new Error("tasks.update 缺少 taskId。");
+      const patch = action.patch || {};
+      const updated = await api.updateTask({
+        id: action.taskId,
+        title: patch.title ?? null,
+        notes: patch.notes ?? null,
+        dueMs: patch.dueMs != null
+          ? patch.dueMs
+          : (patch.dueLocal != null ? resolveLocalTime(null, patch.dueLocal, true) : null),
+        completed: patch.completed ?? null,
+      });
+      return {
+        message: "已更新待办",
+        actions: [{ label: "查看待办", primary: true, target: { view: "tasks", taskId: updated.id, accountId: updated.accountId } }],
+      };
+    }
+    case "tasks.delete": {
+      if (!action.taskId) throw new Error("tasks.delete 缺少 taskId。");
+      await api.deleteTask(action.taskId);
+      return { message: "已删除待办" };
+    }
+    case "tasks.toggle": {
+      if (!action.taskId) throw new Error("tasks.toggle 缺少 taskId。");
+      const updated = await api.updateTask({
+        id: action.taskId,
+        completed: action.completed ?? true,
+      });
+      return {
+        message: `已${action.completed === false ? "取消完成" : "标记完成"}`,
+        actions: [{ label: "查看待办", primary: true, target: { view: "tasks", taskId: updated.id, accountId: updated.accountId } }],
+      };
+    }
     case "calendar.create": {
       const events = calendarItems(action);
       if (events.length === 0) throw new Error("没有日历事件。");
@@ -604,6 +846,13 @@ async function executeSalmonAction(action: SalmonAction, accountId: string): Pro
       }
       return { message: `已创建 ${events.length} 个日历事件`, actions };
     }
+    case "calendar.delete": {
+      if (!action.eventId) throw new Error("calendar.delete 缺少 eventId。");
+      const account = action.accountId || accountId;
+      if (!account) throw new Error("calendar.delete 缺少 accountId（请在选择器里选）。");
+      await api.deleteCalendarEvent(account, action.eventId);
+      return { message: "已删除日历事件" };
+    }
     case "mail.draft": {
       const draft = action.draft;
       if (!draft) throw new Error("缺少邮件草稿。");
@@ -620,6 +869,68 @@ async function executeSalmonAction(action: SalmonAction, accountId: string): Pro
       return {
         message: "已发送邮件",
         actions: [{ label: "查看邮件", primary: true, target: { view: "mail", accountId } }],
+      };
+    }
+    case "mail.reply": {
+      const mail = action.mail;
+      if (!mail) throw new Error("mail.reply 缺少邮件内容。");
+      if (!mail.replyToMessageId) throw new Error("mail.reply 缺少 replyToMessageId。");
+      await api.sendMail(toComposeInput(mail, accountId));
+      return {
+        message: "已发送回复",
+        actions: [{ label: "查看邮件", primary: true, target: { view: "mail", accountId } }],
+      };
+    }
+    case "mail.forward": {
+      if (!action.messageId) throw new Error("mail.forward 缺少 messageId。");
+      const to = action.to || [];
+      if (to.length === 0) throw new Error("mail.forward 缺少收件人。");
+      await api.forwardMail({
+        messageId: action.messageId,
+        to,
+        cc: action.cc ?? null,
+        bodyPrefix: action.bodyPrefix ?? null,
+      });
+      return {
+        message: "已转发邮件",
+        actions: [{ label: "查看邮件", primary: true, target: { view: "mail", accountId } }],
+      };
+    }
+    case "mail.mark_read": {
+      if (!action.messageId) throw new Error("mail.mark_read 缺少 messageId。");
+      await api.markMailRead(action.messageId, action.read !== false);
+      return { message: action.read === false ? "已标为未读" : "已标为已读" };
+    }
+    case "mail.star": {
+      if (!action.messageId) throw new Error("mail.star 缺少 messageId。");
+      await api.setMailStar(action.messageId, action.starred !== false);
+      return { message: action.starred === false ? "已取消星标" : "已添加星标" };
+    }
+    case "mail.archive": {
+      if (!action.messageId) throw new Error("mail.archive 缺少 messageId。");
+      await api.archiveMail(action.messageId);
+      return { message: "已归档邮件" };
+    }
+    case "contacts.vip": {
+      if (!action.contactId) throw new Error("contacts.vip 缺少 contactId。");
+      await api.setContactVip(action.contactId, action.vip !== false);
+      return { message: action.vip === false ? "已取消 VIP" : "已设为 VIP" };
+    }
+    case "workflow": {
+      const steps = action.steps || [];
+      if (steps.length === 0) throw new Error("workflow 没有步骤。");
+      const collected: ToastAction[] = [];
+      for (let i = 0; i < steps.length; i++) {
+        try {
+          const result = await executeSalmonAction(steps[i], accountId);
+          if (result.actions) collected.push(...result.actions);
+        } catch (e: any) {
+          throw new Error(`第 ${i + 1} 步 (${steps[i].kind}) 失败: ${e?.message || e}`);
+        }
+      }
+      return {
+        message: `工作流 ${steps.length} 步全部完成`,
+        actions: collected.slice(0, 4),
       };
     }
   }

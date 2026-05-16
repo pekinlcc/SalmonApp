@@ -77,6 +77,7 @@ export const api = {
   getUsageSummary: () => invoke<UsageSummary>("get_usage_summary"),
   getAppDataDir: () => invoke<string>("get_app_data_dir"),
   // ── v0.9.0-alpha.2: mail ────────────────────────────────────────────
+  getOauthConfigPath: () => invoke<string>("get_oauth_config_path"),
   getOauthStatus: () => invoke<OauthStatus>("get_oauth_status"),
   listMailAccounts: () => invoke<MailAccount[]>("list_mail_accounts"),
   startGmailOauth: () => invoke<MailAccount>("start_gmail_oauth"),
@@ -86,6 +87,8 @@ export const api = {
     invoke<MailListItem[]>("list_inbox_messages", { accountId, limit: limit ?? null }),
   searchMailMessages: (query: string, accountId?: string | null, limit = 20) =>
     invoke<MailListItem[]>("search_mail_messages", { query, accountId: accountId ?? null, limit }),
+  listThreadMail: (threadId: string, limit = 50) =>
+    invoke<MailListItem[]>("list_thread_mail", { threadId, limit }),
   listContactMail: (accountId: string, email: string, limit = 50) =>
     invoke<MailListItem[]>("list_contact_mail", { accountId, email, limit }),
   // v1.1.1: batch lookup mail rows by id — powers the related-mail
@@ -107,6 +110,17 @@ export const api = {
     invoke<string>("save_mail_draft", { input, draftId: draftId ?? null }),
   markMailRead: (messageId: string, read: boolean) =>
     invoke<void>("mark_mail_read", { messageId, read }),
+  setMailStar: (messageId: string, starred: boolean) =>
+    invoke<void>("set_mail_star", { messageId, starred }),
+  archiveMail: (messageId: string) =>
+    invoke<void>("archive_mail", { messageId }),
+  forwardMail: (input: { messageId: string; to: string[]; cc?: string[] | null; bodyPrefix?: string | null }) =>
+    invoke<string>("forward_mail", {
+      messageId: input.messageId,
+      to: input.to,
+      cc: input.cc ?? null,
+      bodyPrefix: input.bodyPrefix ?? null,
+    }),
   // ── v0.9.0-alpha.5: calendar ────────────────────────────────────────
   syncCalendar: (accountId: string) =>
     invoke<number>("sync_calendar", { accountId }),

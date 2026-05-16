@@ -41,6 +41,7 @@ export function MailView({
     googleConfigured: true,
     microsoftConfigured: false,
   });
+  const [oauthConfigPath, setOauthConfigPath] = useState("oauth_config.toml");
   const [bootError, setBootError] = useState<string | null>(null);
   const [compose, setCompose] = useState<
     | { mode: "new" }
@@ -89,6 +90,7 @@ export function MailView({
 
   useEffect(() => {
     (async () => {
+      api.getOauthConfigPath().then(setOauthConfigPath).catch(() => {});
       try {
         const s = await api.getOauthStatus();
         setOauthStatus(s);
@@ -232,7 +234,7 @@ export function MailView({
     if (!oauthStatus.googleConfigured) {
       alert(
         "Google OAuth 未配置。仓库根目录的 OAUTH-SETUP.md 教你怎么注册。\n" +
-          "拿到 client_id + secret 后，填进 salmon/src-tauri/oauth_config.toml，重启 SalmonApp。"
+          `拿到 client_id + secret 后，填进 ${oauthConfigPath}，重启 SalmonApp。`
       );
       return;
     }
@@ -250,13 +252,13 @@ export function MailView({
     } catch (e: any) {
       alert(`Gmail 登录失败: ${e}`);
     }
-  }, [oauthStatus]);
+  }, [oauthStatus, oauthConfigPath]);
 
   const onAddOutlook = useCallback(async () => {
     if (!oauthStatus.microsoftConfigured) {
       alert(
         "Microsoft OAuth 未配置。\nOAUTH-SETUP.md Part 2 教你怎么注册。\n" +
-          "拿到 client_id 后，填进 oauth_config.toml 的 [microsoft]，重启 SalmonApp。"
+          `拿到 client_id 后，填进 ${oauthConfigPath} 的 [microsoft]，重启 SalmonApp。`
       );
       return;
     }
@@ -273,7 +275,7 @@ export function MailView({
     } catch (e: any) {
       alert(`Outlook 登录失败: ${e}`);
     }
-  }, [oauthStatus]);
+  }, [oauthStatus, oauthConfigPath]);
 
   const onResync = useCallback(async () => {
     if (!selectedAccountId) return;
@@ -318,9 +320,17 @@ export function MailView({
         <div className="empty-title">邮箱 OAuth 未配置</div>
         <div className="empty-sub">
           SalmonApp 需要你在 Google Cloud Console（Gmail）或 Azure（Outlook）注册一个应用。Google 需要 client_id + client_secret；Microsoft 桌面公共客户端只需要 client_id（用 PKCE）。把值填进
-          {" "}<code>salmon/src-tauri/oauth_config.toml</code>，重启即可。
+          {" "}<code>{oauthConfigPath}</code>，重启即可。
           <br />
-          手把手指南在仓库根目录 <code>OAUTH-SETUP.md</code>。
+          安装版 Mac 不会读取源码目录；手把手指南在仓库根目录 <code>OAUTH-SETUP.md</code>。
+        </div>
+        <div className="empty-actions">
+          <button
+            className="btn"
+            onClick={() => navigator.clipboard?.writeText(oauthConfigPath).catch(() => {})}
+          >
+            复制配置路径
+          </button>
         </div>
       </div>
     );

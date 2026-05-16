@@ -29,6 +29,44 @@ pub async fn mark_read(tokens: &OauthTokens, message_id: &str, read: bool) -> Re
     Ok(())
 }
 
+/// PATCH `/me/messages/{id}` with flag.flagStatus. Graph equivalent of
+/// Gmail's STARRED label add/remove.
+pub async fn set_flag(tokens: &OauthTokens, message_id: &str, flagged: bool) -> Result<()> {
+    let status_str = if flagged { "flagged" } else { "notFlagged" };
+    let resp = reqwest::Client::new()
+        .patch(format!("{}/me/messages/{}", GRAPH_BASE, message_id))
+        .bearer_auth(&tokens.access_token)
+        .json(&json!({ "flag": { "flagStatus": status_str } }))
+        .send()
+        .await
+        .context("graph set_flag")?;
+    let status = resp.status();
+    if !status.is_success() {
+        let text = resp.text().await.unwrap_or_default();
+        return Err(anyhow!("graph set_flag failed ({}): {}", status, text));
+    }
+    Ok(())
+}
+
+/// POST `/me/messages/{id}/move` with destinationId. Graph equivalent of
+/// Gmail's `modify(remove: ["INBOX"])` archive behavior — except Outlook
+/// uses well-known folder names (archive / inbox / deletedItems).
+pub async fn move_message(tokens: &OauthTokens, message_id: &str, destination: &str) -> Result<()> {
+    let resp = reqwest::Client::new()
+        .post(format!("{}/me/messages/{}/move", GRAPH_BASE, message_id))
+        .bearer_auth(&tokens.access_token)
+        .json(&json!({ "destinationId": destination }))
+        .send()
+        .await
+        .context("graph move_message")?;
+    let status = resp.status();
+    if !status.is_success() {
+        let text = resp.text().await.unwrap_or_default();
+        return Err(anyhow!("graph move_message failed ({}): {}", status, text));
+    }
+    Ok(())
+}
+
 pub async fn send_message(tokens: &OauthTokens, msg: &OutgoingMessage) -> Result<String> {
     // Build attachments inline (base64). Graph supports up to 4MB
     // inline attachments per call; larger needs upload session, deferred.

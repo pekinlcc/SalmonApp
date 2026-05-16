@@ -1,7 +1,12 @@
 # SalmonApp OAuth credentials.
 #
-# Copy this file to `oauth_config.toml` (in the same directory) and fill in
-# the values you got from Google Cloud Console and Microsoft Azure.
+# Installed macOS app:
+#   ~/Library/Application Support/app.salmonapp.desktop/oauth_config.toml
+#
+# Dev checkout:
+#   copy this file to `salmon/src-tauri/oauth_config.toml`.
+#
+# Fill in the values you got from Google Cloud Console and Microsoft Azure.
 # See repo-root OAUTH-SETUP.md for the registration walkthrough.
 #
 # The real `oauth_config.toml` is .gitignored — your client secret will NOT
