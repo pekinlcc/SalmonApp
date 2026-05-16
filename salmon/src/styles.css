@@ -2259,17 +2259,38 @@ button { font-family: inherit; }
   color: var(--ink-900);
 }
 .topic-search-ts { font-size: 10.5px; color: var(--ink-500); flex-shrink: 0; }
-.topic-search-fab {
-  position: absolute; top: 10px; right: 14px;
-  background: var(--panel); border: 1px solid var(--ink-100);
-  border-radius: 999px;
-  width: 32px; height: 32px;
-  display: flex; align-items: center; justify-content: center;
-  cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.06);
-  z-index: 5; font-size: 13px;
-  opacity: 0.7;
+/* v1.16.0: topic-search-fab removed; replaced with .topic-search-btn
+   inline in the .mid-head header bar for visual co-location with the
+   Topic title. Old FAB styles intentionally removed. */
+.topic-search-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px;
+  background: var(--panel);
+  border: 1px solid var(--ink-100);
+  border-radius: 6px;
+  color: var(--ink-700);
+  font-size: 12px;
+  cursor: pointer;
+  margin-right: 10px;
 }
-.topic-search-fab:hover { opacity: 1; border-color: var(--salmon); }
+.topic-search-btn:hover {
+  background: var(--salmon-50);
+  border-color: var(--salmon);
+  color: var(--ink-900);
+}
+.topic-search-btn svg {
+  flex-shrink: 0;
+  color: var(--ink-500);
+}
+.topic-search-btn kbd {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  background: var(--ink-50, #F5F2EF);
+  border: 1px solid var(--ink-100);
+  border-radius: 3px;
+  padding: 0 4px;
+  color: var(--ink-500);
+}
 @keyframes msg-flash-kf {
   0%   { background: rgba(232,160,130,0.35); }
   100% { background: transparent; }

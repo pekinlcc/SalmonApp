@@ -69,6 +69,15 @@ function RailSprite() {
           <circle cx="11" cy="11" r="6.5" />
           <path d="m20 20-4.3-4.3" />
         </symbol>
+        {/* v1.16.0: distinct icon for the **global** search affordance so
+            it doesn't visually collide with the Topic-internal search
+            button that lives in the chat header. The globe-with-meridian
+            inside the magnifier reads as "search across everything". */}
+        <symbol id="i-search-global" viewBox="0 0 24 24">
+          <circle cx="11" cy="11" r="6.5" />
+          <path d="m20 20-4.3-4.3" />
+          <path d="M11 4.5v13M4.5 11h13M7 6.5a8 8 0 0 0 0 9M15 6.5a8 8 0 0 1 0 9" />
+        </symbol>
         <symbol id="i-gear" viewBox="0 0 24 24">
           <circle cx="12" cy="12" r="3" />
           <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1A2 2 0 1 1 7 4.4l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z" />
@@ -115,8 +124,8 @@ export function IconRail(props: Props) {
 
       <div className="rail-spacer" />
 
-      <button className="rail-item" title="全局搜索 Topic / 邮件" onClick={props.onOpenSearch}>
-        <Glyph id="i-search" />
+      <button className="rail-item" title="全局搜索：邮件 · 日历 · 待办 · Topic（⌘⇧F）" onClick={props.onOpenSearch}>
+        <Glyph id="i-search-global" />
       </button>
       <button className="rail-item" title="设置 / CLI 状态" onClick={props.onOpenSettings}>
         <Glyph id="i-gear" />

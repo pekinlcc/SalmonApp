@@ -145,10 +145,12 @@ export function ChatStream(props: Props) {
   const [searchResults, setSearchResults] = useState<{ messageId: string; role: string; snippet: string; createdAt: number }[]>([]);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // Hotkey: Cmd/Ctrl+F opens search.
+  // Hotkey: Cmd/Ctrl+F opens search. Also accept the new
+  // `salmon:open-topic-search` custom event so the header-bar button in
+  // App.tsx can flip the same overlay open.
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "f") {
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === "f") {
         e.preventDefault();
         setSearchOpen(true);
         setTimeout(() => searchInputRef.current?.focus(), 0);
@@ -157,8 +159,16 @@ export function ChatStream(props: Props) {
         setSearchQuery("");
       }
     };
+    const openFromButton = () => {
+      setSearchOpen(true);
+      setTimeout(() => searchInputRef.current?.focus(), 0);
+    };
     window.addEventListener("keydown", h);
-    return () => window.removeEventListener("keydown", h);
+    window.addEventListener("salmon:open-topic-search", openFromButton);
+    return () => {
+      window.removeEventListener("keydown", h);
+      window.removeEventListener("salmon:open-topic-search", openFromButton);
+    };
   }, [searchOpen]);
 
   // Live search as user types (debounce).
@@ -227,13 +237,10 @@ export function ChatStream(props: Props) {
           ))}
         </div>
       )}
-      {!searchOpen && (
-        <button
-          className="topic-search-fab"
-          onClick={() => { setSearchOpen(true); setTimeout(() => searchInputRef.current?.focus(), 0); }}
-          title="搜索此 Topic 内的对话（Ctrl/Cmd+F）"
-        >🔍</button>
-      )}
+{/* v1.16.0: topic-search FAB removed; trigger now lives in the
+          .mid-head header bar (App.tsx) for visual co-location with the
+          Topic title. Activation events come via salmon:open-topic-search
+          custom event below, plus Cmd/Ctrl+F keyboard. */}
       <div className="stream" ref={streamRef} onScroll={onScroll}>
       {messages.length === 0 && !pendingPermission && (
         <div className="banner info" style={{ marginTop: 0 }}>

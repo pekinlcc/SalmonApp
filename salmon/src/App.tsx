@@ -1001,6 +1001,20 @@ export default function App() {
     setShowSearch(true);
   }, []);
 
+  // v1.16.0: Cmd/Ctrl+Shift+F opens the global SearchDialog. Cmd+F alone
+  // remains the Topic-internal search shortcut handled inside ChatStream,
+  // so the two scopes have distinct keys to match the distinct buttons.
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        openSearch();
+      }
+    };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, [openSearch]);
+
   const onRetryTopic = useCallback(async (id: string) => {
     setErrorByTopic((er) => ({ ...er, [id]: null }));
     setSpawningId(id);
@@ -1469,6 +1483,18 @@ export default function App() {
                 <span className="danger-hint">下次发送起生效</span>
               )}
               <div className="spacer" />
+              <button
+                className="topic-search-btn"
+                title="在本 Topic 内搜索对话（⌘F）"
+                onClick={() => window.dispatchEvent(new CustomEvent("salmon:open-topic-search"))}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="11" cy="11" r="6.5" />
+                  <path d="m20 20-4.3-4.3" />
+                </svg>
+                <span>在此 Topic 搜索</span>
+                <kbd>⌘F</kbd>
+              </button>
               <div className="stat">
                 {selectedMessages.length} messages
                 {(() => {
@@ -1563,7 +1589,7 @@ export default function App() {
         <SearchDialog
           topics={topics}
           initialQuery={searchInitialQuery}
-          onSelect={onSelect}
+          onNavigate={navigateActionTarget}
           onClose={() => setShowSearch(false)}
         />
       )}
