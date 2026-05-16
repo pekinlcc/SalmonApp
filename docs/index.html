@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Salmon — local AI command center</title>
-<meta name="description" content="A local AI command center for coding, mail, calendar, contacts, and tasks. Runs your logged-in Claude Code or Codex CLI, keeps context on-device, and turns work into actionable briefings." />
-<meta property="og:title" content="Salmon — local AI command center" />
-<meta property="og:description" content="Coding topics, Gmail/Outlook mail, calendar, contacts, tasks, and AI briefings in one local desktop app. Powered by your Claude Code or Codex CLI login." />
+<title>Salmon — AI-first mail and workspace suite</title>
+<meta name="description" content="An AI-first mail and workspace suite for Gmail / Outlook, calendar, contacts, tasks, and follow-up. Smart mail first, then an AI version of your personal work suite." />
+<meta property="og:title" content="Salmon — AI-first mail and workspace suite" />
+<meta property="og:description" content="Smart Gmail/Outlook mail, calendar, contacts, tasks, briefings, and follow-up in one local desktop app. Powered by your local Claude Code or Codex CLI." />
 <meta property="og:image" content="https://pekinlcc.github.io/SalmonApp/icon.png" />
 <link rel="icon" href="icon.svg" type="image/svg+xml" />
 <link rel="alternate icon" href="icon.png" type="image/png" />
@@ -182,10 +182,10 @@
 <!-- ── HERO ───────────────────────────────────────────────────────────── -->
 <section class="hero">
   <img class="logo" src="icon.svg" alt="Salmon icon" />
-  <h1>把代码、邮件、日程和待办<br/>收进一个<span class="accent">本地 AI 工作台</span></h1>
+  <h1>一个从邮箱开始的<br/><span class="accent">AI 版个人工作套件</span></h1>
   <p class="lead">
-    Salmon 运行你本机已登录好的 <code>claude</code> 或 <code>codex</code> CLI,同时接入 Gmail / Outlook、日历、联系人和待办。
-    它不接模型 API,不要求第二个 AI 账号,把分散的工作上下文整理成可执行的 briefing。Linux + macOS。
+    Salmon 把 Gmail / Outlook、日历、联系人和待办放进一个 AI-first 桌面应用。
+    邮件不只是收件箱,而是自动理解线程、联系人、事件和后续动作的工作入口。Linux + macOS。
   </p>
   <div class="cta">
     <a class="btn btn-primary" href="https://github.com/pekinlcc/SalmonApp/releases/latest">
@@ -197,9 +197,9 @@
   </div>
   <div class="badges">
     <span>✓ 本地优先</span>
-    <span>✓ 复用 CLI 登录</span>
-    <span>✓ 邮件 / 日历 / 待办</span>
-    <span>✓ Claude Code + Codex</span>
+    <span>✓ 智能邮箱</span>
+    <span>✓ 日历 / 联系人 / 待办</span>
+    <span>✓ AI briefing</span>
     <span>✓ 开源 / 三方非官方</span>
   </div>
 </section>
@@ -207,8 +207,8 @@
 <!-- ── THREE-PANE ILLUSTRATION ────────────────────────────────────────── -->
 <section class="three-pane">
   <div class="container">
-    <h2 style="text-align:center;margin:0 0 8px;font-size:24px;">从 briefing 到执行,一眼看清正在发生什么</h2>
-    <p style="text-align:center;color:var(--ink-500);margin:0 0 36px;font-size:14.5px;">Home:重要事项 · Topics:AI 编码会话 · Mail / Calendar / Contacts / Tasks:个人工作流</p>
+    <h2 style="text-align:center;margin:0 0 8px;font-size:24px;">从邮件到日程、待办和行动</h2>
+    <p style="text-align:center;color:var(--ink-500);margin:0 0 36px;font-size:14.5px;">Mail:线程和收发 · Contacts:关系上下文 · Calendar / Tasks:自动沉淀后续动作</p>
     <div class="pane-grid">
       <div class="pane pane-left">
         <div class="pane-label">Topics</div>
@@ -262,61 +262,61 @@
 <section class="features" id="features">
   <div class="container">
     <h2>Salmon 现在是什么</h2>
-    <p class="sub">不是单纯替代 CLI ——而是把 CLI agent、收件箱、日程和待办组织成一个本地工作台。</p>
+    <p class="sub">更接近智能邮箱,或者 AI 版 Google Workspace:邮件是入口,日历、联系人、待办和 agent 动作围绕它展开。</p>
     <div class="feature-grid">
 
       <div class="feature-card">
-        <div class="ic">⌘</div>
-        <h3>模型执行仍在本机 CLI</h3>
-        <p>Salmon 自己不调任何模型 API。AI 分析和编码会话都通过你本机的 <code>claude</code> 或 <code>codex</code> 子进程完成。</p>
-      </div>
-
-      <div class="feature-card">
-        <div class="ic">▤</div>
-        <h3>Topic = 可恢复的 AI 工作间</h3>
-        <p>每个 Topic 绑定一个工作目录 + 一个 CLI session;重开 Salmon 后可以继续接回原来的编码上下文。</p>
-      </div>
-
-      <div class="feature-card">
         <div class="ic">@</div>
-        <h3>Gmail / Outlook 工作流</h3>
-        <p>邮件同步到本地缓存,支持阅读、发送、归档、已读状态,并能把相关邮件链接到联系人和 briefing。</p>
-      </div>
-
-      <div class="feature-card">
-        <div class="ic">◷</div>
-        <h3>日历 / 联系人 / 待办</h3>
-        <p>同一份 OAuth 账号驱动日历、联系人和 Tasks,AI 从邮件和会话里抽取事件与后续动作。</p>
+        <h3>AI-first 邮箱</h3>
+        <p>Gmail / Outlook 邮件同步到本地,支持阅读、发送、归档、已读状态,并把线程理解成可跟进的工作事项。</p>
       </div>
 
       <div class="feature-card">
         <div class="ic">✦</div>
         <h3>Briefing 首页</h3>
-        <p>主页把未读邮件、重要联系人、待办、日程和 Topic 状态排进一个可操作的列表,不是只给摘要。</p>
+        <p>主页把重要邮件、联系人、日程、待办和未完成事项排成一个行动列表,告诉你为什么值得处理。</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="ic">◷</div>
+        <h3>事件和待办抽取</h3>
+        <p>从邮件和对话里识别会议、截止日期和 follow-up,再一键沉淀到 Calendar 或 Tasks。</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="ic">👤</div>
+        <h3>联系人上下文</h3>
+        <p>围绕联系人聚合近期邮件、相关 briefing 和建议动作,看人而不是只看孤立邮件。</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="ic">▦</div>
+        <h3>像套件而不是插件</h3>
+        <p>Mail、Calendar、Contacts、Tasks 是同一套工作流里的视图,不是几个互不相干的 sidebar 功能。</p>
       </div>
 
       <div class="feature-card">
         <div class="ic">✓</div>
         <h3>从建议到行动</h3>
-        <p>Briefing 里的建议可以直接跳转到邮件、联系人、日历或待办,把 AI 发现变成可执行动作。</p>
+        <p>Briefing 里的建议可以直接跳转到邮件、联系人、日历或待办,把 AI 摘要变成可执行动作。</p>
       </div>
 
       <div class="feature-card">
-        <div class="ic">📄</div>
-        <h3>文件 / Diff / 预览</h3>
-        <p>编码 Topic 右栏仍然能看文件树、Diff、Markdown / HTML / Office 预览,不用在终端里来回 <code>cat</code>。</p>
+        <div class="ic">⌘</div>
+        <h3>本地 AI 引擎</h3>
+        <p>AI 分析通过你本机已登录的 <code>claude</code> 或 <code>codex</code> CLI 完成,Salmon 自己不直连模型 API。</p>
       </div>
 
       <div class="feature-card">
-        <div class="ic">≡</div>
-        <h3>权限审批 UI</h3>
-        <p>CLI 想跑危险命令需要确认时,中栏弹审批卡片,你能看清完整命令再点 Allow / Deny。</p>
+        <div class="ic">▤</div>
+        <h3>可选 Agent 工作间</h3>
+        <p>当后续动作需要改代码或处理项目文件时,Topic 可以承接 Claude Code / Codex 会话。</p>
       </div>
 
       <div class="feature-card">
         <div class="ic">∅</div>
         <h3>本地优先</h3>
-        <p>模型凭证留在 CLI;邮件、日历和任务 token 留在本机。Salmon 的定位不是云端代理,而是本地桌面工作台。</p>
+        <p>模型凭证留在 CLI;邮件、日历和任务 token 留在本机。Salmon 的定位不是云端代理,而是本地桌面套件。</p>
       </div>
 
     </div>
@@ -380,23 +380,23 @@ brew install --cask libreoffice && brew install poppler</code></pre>
 <section class="why" id="why">
   <div class="container">
     <h2>设计动机</h2>
-    <p class="sub">真正的问题不只是 CLI 难看,而是 AI coding、邮件、日程和后续动作被拆在不同地方。</p>
+    <p class="sub">真正的问题不是缺一个聊天框,而是邮件、日程、联系人和后续动作被拆在不同地方。</p>
     <div class="why-grid">
       <div class="why-card">
-        <div class="pain">长对话历史在 scroll-back 里像噩梦</div>
-        <div class="fix">中栏 Markdown 完整渲染:代码块、表格、引用 / 折叠思考、最终答案高亮分开。</div>
+        <div class="pain">邮件客户端只显示消息,不显示下一步</div>
+        <div class="fix">Salmon 把线程、联系人、时间和任务一起分析,让收件箱变成行动入口。</div>
       </div>
       <div class="why-card">
-        <div class="pain">多个项目共用一个 shell history,串了</div>
-        <div class="fix">Topic 是一等公民,每个 Topic 自己绑工作目录、绑 CLI session,一目了然。</div>
+        <div class="pain">会议和待办藏在长邮件里</div>
+        <div class="fix">AI 从邮件里提取可创建的 calendar events 和 tasks,减少手工复制。</div>
       </div>
       <div class="why-card">
-        <div class="pain">Edit 改了文件还得切窗 <code>cat</code> / <code>diff</code></div>
-        <div class="fix">右栏 Files 实时高亮 A / M;选中工具调用直接看 Diff;Preview 给你 Markdown / HTML / Office。</div>
+        <div class="pain">联系人历史散在多个线程里</div>
+        <div class="fix">联系人页聚合相关邮件和 AI 建议,先看人,再看单封邮件。</div>
       </div>
       <div class="why-card">
-        <div class="pain">重要邮件和代码上下文互相断开</div>
-        <div class="fix">Briefing 把 Topic、邮件、联系人和待办放在同一个决策流里。</div>
+        <div class="pain">每天要自己判断哪些事重要</div>
+        <div class="fix">Briefing 把重要线程、联系人、日程和待办排成可执行列表。</div>
       </div>
       <div class="why-card">
         <div class="pain">第三方 AI GUI 总要再开账号、再付一次费</div>
@@ -414,76 +414,58 @@ brew install --cask libreoffice && brew install poppler</code></pre>
 <section class="compare" id="compare">
   <div class="container">
     <h2>跟其它方案的差别</h2>
-    <p class="sub">新的定位是本地 AI 工作台:既保留 CLI agent 的能力,又把个人工作流收进来。</p>
+    <p class="sub">新的定位是 AI-first mail/workspace suite:智能邮箱优先,再扩展到日历、联系人、待办和本地 agent。</p>
     <table>
       <thead>
         <tr>
           <th></th>
           <th>Salmon</th>
-          <th>原生 CLI 终端</th>
-          <th>Cursor / Cherry Studio 等</th>
+          <th>传统邮箱</th>
+          <th>Google Workspace / Microsoft 365</th>
         </tr>
       </thead>
       <tbody>
         <tr>
-          <td>复用现有 CLI 登录</td>
+          <td>Gmail / Outlook 邮件</td>
           <td class="yes">✓</td>
           <td class="yes">✓</td>
-          <td class="no">✗(自己再登一次)</td>
-        </tr>
-        <tr>
-          <td>不存 API Key</td>
-          <td class="yes">✓</td>
-          <td class="yes">✓</td>
-          <td class="no">✗</td>
-        </tr>
-        <tr>
-          <td>富文本对话渲染</td>
-          <td class="yes">✓</td>
-          <td class="no">✗</td>
           <td class="yes">✓</td>
         </tr>
         <tr>
-          <td>实时文件预览 / Diff</td>
+          <td>日历 / 联系人 / 待办</td>
           <td class="yes">✓</td>
-          <td class="meh">需 cat / diff</td>
-          <td class="yes">✓</td>
-        </tr>
-        <tr>
-          <td>Topic 隔离 + session 复活</td>
-          <td class="yes">✓</td>
-          <td class="meh">tmux / shell tab</td>
           <td class="meh">部分</td>
-        </tr>
-        <tr>
-          <td>同时开 Claude Code + Codex</td>
           <td class="yes">✓</td>
-          <td class="meh">两个终端</td>
-          <td class="no">✗</td>
         </tr>
         <tr>
-          <td>邮件 / 日历 / 联系人 / 待办</td>
-          <td class="yes">✓</td>
-          <td class="no">✗</td>
-          <td class="meh">通常分散在别处</td>
-        </tr>
-        <tr>
-          <td>跨上下文 briefing</td>
+          <td>AI briefing 和重要性排序</td>
           <td class="yes">✓</td>
           <td class="no">✗</td>
           <td class="meh">部分</td>
         </tr>
         <tr>
-          <td>权限请求 UI</td>
-          <td class="yes">✓ PreToolUse</td>
-          <td class="yes">CLI 自带</td>
-          <td class="meh">不一致</td>
+          <td>从邮件创建事件 / 待办</td>
+          <td class="yes">✓</td>
+          <td class="no">✗</td>
+          <td class="meh">部分</td>
+        </tr>
+        <tr>
+          <td>联系人级上下文</td>
+          <td class="yes">✓</td>
+          <td class="meh">搜索为主</td>
+          <td class="meh">部分</td>
+        </tr>
+        <tr>
+          <td>本地 CLI agent 执行</td>
+          <td class="yes">✓</td>
+          <td class="no">✗</td>
+          <td class="no">✗</td>
         </tr>
         <tr>
           <td>不直连模型 API</td>
           <td class="yes">✓</td>
-          <td class="yes">✓(CLI)</td>
-          <td class="no">✗</td>
+          <td class="yes">✓</td>
+          <td class="meh">取决于产品</td>
         </tr>
       </tbody>
     </table>
@@ -496,7 +478,7 @@ brew install --cask libreoffice && brew install poppler</code></pre>
     <div>
       <h4>Salmon</h4>
       <p style="color:var(--ink-300);font-size:13.5px;line-height:1.65;margin:0;">
-        Local AI command center for coding, mail, calendar, contacts, and tasks.<br/>
+        AI-first mail and workspace suite for Gmail / Outlook, calendar, contacts, tasks, and follow-up.<br/>
         三方非官方 — 跟 Anthropic 和 OpenAI 都没关系。
       </p>
     </div>

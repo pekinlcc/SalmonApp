@@ -65,24 +65,23 @@
 
 ## 1. 产品定位
 
-**Salmon App** 是一款运行在 Linux + macOS 桌面的本地 AI 工作台。它**不直接调用任何模型 API**，而是把用户已在终端登录好的 `claude` (Claude Code CLI) 或 `codex` (Codex CLI) 作为后台 AI 引擎，同时接入 Gmail / Outlook、日历、联系人和待办，把代码会话与个人信息流整理成可执行的 briefing。
+**Salmon App** 是一款运行在 Linux + macOS 桌面的 AI-first 邮件与个人工作套件。它以 Gmail / Outlook 邮件为入口，联动日历、联系人和待办，把邮件线程里隐藏的会议、后续动作、联系人上下文和重要事项整理成可执行的 briefing。
 
-一句话：**给已经在用 CLI agent 的人一个本地 AI command center**——保留 CLI 的能力和登录态，同时把邮件、日程、联系人、待办和项目 Topic 放进同一个可执行工作流。
+一句话：**像智能邮箱,也像 AI 版 Google Workspace**——邮件优先,再把 Calendar / Contacts / Tasks 和本地 AI agent 串成一个个人工作流。
 
 ### 1.1 核心价值
 
 | 用户痛点 | Salmon 解法 |
 | --- | --- |
-| 终端里看长对话历史费眼，鼠标选中复制粘贴麻烦 | Topic 中栏渲染富文本对话，代码块、diff、表格全部高亮 |
-| 多个项目/话题混在一个 shell session 里容易乱 | Topic 列表持久化每个会话，一键切换 |
-| CLI 改了文件、生成了产物，要 `cat`/`ls` 才能看 | Topic 右栏实时预览：文件树、diff、新生成文件、代码渲染 |
-| 同时想用 Claude Code 和 Codex 但要换终端 | 顶部一键切换后端引擎，每个 Topic 独立选择 |
-| 邮件、日历、联系人、待办和代码上下文彼此断开 | Home briefing 统一排序重要事项，并能跳转/创建事件/创建任务 |
-| 又不想再登一次/再付一次费 | **复用本机已登录的 CLI 凭证**，零新增账号 |
+| 邮件客户端只显示消息,不告诉你下一步 | AI briefing 提取重要线程、原因和建议动作 |
+| 会议、deadline、follow-up 藏在长邮件里 | 从邮件/对话抽取 Calendar events 和 Tasks,支持一键创建 |
+| 联系人历史散在多个 thread 里 | Contact-centric 视图聚合相关邮件、近期互动和 AI 建议 |
+| 邮件、日历、联系人、待办分散在不同工具 | 一个本地套件内统一浏览、跳转和执行 |
+| 又不想再交出模型 API Key 或再开 AI 账号 | **复用本机已登录的 Claude Code / Codex CLI** 作为 AI 引擎 |
 
 ### 1.2 不做的事（明确非目标）
 
-- 不直接对接 Anthropic API / OpenAI API，不存储 API Key（凭证完全由 CLI 自己管）
+- 不直接对接 Anthropic API / OpenAI API，不存储模型 API Key（凭证完全由 CLI 自己管）
 - 不替代终端：不做通用 shell，只做 AI 对话场景
 - 不做云同步、不做团队协作、不做移动端
 - 不重新实现 CLI 的能力（slash command、MCP、hooks、sub-agents 等都"透传"给 CLI）
@@ -91,9 +90,9 @@
 
 ## 2. 目标用户
 
-- **主要**：已经在日常使用 Claude Code / Codex CLI 的开发者，且希望把邮件、日程、联系人、待办与项目上下文放到同一个本地工具里的人
-- **次要**：从 Cursor / Cherry Studio 等工具迁移过来、习惯三栏 chatbot UI，但不想把模型凭证交给另一个云服务的人
-- **典型场景**：写代码、查代码、改配置、跑脚本、处理邮件、跟进联系人、从邮件提取日程/待办、做每日工作 briefing
+- **主要**：希望用 AI 处理邮箱、日历、联系人和待办的个人用户 / 独立开发者 / 小团队成员
+- **次要**：已经在日常使用 Claude Code / Codex CLI,希望把邮件和项目后续动作交给本地 agent 的用户
+- **典型场景**：处理邮件、跟进联系人、从邮件提取日程/待办、做每日工作 briefing、在必要时把后续动作交给本地 coding agent
 
 ---
 

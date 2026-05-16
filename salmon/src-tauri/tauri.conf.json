@@ -29,8 +29,8 @@
     "active": true,
     "targets": "all",
     "category": "DeveloperTool",
-    "shortDescription": "SalmonApp — local AI command center",
-    "longDescription": "SalmonApp is a local AI command center for coding, mail, calendar, contacts, and tasks. It drives your locally logged-in Claude Code or Codex CLI, connects to Gmail / Outlook through desktop OAuth, and turns project plus inbox context into actionable briefings. Model credentials stay with the CLI; workspace data stays local. Linux (deb / AppImage / rpm) and macOS (dmg).",
+    "shortDescription": "SalmonApp — AI-first mail and workspace suite",
+    "longDescription": "SalmonApp is an AI-first mail and personal workspace suite for Gmail / Outlook, calendar, contacts, tasks, and follow-up. It syncs mail locally, understands threads and contacts, extracts events and tasks, and turns inbox context into actionable briefings. AI runs through your locally logged-in Claude Code or Codex CLI; model credentials stay with the CLI and workspace data stays local. Linux (deb / AppImage / rpm) and macOS (dmg).",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

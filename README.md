@@ -1,8 +1,8 @@
 # SalmonApp
 
-> A local AI command center for coding, mail, calendar, contacts, and tasks — Linux + macOS.
+> An AI-first mail and workspace suite for Gmail / Outlook, calendar, contacts, tasks, and follow-up — Linux + macOS.
 >
-> SalmonApp runs your locally logged-in `claude` or `codex` CLI, connects to your Gmail / Outlook workspace, and turns project + inbox context into actionable briefings. No model API key or second AI account required. See [Releases](https://github.com/pekinlcc/SalmonApp/releases) for the changelog.
+> SalmonApp turns your inbox into an AI workspace: it syncs mail locally, understands contacts and threads, extracts calendar events and tasks, and helps you act on what matters. AI runs through your locally logged-in `claude` or `codex` CLI, so no model API key or second AI account is required. See [Releases](https://github.com/pekinlcc/SalmonApp/releases) for the changelog.
 >
 > Note: deliberately named **SalmonApp** (one word) to avoid colliding with the bioinformatics `salmon` package on Linux distros.
 
@@ -16,39 +16,35 @@
 
 ## Why
 
-SalmonApp started as a visual desktop shell for `claude` (Claude Code) and `codex` (OpenAI Codex CLI). It has grown into a local AI workspace for the things those agents need around you: code conversations, mail, calendars, contacts, tasks, and the next actions hiding across all of them.
+Most work still starts in email, but the action rarely stays there: a thread becomes a meeting, a follow-up task, a contact history, or context for an AI agent. Traditional mail clients show messages. SalmonApp tries to show the work hiding inside them.
 
-The positioning is simple: **SalmonApp is a local command center for people who already trust CLI agents, but want their work context organized into a usable desktop app.**
+The positioning is simple: **SalmonApp is an AI version of the personal work suite: smart mail first, then calendar, contacts, tasks, briefings, and local agents around it.**
 
-It still solves the original terminal pain:
-
-- Long transcripts are painful to read in a scroll-back buffer
-- Multiple projects all share one shell history
-- Tool-call diffs need a second `cat`/`ls` to inspect
-- Switching between Claude and Codex means switching terminals
-
-And it now adds the missing personal workflow layer:
+Instead of treating mail, calendar, tasks, and AI chat as separate products, SalmonApp connects them:
 
 - Mail from Gmail / Outlook, cached locally
 - Calendar, contacts, and task views backed by the same connected accounts
-- AI briefings that rank important threads, extract follow-ups, and create calendar events or tasks
-- Contact-centric context, so a conversation, related mail, and suggested actions are visible together
-- Topic-aware coding sessions that can coexist with mail and planning work
+- AI briefings that rank important threads and explain why they matter
+- Event and task extraction from mail and conversations
+- Contact-centric context, so related messages and suggested actions are visible together
+- Optional coding Topics powered by Claude Code / Codex when the next action involves a project
+
+The CLI-agent layer is still important, but it is infrastructure: SalmonApp does not call Anthropic or OpenAI model APIs itself. It runs the `claude` or `codex` CLI you already have logged in and uses that local agent capability for analysis and action.
 
 ## Product Surface
 
-SalmonApp is organized around a left rail of work modes:
+SalmonApp is organized like a local AI workspace suite:
 
 | Area | What it does |
 |---|---|
-| **Home / Briefing** | Summarizes what needs attention across topics, mail, calendar, and tasks |
-| **Topics** | Persistent Claude Code / Codex sessions bound to real work directories |
 | **Mail** | Gmail / Outlook reader, sync, send, archive, read state, and local cache |
 | **Contacts** | Unified contact view with related mail and AI-generated action context |
 | **Calendar** | Calendar browsing and event creation from extracted dates or briefing actions |
 | **Tasks** | Google / Microsoft task sync plus AI-suggested follow-ups |
+| **Home / Briefing** | Summarizes what needs attention across mail, contacts, calendar, tasks, and Topics |
+| **Topics** | Optional Claude Code / Codex sessions for project work and agent actions |
 
-The coding view keeps the original three-pane model:
+For project-heavy work, the optional Topic view keeps the original three-pane coding model:
 
 | Pane | What it shows |
 |---|---|
