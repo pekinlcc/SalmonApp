@@ -511,6 +511,17 @@ function StepResultView({ result: r }: { result: StepResult }) {
         if (r.kind === "MailMarkedRead") {
           return <div className="draft-reply"><div className="draft-label">{r.read ? "✓ 已标已读" : "● 已标未读"} · {r.mailId.slice(0, 12)}</div></div>;
         }
+        if (r.kind === "ContactVipped") {
+          return <div className="draft-reply"><div className="draft-label">{r.vip ? "★ 已设为 VIP" : "☆ 已取消 VIP"} · {r.contactId.slice(0, 12)}</div></div>;
+        }
+        if (r.kind === "ContactNoted") {
+          return (
+            <div className="draft-reply">
+              <div className="draft-label">📝 联系人备注已写入 · {r.contactId.slice(0, 12)}</div>
+              {r.note && <pre className="draft-body">{r.note}</pre>}
+            </div>
+          );
+        }
         return null;
 }
 

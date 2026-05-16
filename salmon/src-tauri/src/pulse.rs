@@ -82,8 +82,10 @@ fn build_system(rubric: &str) -> String {
          - archive: 归档 parent_mail（Gmail 摘 INBOX label / Outlook 移到 Archive）— detail 留空字符串\n\
          - star / unstar: 标星 / 取消星标 parent_mail — detail 留空\n\
          - mark_read / mark_unread: 标已读 / 未读 parent_mail — detail 留空\n\
+         - contact_vip / contact_unvip: 标 / 取消该卡 contact_email 对应联系人 VIP — detail 留空\n\
+         - contact_note: 给该卡 contact_email 对应联系人写本地备注 — detail = 备注内容（≤60 字；为空字符串表示清空备注）\n\
          - acknowledge: 兜底\"我已知晓\" — detail = \"\"\n\
-         （archive / star / mark_read / mark_unread 都直接执行，不需要 LLM 二次推理；选这些 kind 时 detail 留空字符串即可。）\n\n\
+         （archive / star / mark_read / contact_vip 等都直接执行，不需要 LLM 二次推理；contact_note 的 detail 是真正写入的备注文本。）\n\n\
          【输出格式 - 严格 JSON，无其他文字，不要 markdown 代码块】\n\
          {{\n  \"items\": [\n    {{\n      \
          \"title\": \"≤24 个汉字\",\n      \
@@ -93,7 +95,7 @@ fn build_system(rubric: &str) -> String {
          \"relatedMailIds\": [\"邮件 id 列表\"],\n      \
          \"relatedEventIds\": [\"事件 id 列表\"],\n      \
          \"deadlineMs\": null | 1717200000000,\n      \
-         \"suggestedActions\": [\n        {{\"label\": \"≤14 汉字的决定\", \"steps\": [{{\"kind\": \"reply|calendar|task|archive|star|unstar|mark_read|mark_unread|acknowledge\", \"detail\": \"≤40 字\"}}]}}\n      \
+         \"suggestedActions\": [\n        {{\"label\": \"≤14 汉字的决定\", \"steps\": [{{\"kind\": \"reply|calendar|task|archive|star|unstar|mark_read|mark_unread|contact_vip|contact_unvip|contact_note|acknowledge\", \"detail\": \"≤60 字\"}}]}}\n      \
          ]\n    }}\n  ]\n}}\n\n\
          【用户的判定 Rubric】\n{}\n",
         rubric

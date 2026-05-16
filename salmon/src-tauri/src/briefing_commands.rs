@@ -292,7 +292,22 @@ pub enum StepResult {
     MailArchived { mail_id: String },
     MailStarred { mail_id: String, starred: bool },
     MailMarkedRead { mail_id: String, read: bool },
+    /// v1.11.0: briefing-driven contact mutations using the brief item's
+    /// contact_email (resolved to contact_id via the local contacts table).
+    ContactVipped { contact_id: String, vip: bool },
+    ContactNoted { contact_id: String, note: Option<String> },
     Skipped { reason: String },
+}
+
+fn lookup_contact_id(state: &State<'_, AppState>, email: &str) -> Option<String> {
+    let db = state.db.lock();
+    db.conn()
+        .query_row(
+            "SELECT id FROM contacts WHERE lower(email) = lower(?) LIMIT 1",
+            params![email],
+            |r| r.get::<_, String>(0),
+        )
+        .ok()
 }
 
 #[tauri::command]
@@ -324,6 +339,7 @@ pub async fn execute_action_step(
     let actions: Vec<SuggestedAction> = serde_json::from_str(&item.0).map_err(map_err)?;
     let related_mail_ids: Vec<String> = serde_json::from_str(&item.1.unwrap_or_else(|| "[]".into()))
         .map_err(map_err)?;
+    let contact_email = item.2.clone();
     let action = actions
         .get(input.action_index)
         .ok_or_else(|| format!("action_index out of bounds: {}", input.action_index))?;
@@ -606,6 +622,63 @@ pub async fn execute_action_step(
                     Ok(()) => results.push(StepResult::MailMarkedRead { mail_id: mid, read }),
                     Err(e) => results.push(StepResult::Skipped {
                         reason: format!("mark_read 失败: {}", e),
+                    }),
+                }
+            }
+            "contact_vip" | "contact_unvip" => {
+                let Some(email) = contact_email.clone() else {
+                    results.push(StepResult::Skipped {
+                        reason: "contact_vip 步骤需要 contact_email，但该 brief item 没有关联联系人".into(),
+                    });
+                    continue;
+                };
+                let Some(cid) = lookup_contact_id(&state, &email) else {
+                    results.push(StepResult::Skipped {
+                        reason: format!("未找到联系人 {} 的本地 id（可能未从 Google/Outlook 同步）", email),
+                    });
+                    continue;
+                };
+                let vip = if step.kind == "contact_unvip" {
+                    false
+                } else {
+                    !matches!(
+                        step.detail.trim().to_ascii_lowercase().as_str(),
+                        "false" | "no" | "0" | "off" | "unvip"
+                    )
+                };
+                match crate::mail_commands::set_contact_vip(state.clone(), cid.clone(), vip) {
+                    Ok(()) => results.push(StepResult::ContactVipped { contact_id: cid, vip }),
+                    Err(e) => results.push(StepResult::Skipped {
+                        reason: format!("contact_vip 失败: {}", e),
+                    }),
+                }
+            }
+            "contact_note" => {
+                let Some(email) = contact_email.clone() else {
+                    results.push(StepResult::Skipped {
+                        reason: "contact_note 步骤需要 contact_email，但该 brief item 没有关联联系人".into(),
+                    });
+                    continue;
+                };
+                let Some(cid) = lookup_contact_id(&state, &email) else {
+                    results.push(StepResult::Skipped {
+                        reason: format!("未找到联系人 {} 的本地 id", email),
+                    });
+                    continue;
+                };
+                let note_raw = step.detail.trim();
+                let note_opt = if note_raw.is_empty() {
+                    None
+                } else {
+                    Some(note_raw.to_string())
+                };
+                match crate::mail_commands::set_contact_note(state.clone(), cid.clone(), note_opt.clone()) {
+                    Ok(()) => results.push(StepResult::ContactNoted {
+                        contact_id: cid,
+                        note: note_opt,
+                    }),
+                    Err(e) => results.push(StepResult::Skipped {
+                        reason: format!("contact_note 失败: {}", e),
                     }),
                 }
             }

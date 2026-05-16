@@ -28,6 +28,8 @@ mod writer;
 mod event_extractor;
 mod task_extractor;
 mod tasks;
+mod task_pulse;
+mod calendar_pulse;
 mod briefing_orchestrator;
 mod briefing_commands;
 

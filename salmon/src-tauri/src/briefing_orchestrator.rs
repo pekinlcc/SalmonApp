@@ -15,12 +15,14 @@
 //! Better than nothing.
 
 use crate::briefing_llm;
+use crate::calendar_pulse;
 use crate::cross_link;
 use crate::db::Db;
 use crate::llm;
 use crate::pulse::{self, PulseItem, SuggestedAction, ActionStep};
 use crate::roost;
 use crate::rubric;
+use crate::task_pulse;
 use anyhow::{anyhow, Context, Result};
 use parking_lot::Mutex;
 use rusqlite::params;
@@ -122,6 +124,32 @@ pub async fn run_briefing(
         }
     }
 
+    // ── Cross-domain pulse (heuristic, no LLM) ─────────────────────
+    // task_pulse + calendar_pulse run synchronously off the local DB —
+    // they finish in milliseconds, no need to gate on engine availability.
+    // Items go into separate vecs so write_items can tag them with the
+    // right BriefItem.kind. They also skip the briefing-LLM dedup pass
+    // (their content doesn't overlap with contact-anchored mail cards).
+    let task_items: Vec<PulseItem> = {
+        let guard = db.lock();
+        task_pulse::analyse(&guard).unwrap_or_else(|e| {
+            eprintln!("[salmon][task_pulse] failed: {}", e);
+            Vec::new()
+        })
+    };
+    let event_items: Vec<PulseItem> = {
+        let guard = db.lock();
+        calendar_pulse::analyse(&guard).unwrap_or_else(|e| {
+            eprintln!("[salmon][calendar_pulse] failed: {}", e);
+            Vec::new()
+        })
+    };
+    eprintln!(
+        "[salmon][briefing] cross-domain pulse: {} task items, {} event items",
+        task_items.len(),
+        event_items.len()
+    );
+
     // ── Global Briefing (dedup + rank + overview) ──────────────────
     let global = if let Some(eng) = engine.as_deref() {
         if flat.is_empty() {
@@ -212,6 +240,8 @@ pub async fn run_briefing(
         &global,
         &topic_recs,
         &cross_links,
+        &task_items,
+        &event_items,
     )
     .context("persist brief_items")?;
 
@@ -322,6 +352,8 @@ fn write_items(
     global: &briefing_llm::GlobalBriefing,
     topic_recs: &[RecRow],
     cross_links: &[cross_link::CrossLink],
+    task_items: &[PulseItem],
+    event_items: &[PulseItem],
 ) -> Result<usize> {
     // Build a set of mail indices and topic-rec ids that are covered by
     // cross-links — these don't get their own standalone row.
@@ -517,6 +549,97 @@ fn write_items(
                 serde_json::to_string(&Vec::<String>::new())?,
                 serde_json::to_string(&actions)?,
                 priority_score(&rec.priority),
+                now_ms,
+            ],
+        )?;
+        count += 1;
+    }
+
+    // v1.11.0: task_pulse + calendar_pulse items — heuristic, no LLM
+    // dedup pass needed because they target distinct entities (task ids
+    // and event ids) that the contact-anchored mail items don't surface.
+    // Conflict-of-events cards naturally come out of calendar_pulse
+    // pre-deduped by (a.id, b.id) pair.
+    for it in task_items {
+        let id = uuid::Uuid::new_v4().to_string();
+        let mut suggested = it.suggested_actions.clone();
+        if !suggested
+            .iter()
+            .any(|a| a.steps.iter().any(|s| s.kind == "acknowledge"))
+        {
+            suggested.push(SuggestedAction {
+                label: "我已知晓".into(),
+                steps: vec![ActionStep {
+                    kind: "acknowledge".into(),
+                    detail: String::new(),
+                }],
+            });
+        }
+        guard.conn().execute(
+            "INSERT INTO brief_items
+               (id, briefing_id, kind, priority, title, summary, why,
+                contact_email, topic_id, related_mail_ids, related_topic_ids,
+                related_event_ids, suggested_actions, status, score, created_at)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?, 'pending', ?, ?)",
+            params![
+                id,
+                briefing_id,
+                "task",
+                it.priority,
+                it.title,
+                it.summary,
+                it.why,
+                None::<String>,
+                None::<String>,
+                serde_json::to_string(&Vec::<String>::new())?,
+                serde_json::to_string(&Vec::<String>::new())?,
+                serde_json::to_string(&Vec::<String>::new())?,
+                serde_json::to_string(&suggested)?,
+                priority_score(&it.priority),
+                now_ms,
+            ],
+        )?;
+        count += 1;
+    }
+
+    for it in event_items {
+        let id = uuid::Uuid::new_v4().to_string();
+        let mut suggested = it.suggested_actions.clone();
+        if !suggested
+            .iter()
+            .any(|a| a.steps.iter().any(|s| s.kind == "acknowledge"))
+        {
+            suggested.push(SuggestedAction {
+                label: "我已知晓".into(),
+                steps: vec![ActionStep {
+                    kind: "acknowledge".into(),
+                    detail: String::new(),
+                }],
+            });
+        }
+        guard.conn().execute(
+            "INSERT INTO brief_items
+               (id, briefing_id, kind, priority, title, summary, why,
+                contact_email, topic_id, related_mail_ids, related_topic_ids,
+                related_event_ids, suggested_actions, status, score, created_at)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?, 'pending', ?, ?)",
+            params![
+                id,
+                briefing_id,
+                "event",
+                it.priority,
+                it.title,
+                it.summary,
+                it.why,
+                None::<String>,
+                None::<String>,
+                serde_json::to_string(&Vec::<String>::new())?,
+                serde_json::to_string(&Vec::<String>::new())?,
+                serde_json::to_string(&it.related_event_ids)?,
+                serde_json::to_string(&suggested)?,
+                // Event/task pulses score above same-priority mail cards
+                // so they don't get buried beneath an overflowing inbox.
+                priority_score(&it.priority) + 0.5,
                 now_ms,
             ],
         )?;

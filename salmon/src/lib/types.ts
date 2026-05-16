@@ -359,7 +359,7 @@ export interface SuggestedAction {
 export interface BriefItem {
   id: string;
   briefingId: string;
-  kind: "mail" | "topic" | "cross" | "event";
+  kind: "mail" | "topic" | "cross" | "event" | "task";
   priority: "high" | "medium" | "low";
   title: string;
   summary?: string | null;
@@ -415,6 +415,8 @@ export type StepResult =
   | { kind: "MailArchived"; mailId: string }
   | { kind: "MailStarred"; mailId: string; starred: boolean }
   | { kind: "MailMarkedRead"; mailId: string; read: boolean }
+  | { kind: "ContactVipped"; contactId: string; vip: boolean }
+  | { kind: "ContactNoted"; contactId: string; note: string | null }
   | { kind: "Skipped"; reason: string };
 
 // v0.9.1: Tasks (Google Tasks + Microsoft Graph Todo)
