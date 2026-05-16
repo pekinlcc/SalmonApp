@@ -359,7 +359,7 @@ export interface SuggestedAction {
 export interface BriefItem {
   id: string;
   briefingId: string;
-  kind: "mail" | "topic" | "cross" | "event" | "task";
+  kind: "mail" | "topic" | "cross" | "event" | "task" | "gap";
   priority: "high" | "medium" | "low";
   title: string;
   summary?: string | null;

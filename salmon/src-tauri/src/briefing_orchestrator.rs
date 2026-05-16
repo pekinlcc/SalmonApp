@@ -17,6 +17,7 @@
 use crate::briefing_llm;
 use crate::calendar_pulse;
 use crate::cross_link;
+use crate::cross_pulse;
 use crate::db::Db;
 use crate::llm;
 use crate::pulse::{self, PulseItem, SuggestedAction, ActionStep};
@@ -150,6 +151,25 @@ pub async fn run_briefing(
         event_items.len()
     );
 
+    // cross_pulse needs an LLM; skip cleanly when no engine. One LLM call
+    // total per briefing run (not per contact), so the cost stays bounded.
+    let gap_items: Vec<PulseItem> = if let Some(eng) = engine.as_deref() {
+        emit(&app, "cross-pulse", 0, 1, None);
+        match cross_pulse::analyse(eng, &db).await {
+            Ok(items) => items,
+            Err(e) => {
+                eprintln!("[salmon][cross_pulse] failed: {} — continuing without gap items", e);
+                Vec::new()
+            }
+        }
+    } else {
+        Vec::new()
+    };
+    eprintln!(
+        "[salmon][briefing] cross-domain pulse (LLM): {} gap items",
+        gap_items.len()
+    );
+
     // ── Global Briefing (dedup + rank + overview) ──────────────────
     let global = if let Some(eng) = engine.as_deref() {
         if flat.is_empty() {
@@ -242,6 +262,7 @@ pub async fn run_briefing(
         &cross_links,
         &task_items,
         &event_items,
+        &gap_items,
     )
     .context("persist brief_items")?;
 
@@ -354,6 +375,7 @@ fn write_items(
     cross_links: &[cross_link::CrossLink],
     task_items: &[PulseItem],
     event_items: &[PulseItem],
+    gap_items: &[PulseItem],
 ) -> Result<usize> {
     // Build a set of mail indices and topic-rec ids that are covered by
     // cross-links — these don't get their own standalone row.
@@ -640,6 +662,53 @@ fn write_items(
                 // Event/task pulses score above same-priority mail cards
                 // so they don't get buried beneath an overflowing inbox.
                 priority_score(&it.priority) + 0.5,
+                now_ms,
+            ],
+        )?;
+        count += 1;
+    }
+
+    // v1.12.0: cross_pulse gap items. Each carries its own related_mail_ids
+    // and related_event_ids the LLM picked out, plus a single
+    // suggested_action mapped to one of the existing ActionStep kinds.
+    // Gap cards score above same-priority event cards because by design
+    // they only show up when something is missing — never noise.
+    for it in gap_items {
+        let id = uuid::Uuid::new_v4().to_string();
+        let mut suggested = it.suggested_actions.clone();
+        if !suggested
+            .iter()
+            .any(|a| a.steps.iter().any(|s| s.kind == "acknowledge"))
+        {
+            suggested.push(SuggestedAction {
+                label: "我已知晓".into(),
+                steps: vec![ActionStep {
+                    kind: "acknowledge".into(),
+                    detail: String::new(),
+                }],
+            });
+        }
+        guard.conn().execute(
+            "INSERT INTO brief_items
+               (id, briefing_id, kind, priority, title, summary, why,
+                contact_email, topic_id, related_mail_ids, related_topic_ids,
+                related_event_ids, suggested_actions, status, score, created_at)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?, 'pending', ?, ?)",
+            params![
+                id,
+                briefing_id,
+                "gap",
+                it.priority,
+                it.title,
+                it.summary,
+                it.why,
+                None::<String>,
+                None::<String>,
+                serde_json::to_string(&it.related_mail_ids)?,
+                serde_json::to_string(&Vec::<String>::new())?,
+                serde_json::to_string(&it.related_event_ids)?,
+                serde_json::to_string(&suggested)?,
+                priority_score(&it.priority) + 0.7,
                 now_ms,
             ],
         )?;

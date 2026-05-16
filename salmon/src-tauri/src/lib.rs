@@ -30,6 +30,7 @@ mod task_extractor;
 mod tasks;
 mod task_pulse;
 mod calendar_pulse;
+mod cross_pulse;
 mod briefing_orchestrator;
 mod briefing_commands;
 
