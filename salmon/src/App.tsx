@@ -21,6 +21,7 @@ import { CalendarView } from "./components/CalendarView";
 import { TasksView } from "./components/TasksView";
 import { Toasts } from "./components/Toasts";
 import { SearchDialog } from "./components/SearchDialog";
+import { GlobalAIButton, type GlobalAIContext } from "./components/GlobalAIButton";
 
 interface PendingPerm {
   id: string;
@@ -396,6 +397,13 @@ export default function App() {
   // continueWithLocalContext hasn't fired yet. Without this, the dots
   // briefly disappear and users think the AI stopped.
   const [anticipatingByTopic, setAnticipatingByTopic] = useState<Record<string, number>>({});
+  // v1.17.0: structured app-state snapshot for the global ⌘K AI button.
+  // Updated by per-view onContextChange callbacks (MailView pushes the
+  // currently-selected message in real time; other views default to
+  // their kind without selection details). When the AI button submits,
+  // we serialise this into a context-seed system message on the new
+  // scratch Topic.
+  const [mailContext, setMailContext] = useState<{ accountId?: string | null; messageId?: string | null; threadId?: string | null; subject?: string | null; fromEmail?: string | null; fromName?: string | null } | null>(null);
   const [pendingPermByTopic, setPendingPermByTopic] = useState<Record<string, PendingPerm | null>>({});
   const [errorByTopic, setErrorByTopic] = useState<Record<string, string | null>>({});
   const [selectedTool, setSelectedTool] = useState<ToolCall | null>(null);
@@ -1143,6 +1151,91 @@ export default function App() {
     [markRead]
   );
 
+  /** v1.17.0: "+ 新建" quick-path — no dialog, scratch workdir,
+   *  immediately focused. Routes through the same selection/init
+   *  scaffolding as the dialog flow. */
+  const onQuickNewTopic = useCallback(async () => {
+    let t: Topic;
+    try {
+      t = await api.createQuickTopic({});
+    } catch (e: any) {
+      window.dispatchEvent(new CustomEvent("salmon:toast", {
+        detail: { title: "新建 Topic 失败", body: String(e), kind: "error" },
+      }));
+      return;
+    }
+    setTopics((cur) => [t, ...cur.filter((x) => x.id !== t.id)]);
+    setMessagesByTopic((m) => ({ ...m, [t.id]: [] }));
+    setLogsByTopic((m) => ({ ...m, [t.id]: [] }));
+    setBusyByTopic((m) => ({ ...m, [t.id]: false }));
+    setPendingPermByTopic((m) => ({ ...m, [t.id]: null }));
+    setErrorByTopic((m) => ({ ...m, [t.id]: null }));
+    setWorkdirOkByTopic((m) => ({ ...m, [t.id]: true }));
+    setSelectedTool(null);
+    setSelectedId(t.id);
+    setTopView("topic");
+    markRead(t.id);
+    setSpawningId(t.id);
+    try {
+      await api.openTopic(t.id);
+    } catch (e: any) {
+      setErrorByTopic((er) => ({ ...er, [t.id]: String(e) }));
+      setSpawningId(null);
+    }
+    return t;
+  }, [markRead]);
+
+  // v1.17.0: Cmd/Ctrl+N opens the quick path; Cmd/Ctrl+Shift+N opens the
+  // dialog. Pattern intentionally mirrors the Cmd+F / Cmd+Shift+F split
+  // we landed in v1.16.0 for search scopes.
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      if (e.key.toLowerCase() !== "n") return;
+      e.preventDefault();
+      if (e.shiftKey) {
+        setShowNew(true);
+      } else {
+        void onQuickNewTopic();
+      }
+    };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, [onQuickNewTopic]);
+
+  // v1.17.0: derive the current global-AI context from topView + any
+  // selection state lifted up via onContextChange. Other views (cal,
+  // tasks, contacts, briefing) report just their kind for now — the
+  // agent can salmon-query for specifics if it needs them.
+  const currentAIContext: GlobalAIContext = useMemo(() => {
+    if (selectedTopic) {
+      return { kind: "topic", topicId: selectedTopic.id, topicTitle: selectedTopic.title };
+    }
+    if (topView === "mail") {
+      const c = mailContext;
+      return {
+        kind: "mail",
+        view: c?.messageId ? "detail" : "list",
+        accountId: c?.accountId ?? null,
+        messageId: c?.messageId ?? null,
+        threadId: c?.threadId ?? null,
+        subject: c?.subject ?? null,
+        fromEmail: c?.fromEmail ?? null,
+        fromName: c?.fromName ?? null,
+      };
+    }
+    if (topView === "calendar") return { kind: "calendar" };
+    if (topView === "tasks") return { kind: "tasks", filter: "pending" };
+    if (topView === "contacts") return { kind: "contacts" };
+    if (topView === "home") return { kind: "briefing" };
+    return { kind: "home" };
+  }, [topView, selectedTopic, mailContext]);
+
+  // onAISubmit is declared further down, AFTER sendToTopic (which it
+  // calls). Placed there to avoid the temporal-dead-zone reference
+  // error of consuming a useCallback'd const before its initialiser.
+
+
   const sendToTopic = useCallback(
     async (topicId: string, text: string) => {
       const now = Date.now();
@@ -1180,6 +1273,58 @@ export default function App() {
     },
     [consumeQueuedTurn, incrementQueuedTurn]
   );
+
+  /** v1.17.0: ⌘K AI button onSubmit handler. Creates a scratch Topic →
+   *  drops a context-seed system message in → sends the user's text
+   *  as the first user message → navigates. Returns the new topic id
+   *  so the GlobalAIButton can dismiss its popover. */
+  const onAISubmit = useCallback(async (userText: string, ctx: GlobalAIContext): Promise<string | null> => {
+    let t: Topic;
+    try {
+      t = await api.createQuickTopic({ title: deriveAITopicTitle(userText) });
+    } catch (e: any) {
+      window.dispatchEvent(new CustomEvent("salmon:toast", {
+        detail: { title: "AI 新建 Topic 失败", body: String(e), kind: "error" },
+      }));
+      return null;
+    }
+    setTopics((cur) => [t, ...cur.filter((x) => x.id !== t.id)]);
+    setMessagesByTopic((m) => ({ ...m, [t.id]: [] }));
+    setLogsByTopic((m) => ({ ...m, [t.id]: [] }));
+    setBusyByTopic((m) => ({ ...m, [t.id]: false }));
+    setPendingPermByTopic((m) => ({ ...m, [t.id]: null }));
+    setErrorByTopic((m) => ({ ...m, [t.id]: null }));
+    setWorkdirOkByTopic((m) => ({ ...m, [t.id]: true }));
+
+    const seed = formatAIContextSeed(ctx);
+    if (seed) {
+      try {
+        await api.appendSystemMessage(t.id, seed);
+      } catch (e: any) {
+        api.debugLog(`appendSystemMessage failed: ${e}`);
+      }
+    }
+
+    setSelectedTool(null);
+    setSelectedId(t.id);
+    setTopView("topic");
+    markRead(t.id);
+
+    setSpawningId(t.id);
+    try {
+      await api.openTopic(t.id);
+    } catch (e: any) {
+      setErrorByTopic((er) => ({ ...er, [t.id]: String(e) }));
+      setSpawningId(null);
+      return t.id;
+    }
+    try {
+      await sendToTopic(t.id, userText);
+    } catch (e: any) {
+      api.debugLog(`AI initial send failed: ${e}`);
+    }
+    return t.id;
+  }, [markRead, sendToTopic]);
 
   const continueWithLocalContext = useCallback(
     async (topicId: string, content: string) => {
@@ -1395,6 +1540,7 @@ export default function App() {
           spawningId={spawningId}
           cliStatus={cliStatus}
           onSelect={(id) => { setTopView("topic"); onSelect(id); }}
+          onQuickNewTopic={onQuickNewTopic}
           onNewTopic={() => setShowNew(true)}
           onOpenSearch={openSearch}
           onDeleteTopic={onDelete}
@@ -1412,6 +1558,7 @@ export default function App() {
                 onConsumeComposeReply={() => setPendingComposeReply(null)}
                 pendingOpenMail={pendingOpenMail}
                 onConsumePendingOpenMail={() => setPendingOpenMail(null)}
+                onContextChange={setMailContext}
               />
             ) : topView === "contacts" ? (
               <ContactsView />
@@ -1617,6 +1764,10 @@ export default function App() {
         onClick={onToastClick}
         onAction={navigateActionTarget}
       />
+      {/* v1.17.0: global ⌘K AI button. FAB lives in the app root so it
+          sits above every view's content. The button itself decides when
+          to render the popover based on its own open state. */}
+      <GlobalAIButton context={currentAIContext} onSubmit={onAISubmit} />
     </div>
   );
 }
@@ -1631,6 +1782,82 @@ function cryptoId(): string {
 function truncate(s: string, n: number): string {
   if (!s) return "";
   return s.length > n ? s.slice(0, n) + "…" : s;
+}
+
+/** v1.17.0: derive a short Topic title from the AI button's first user
+ *  message. We just trim + take the first ~20 chars; the existing
+ *  suggest_topic_title background job kicks in after the first
+ *  assistant reply and replaces this with something better. */
+function deriveAITopicTitle(text: string): string {
+  const t = text.trim().replace(/\s+/g, " ");
+  if (!t) return "新建 Topic";
+  return t.length > 20 ? t.slice(0, 19) + "…" : t;
+}
+
+/** v1.17.0: turn the structured GlobalAIContext into a system message
+ *  prepended to the new Topic. Empty / home / topic-recurse cases
+ *  return "" so we skip the append. */
+function formatAIContextSeed(ctx: GlobalAIContext): string {
+  const lines: string[] = ["【SalmonApp 上下文 — 用户用 ⌘K 从某个视图发起此对话】"];
+  switch (ctx.kind) {
+    case "home":
+      return "";
+    case "mail": {
+      if (!ctx.messageId) {
+        lines.push("视图：邮件 / 收件箱列表（未选中具体邮件）");
+        break;
+      }
+      lines.push("视图：邮件 / 详情");
+      lines.push(`- 邮件 id：${ctx.messageId}`);
+      if (ctx.threadId) lines.push(`- thread id：${ctx.threadId}`);
+      if (ctx.subject) lines.push(`- 主题：${ctx.subject}`);
+      const who = [ctx.fromName, ctx.fromEmail ? `<${ctx.fromEmail}>` : ""].filter(Boolean).join(" ");
+      if (who) lines.push(`- 发件人：${who}`);
+      if (ctx.accountId) lines.push(`- 账号 id：${ctx.accountId}`);
+      lines.push("- 如需更多细节用 salmon-query mail.get / mail.thread。");
+      break;
+    }
+    case "calendar":
+      lines.push("视图：日历");
+      if (ctx.selectedEventId) {
+        lines.push(`- 选中事件 id：${ctx.selectedEventId}`);
+        if (ctx.selectedTitle) lines.push(`- 标题：${ctx.selectedTitle}`);
+        lines.push("- 用 salmon-query calendar.list 取窗口、用 mail.search 拉相关邮件。");
+      } else {
+        lines.push("- 未选中具体事件；如果用户指代'某场会议'请先 calendar.list 拉今/明日。");
+      }
+      break;
+    case "tasks":
+      lines.push("视图：待办");
+      if (ctx.selectedTaskId) {
+        lines.push(`- 选中待办 id：${ctx.selectedTaskId}`);
+        if (ctx.selectedTitle) lines.push(`- 标题：${ctx.selectedTitle}`);
+      } else {
+        lines.push(`- 未选中具体待办；过滤=${ctx.filter ?? "pending"}。`);
+        lines.push("- 用 salmon-query tasks.list 取列表。");
+      }
+      break;
+    case "contacts":
+      lines.push("视图：联系人");
+      if (ctx.selectedEmail) {
+        lines.push(`- 选中联系人：${ctx.selectedName ?? ""} <${ctx.selectedEmail}>`);
+        lines.push("- 用 salmon-query contacts.detail 取 30 天 360。");
+      } else {
+        lines.push("- 未选中具体联系人。");
+      }
+      break;
+    case "briefing":
+      lines.push("视图：首页 / 推荐");
+      if (ctx.focusedItemId) {
+        lines.push(`- 当前关注的推荐项：${ctx.focusedTitle ?? ctx.focusedItemId}`);
+      }
+      break;
+    case "topic":
+      return ""; // recursing from a Topic — context is already implicit
+  }
+  lines.push("");
+  lines.push("用户接下来的消息可能用'这件事 / 这封 / 这个'指代上面这些。");
+  return lines.join("\n");
 }
 
 function formatTokensCompact(n: number): string {

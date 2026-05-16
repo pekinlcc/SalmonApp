@@ -7,6 +7,10 @@ export interface Topic {
   sessionId: string | null;
   dangerMode: boolean;
   archived?: boolean;
+  /** v1.17.0: true when this Topic was created via "+ 新建" (quick
+   *  path). Its workdir is under app_data_dir/topics/<id>/ and is
+   *  owned by SalmonApp — rm -rf'd on delete. */
+  isScratch?: boolean;
   createdAt: number;
   updatedAt: number;
 }

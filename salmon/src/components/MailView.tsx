@@ -22,6 +22,10 @@ interface MailViewProps {
    *  account if needed and selecting the row. */
   pendingOpenMail?: { messageId?: string | null; accountId?: string | null } | null;
   onConsumePendingOpenMail?: () => void;
+  /** v1.17.0: report selection state up so the global ⌘K AI button can
+   *  reference the currently-focused mail. Called whenever the selected
+   *  message id (and resolved body, for subject/sender) changes. */
+  onContextChange?: (ctx: { accountId?: string | null; messageId?: string | null; threadId?: string | null; subject?: string | null; fromEmail?: string | null; fromName?: string | null }) => void;
 }
 
 export function MailView({
@@ -29,6 +33,7 @@ export function MailView({
   onConsumeComposeReply,
   pendingOpenMail,
   onConsumePendingOpenMail,
+  onContextChange,
 }: MailViewProps = {}) {
   const [accounts, setAccounts] = useState<MailAccount[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
@@ -201,6 +206,27 @@ export function MailView({
     setSelectedMessageId(null);
     setSelectedBody(null);
   }, [selectedAccountId, reloadMessages]);
+
+  // v1.17.0: push the live mail-detail selection up so the global ⌘K
+  // popover's context chip knows what the user is staring at.
+  useEffect(() => {
+    if (!onContextChange) return;
+    if (selectedBody) {
+      onContextChange({
+        accountId: selectedBody.accountId,
+        messageId: selectedBody.id,
+        threadId: selectedBody.threadId ?? null,
+        subject: selectedBody.subject ?? null,
+        fromEmail: selectedBody.fromEmail ?? null,
+        fromName: selectedBody.fromName ?? null,
+      });
+    } else {
+      onContextChange({
+        accountId: selectedAccountId,
+        messageId: selectedMessageId,
+      });
+    }
+  }, [selectedAccountId, selectedMessageId, selectedBody, onContextChange]);
 
   useEffect(() => {
     if (!selectedMessageId) { setSelectedBody(null); return; }

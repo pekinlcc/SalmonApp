@@ -13,6 +13,17 @@ export const api = {
     model: string | null;
     dangerMode: boolean;
   }) => invoke<Topic>("create_topic", args),
+  // v1.17.0: "+ 新建" quick-path — no workdir prompt, SalmonApp owns the
+  // scratch directory under app_data_dir/topics/<topic_id>/. Returned
+  // Topic has isScratch=true so the list pill and delete cleanup hook
+  // know about it.
+  createQuickTopic: (args?: { title?: string | null; engine?: string | null }) =>
+    invoke<Topic>("create_quick_topic", {
+      title: args?.title ?? null,
+      engine: args?.engine ?? null,
+    }),
+  appendSystemMessage: (topicId: string, content: string) =>
+    invoke<Message>("append_system_message", { topicId, content }),
   listTopics: () => invoke<Topic[]>("list_topics"),
   deleteTopic: (id: string) => invoke<void>("delete_topic", { id }),
   renameTopic: (id: string, title: string) =>

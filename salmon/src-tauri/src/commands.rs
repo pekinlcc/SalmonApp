@@ -236,6 +236,90 @@ pub fn create_topic(
     Ok(t)
 }
 
+/// v1.17.0: "+ 新建" path. No workdir prompt — SalmonApp picks
+/// {app_data_dir}/topics/{topic_uuid}/ as the scratch workdir, creates
+/// the directory, and marks the Topic is_scratch=1 so delete_topic later
+/// rm -rf's the dir alongside the DB row. UUID as folder name (not
+/// title) so renaming the Topic doesn't require moving the directory.
+#[tauri::command]
+pub fn create_quick_topic(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+    title: Option<String>,
+    engine: Option<String>,
+) -> Result<Topic, String> {
+    use tauri::Manager;
+    let base = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("解析 app_data_dir 失败: {}", e))?;
+    let topics_root = base.join("topics");
+    std::fs::create_dir_all(&topics_root)
+        .map_err(|e| format!("创建 {} 失败: {}", topics_root.display(), e))?;
+
+    // We materialise the workdir BEFORE inserting the Topic row so a
+    // mkdir failure leaves no orphan row pointing at a missing path.
+    let topic_id = uuid::Uuid::new_v4().to_string();
+    let workdir = topics_root.join(&topic_id);
+    std::fs::create_dir_all(&workdir)
+        .map_err(|e| format!("创建 scratch 目录失败: {}", e))?;
+    let workdir_str = workdir.to_string_lossy().into_owned();
+
+    let engine = engine.unwrap_or_else(|| {
+        // Mirror the "default engine" preference the dialog path uses.
+        state
+            .db
+            .lock()
+            .get_setting("default_engine")
+            .ok()
+            .flatten()
+            .unwrap_or_else(|| "claude".to_string())
+    });
+    let title = title.unwrap_or_else(|| "新建 Topic".to_string());
+
+    let db = state.db.lock();
+    // Use the variant directly so the freshly-generated topic_id matches
+    // the workdir folder name. create_topic_with_scratch otherwise picks
+    // its own UUID — keep them aligned with one insert + return helper.
+    let now = chrono::Utc::now().timestamp_millis();
+    db.conn().execute(
+        "INSERT INTO topics (id,title,engine,workdir,model,session_id,danger_mode,is_scratch,created_at,updated_at)
+         VALUES (?,?,?,?,?,?,?,?,?,?)",
+        rusqlite::params![topic_id, title, engine, workdir_str, Option::<String>::None, Option::<String>::None, 0i64, 1i64, now, now],
+    ).map_err(map_err)?;
+    Ok(Topic {
+        id: topic_id,
+        title,
+        engine,
+        workdir: workdir_str,
+        model: None,
+        session_id: None,
+        danger_mode: false,
+        archived: false,
+        is_scratch: true,
+        created_at: now,
+        updated_at: now,
+    })
+}
+
+/// v1.17.0: lets the global AI button drop a context-seed system message
+/// into a freshly-created Topic *before* the user's first message. This
+/// is a thin wrapper around Db::append_message; the existing
+/// send_message path can't be reused because we need role="system"
+/// without triggering an engine turn.
+#[tauri::command]
+pub fn append_system_message(
+    state: State<'_, AppState>,
+    topic_id: String,
+    content: String,
+) -> Result<Message, String> {
+    state
+        .db
+        .lock()
+        .append_message(&topic_id, "system", &content, None)
+        .map_err(map_err)
+}
+
 #[tauri::command]
 pub fn list_topics(state: State<'_, AppState>) -> Result<Vec<Topic>, String> {
     state.db.lock().list_topics().map_err(map_err)
@@ -244,7 +328,27 @@ pub fn list_topics(state: State<'_, AppState>) -> Result<Vec<Topic>, String> {
 #[tauri::command]
 pub fn delete_topic(state: State<'_, AppState>, id: String) -> Result<(), String> {
     state.engine.close(&id);
-    state.db.lock().delete_topic(&id).map_err(map_err)
+    // v1.17.0: if the Topic was created via the "+ 新建" quick path, its
+    // workdir lives inside app_data_dir/topics/<id>/ and is owned by us —
+    // rm -rf it after the DB row is gone. Non-scratch topics bind to a
+    // user-chosen directory and we leave that alone.
+    let scratch_workdir: Option<String> = {
+        let db = state.db.lock();
+        db.get_topic(&id)
+            .ok()
+            .flatten()
+            .filter(|t| t.is_scratch)
+            .map(|t| t.workdir)
+    };
+    state.db.lock().delete_topic(&id).map_err(map_err)?;
+    if let Some(path) = scratch_workdir {
+        if let Err(e) = std::fs::remove_dir_all(&path) {
+            // Soft failure: log but don't fail the delete. The DB row is
+            // already gone; a leftover empty scratch dir is harmless.
+            eprintln!("[salmon][delete_topic] rm -rf {} failed: {}", path, e);
+        }
+    }
+    Ok(())
 }
 
 #[tauri::command]

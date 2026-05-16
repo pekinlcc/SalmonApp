@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>SalmonApp · 全局 AI 按钮 Mockup</title>
+  <style>
+    :root {
+      --salmon: #E8A082;
+      --salmon-50: #FFE4DA;
+      --salmon-100: #FFD2C0;
+      --salmon-700: #B7493D;
+      --ink-900: #2C2723;
+      --ink-700: #5A4F47;
+      --ink-500: #8C7E73;
+      --ink-100: #E8E2DC;
+      --ink-50: #F5F2EF;
+      --panel: #FFFFFF;
+      --bg: #F8F5F2;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "PingFang SC", sans-serif;
+      margin: 0;
+      padding: 24px;
+      background: var(--bg);
+      color: var(--ink-900);
+    }
+    h1 { font-size: 18px; margin: 0 0 4px; }
+    h1 small { color: var(--ink-500); font-weight: 400; font-size: 13px; margin-left: 8px; }
+    .intro { color: var(--ink-500); font-size: 13px; margin-bottom: 20px; max-width: 900px; line-height: 1.6; }
+    .mockup-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      max-width: 1900px;
+    }
+    .mockup {
+      background: var(--panel);
+      border-radius: 10px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.06);
+      overflow: hidden;
+      height: 640px;
+      display: flex;
+      flex-direction: column;
+    }
+    .mockup-head {
+      padding: 12px 16px;
+      background: var(--ink-50);
+      border-bottom: 1px solid var(--ink-100);
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .mockup-head small { color: var(--ink-500); font-weight: 400; margin-left: 6px; }
+    .mockup-body { flex: 1; position: relative; overflow: hidden; }
+
+    /* Shared mock left rail */
+    .mock-rail {
+      position: absolute; left: 0; top: 0; bottom: 0; width: 52px;
+      background: var(--ink-50);
+      border-right: 1px solid var(--ink-100);
+      padding: 12px 0;
+      display: flex; flex-direction: column; align-items: center; gap: 8px;
+    }
+    .mock-rail-item {
+      width: 32px; height: 32px; border-radius: 8px;
+      background: var(--ink-100);
+      display: flex; align-items: center; justify-content: center;
+      color: var(--ink-500); font-size: 14px;
+    }
+    .mock-rail-item.active {
+      background: var(--salmon-50);
+      color: var(--salmon-700);
+    }
+    .mock-rail-spacer { flex: 1; }
+    .mock-rail-bottom {
+      width: 32px; height: 32px; border-radius: 8px;
+      background: var(--ink-100); color: var(--ink-500);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px;
+    }
+
+    /* Mock mail view */
+    .mock-list {
+      position: absolute; left: 52px; top: 0; bottom: 0; width: 220px;
+      background: #FBF9F7;
+      border-right: 1px solid var(--ink-100);
+      padding: 12px 8px;
+      overflow-y: auto;
+    }
+    .mock-mail-item {
+      padding: 8px 10px;
+      border-radius: 6px;
+      margin-bottom: 4px;
+    }
+    .mock-mail-item.selected {
+      background: var(--salmon-50);
+    }
+    .mock-mail-subject { font-size: 12px; font-weight: 600; color: var(--ink-900); margin-bottom: 2px; }
+    .mock-mail-from { font-size: 10px; color: var(--ink-500); }
+    .mock-detail {
+      position: absolute; left: 272px; right: 0; top: 0; bottom: 0;
+      padding: 18px 22px;
+      overflow-y: auto;
+    }
+    .mock-detail h2 { font-size: 15px; margin: 0 0 6px; }
+    .mock-detail .meta { font-size: 11px; color: var(--ink-500); margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid var(--ink-100); }
+    .mock-detail .body { font-size: 12px; line-height: 1.7; color: var(--ink-700); }
+
+    /* AI FAB */
+    .ai-fab {
+      position: absolute; bottom: 18px; right: 18px;
+      background: linear-gradient(135deg, #F0B091, #D86F4A);
+      color: white;
+      border: none;
+      border-radius: 999px;
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 6px 18px rgba(216, 111, 74, 0.35);
+      font-weight: 600;
+      font-size: 12px;
+      cursor: pointer;
+      z-index: 10;
+    }
+    .ai-fab-icon { font-size: 14px; }
+    .ai-fab kbd {
+      background: rgba(255,255,255,0.25);
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-size: 10px;
+      font-family: ui-monospace, "SF Mono", monospace;
+    }
+
+    /* AI input popover */
+    .ai-popover {
+      position: absolute; bottom: 70px; right: 18px;
+      width: 380px;
+      background: white;
+      border-radius: 14px;
+      box-shadow: 0 16px 40px rgba(0,0,0,0.18), 0 0 0 1px var(--ink-100);
+      padding: 14px;
+      z-index: 12;
+    }
+    .ai-popover-tail {
+      position: absolute; bottom: -8px; right: 28px;
+      width: 16px; height: 16px;
+      background: white;
+      transform: rotate(45deg);
+      box-shadow: 2px 2px 0 0 var(--ink-100);
+    }
+    .ai-context-chip {
+      font-size: 11px;
+      color: var(--ink-700);
+      background: var(--ink-50);
+      padding: 6px 10px;
+      border-radius: 6px;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .ai-context-chip strong { color: var(--ink-900); }
+    .ai-popover textarea {
+      width: 100%;
+      min-height: 76px;
+      max-height: 200px;
+      border: 1px solid var(--ink-100);
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 13px;
+      font-family: inherit;
+      resize: none;
+      outline: none;
+      line-height: 1.5;
+    }
+    .ai-popover textarea:focus {
+      border-color: var(--salmon);
+      box-shadow: 0 0 0 3px rgba(232, 160, 130, 0.18);
+    }
+    .ai-popover-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 8px;
+    }
+    .ai-popover-hint {
+      font-size: 10.5px;
+      color: var(--ink-500);
+    }
+    .ai-popover-send {
+      background: #D86F4A;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 5px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .ai-popover-send:hover { background: #C25B38; }
+
+    /* Mock Topic view (state 3) */
+    .mock-topic {
+      position: absolute; left: 52px; right: 0; top: 0; bottom: 0;
+      padding: 16px 22px;
+      overflow-y: auto;
+    }
+    .mock-topic-head {
+      display: flex; align-items: center; gap: 10px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--ink-100);
+      margin-bottom: 14px;
+    }
+    .mock-topic-title { font-size: 13px; font-weight: 600; }
+    .mock-topic-path { font-size: 10px; color: var(--ink-500); font-family: ui-monospace, monospace; }
+    .mock-topic-pill {
+      font-size: 9.5px;
+      background: var(--salmon-50);
+      color: var(--salmon-700);
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-weight: 600;
+    }
+    .mock-context-msg {
+      background: #FFF8F2;
+      border-left: 3px solid var(--salmon);
+      padding: 10px 14px;
+      border-radius: 0 6px 6px 0;
+      margin-bottom: 16px;
+      font-size: 11.5px;
+      color: var(--ink-700);
+      line-height: 1.6;
+    }
+    .mock-context-msg-head {
+      font-weight: 600;
+      color: var(--ink-900);
+      margin-bottom: 4px;
+      font-size: 11px;
+    }
+    .mock-msg-user {
+      display: flex; gap: 10px;
+      margin-bottom: 14px;
+    }
+    .mock-avatar {
+      width: 28px; height: 28px;
+      background: var(--salmon);
+      color: white;
+      border-radius: 999px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 600;
+      flex-shrink: 0;
+    }
+    .mock-avatar.ai {
+      background: var(--ink-100);
+      color: var(--ink-700);
+    }
+    .mock-msg-body {
+      font-size: 12.5px;
+      color: var(--ink-900);
+      line-height: 1.6;
+      padding-top: 4px;
+    }
+    .mock-action-card {
+      background: white;
+      border: 1px solid var(--ink-100);
+      border-radius: 8px;
+      padding: 12px 14px;
+      margin-top: 8px;
+    }
+    .mock-action-head {
+      display: flex; align-items: center; gap: 6px;
+      margin-bottom: 6px;
+    }
+    .mock-action-kicker { font-size: 10px; color: var(--ink-500); }
+    .mock-action-kind {
+      font-size: 10px;
+      background: var(--ink-50);
+      padding: 1px 6px;
+      border-radius: 3px;
+      font-family: ui-monospace, monospace;
+    }
+    .mock-action-summary { font-size: 12px; margin-bottom: 8px; }
+    .mock-action-row { font-size: 11px; color: var(--ink-700); padding: 4px 0; }
+    .mock-action-row b { color: var(--ink-900); }
+    .mock-action-btn {
+      background: var(--salmon-700);
+      color: white;
+      border: none;
+      border-radius: 5px;
+      padding: 4px 10px;
+      font-size: 11px;
+      cursor: pointer;
+      margin-top: 6px;
+    }
+
+    /* Dim the underlying view in state 2 */
+    .dim {
+      filter: blur(0.5px);
+      opacity: 0.5;
+      pointer-events: none;
+    }
+
+    /* legend & explanation */
+    .explain {
+      margin-top: 28px;
+      background: white;
+      border-radius: 10px;
+      padding: 18px 22px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+      max-width: 1400px;
+    }
+    .explain h2 { margin: 0 0 12px; font-size: 14px; }
+    .explain table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    .explain table td { padding: 8px 10px; border-bottom: 1px solid var(--ink-50); vertical-align: top; }
+    .explain table td:first-child { width: 22%; font-weight: 600; color: var(--ink-700); }
+    .explain table td:nth-child(2) { width: 14%; color: var(--ink-500); }
+    code {
+      background: var(--ink-50);
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-family: ui-monospace, "SF Mono", monospace;
+      font-size: 11.5px;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>SalmonApp 全局 AI 按钮 <small>3 状态 mockup</small></h1>
+  <p class="intro">
+    每个页面右下角有一个 <strong>✨ AI</strong> 浮动按钮（⌘K 触发）。点开 → 浮窗输入框（不遮挡原内容），顶部
+    chip 自动显示当前视图的关键上下文 → 用户随便说一句话 → 发送后创建一个新 Topic，原视图的结构化
+    上下文以系统消息形式注入到这个 Topic 的最前面，agent 立即有线索。
+  </p>
+
+  <div class="mockup-grid">
+
+    <!-- =================== State 1 =================== -->
+    <div class="mockup">
+      <div class="mockup-head">① 静态 <small>FAB 在每个 view 的右下角，永远可见</small></div>
+      <div class="mockup-body">
+        <div class="mock-rail">
+          <div class="mock-rail-item">🏠</div>
+          <div class="mock-rail-item">👤</div>
+          <div class="mock-rail-item active">📧</div>
+          <div class="mock-rail-item">📅</div>
+          <div class="mock-rail-item">✓</div>
+          <div class="mock-rail-spacer"></div>
+          <div class="mock-rail-bottom">🔍</div>
+          <div class="mock-rail-bottom">⚙</div>
+        </div>
+        <div class="mock-list">
+          <div class="mock-mail-item selected">
+            <div class="mock-mail-subject">渣打银行办流水</div>
+            <div class="mock-mail-from">Olivia Mo · 05-12</div>
+          </div>
+          <div class="mock-mail-item">
+            <div class="mock-mail-subject">学校事件通知</div>
+            <div class="mock-mail-from">ICIS · 05-10</div>
+          </div>
+          <div class="mock-mail-item">
+            <div class="mock-mail-subject">5/17 入住 AC Hotel</div>
+            <div class="mock-mail-from">res-am · 05-09</div>
+          </div>
+        </div>
+        <div class="mock-detail">
+          <h2>渣打银行办流水</h2>
+          <div class="meta">Olivia Mo &lt;olivia.mo-biz@..&gt; · 2026-05-12 14:30</div>
+          <div class="body">
+            客户 Eric，您好。<br><br>
+            近期需到访银行办理流水打印，截止 05-15 当周。请凭身份证件到我行任一网点办理，营业时间为周一至周日 9:00–17:00。
+            到访前如有疑问可电话先联系。<br><br>
+            敬启者<br>
+            渣打银行
+          </div>
+        </div>
+        <button class="ai-fab">
+          <span class="ai-fab-icon">✨</span>
+          <span>AI</span>
+          <kbd>⌘K</kbd>
+        </button>
+      </div>
+    </div>
+
+    <!-- =================== State 2 =================== -->
+    <div class="mockup">
+      <div class="mockup-head">② 点开 <small>浮窗输入，顶部自动带当前视图上下文</small></div>
+      <div class="mockup-body">
+        <div class="mock-rail dim">
+          <div class="mock-rail-item">🏠</div>
+          <div class="mock-rail-item">👤</div>
+          <div class="mock-rail-item active">📧</div>
+          <div class="mock-rail-item">📅</div>
+          <div class="mock-rail-item">✓</div>
+        </div>
+        <div class="mock-list dim">
+          <div class="mock-mail-item selected">
+            <div class="mock-mail-subject">渣打银行办流水</div>
+            <div class="mock-mail-from">Olivia Mo · 05-12</div>
+          </div>
+          <div class="mock-mail-item">
+            <div class="mock-mail-subject">学校事件通知</div>
+            <div class="mock-mail-from">ICIS · 05-10</div>
+          </div>
+        </div>
+        <div class="mock-detail dim">
+          <h2>渣打银行办流水</h2>
+          <div class="meta">Olivia Mo &lt;olivia.mo-biz@..&gt; · 2026-05-12 14:30</div>
+          <div class="body">客户 Eric，您好。近期需到访银行办理流水打印...</div>
+        </div>
+        <div class="ai-popover">
+          <div class="ai-context-chip">
+            <span>📎</span>
+            <span><strong>上下文：</strong>邮件 · 渣打银行办流水 · Olivia Mo</span>
+          </div>
+          <textarea placeholder="问任何事，比如：&#10;'把这事变成今天下午的待办'&#10;'给 Olivia 回个收到'">把这事变成今天下午 5 点的待办</textarea>
+          <div class="ai-popover-actions">
+            <span class="ai-popover-hint">⌘↵ 发送 · 自动新建 Topic</span>
+            <button class="ai-popover-send">发送 →</button>
+          </div>
+          <div class="ai-popover-tail"></div>
+        </div>
+        <button class="ai-fab" style="opacity: 0.4;">
+          <span class="ai-fab-icon">✨</span>
+          <span>AI</span>
+          <kbd>⌘K</kbd>
+        </button>
+      </div>
+    </div>
+
+    <!-- =================== State 3 =================== -->
+    <div class="mockup">
+      <div class="mockup-head">③ 发送后 <small>跳到新 Topic，上下文是首条系统消息</small></div>
+      <div class="mockup-body">
+        <div class="mock-rail">
+          <div class="mock-rail-item">🏠</div>
+          <div class="mock-rail-item">👤</div>
+          <div class="mock-rail-item">📧</div>
+          <div class="mock-rail-item">📅</div>
+          <div class="mock-rail-item">✓</div>
+          <div class="mock-rail-item active">💬</div>
+        </div>
+        <div class="mock-topic">
+          <div class="mock-topic-head">
+            <span class="mock-topic-title">把这事变成今天下午 5 点的待办</span>
+            <span class="mock-topic-pill">暂存</span>
+            <span class="mock-topic-path" style="margin-left: auto;">~/AppData/topics/3f9e... · Codex</span>
+          </div>
+          <div class="mock-context-msg">
+            <div class="mock-context-msg-head">📎 上下文（自动附带 · 来自「邮件」视图）</div>
+            选中邮件：id <code>19eb1b39f29...</code><br>
+            主题：<b>渣打银行办流水</b> · 发件人：Olivia Mo &lt;olivia.mo-biz@..&gt; · 2026-05-12 14:30<br>
+            如需更多细节，可用 <code>salmon-query mail.get</code>。
+          </div>
+          <div class="mock-msg-user">
+            <div class="mock-avatar">你</div>
+            <div class="mock-msg-body">把这事变成今天下午 5 点的待办</div>
+          </div>
+          <div class="mock-msg-user">
+            <div class="mock-avatar ai">CX</div>
+            <div class="mock-msg-body">
+              好，准备把这件事变成今天下午 5 点的待办：
+              <div class="mock-action-card">
+                <div class="mock-action-head">
+                  <span class="mock-action-kicker">SalmonApp 本地动作</span>
+                  <span class="mock-action-kind">tasks.create</span>
+                </div>
+                <div class="mock-action-summary">准备创建 1 个待办，确认后由 SalmonApp 本地接口执行。</div>
+                <div class="mock-action-row">
+                  <b>渣打银行办流水</b> · 截止 2026-05-17 17:00
+                </div>
+                <button class="mock-action-btn">确认执行</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="explain">
+    <h2>上下文怎么带 —— 每个 view 一个 hook</h2>
+    <table>
+      <tr>
+        <td>邮件 mail / detail</td>
+        <td>{ kind:"mail" }</td>
+        <td>accountId · messageId · threadId · subject · fromEmail · fromName</td>
+      </tr>
+      <tr>
+        <td>邮件 mail / list</td>
+        <td>{ kind:"mail" }</td>
+        <td>accountId · 当前列表筛选 · 可见前 N 个 messageId 列表</td>
+      </tr>
+      <tr>
+        <td>日历 calendar</td>
+        <td>{ kind:"calendar" }</td>
+        <td>windowStartMs · windowEndMs · selectedEventId（如果有）</td>
+      </tr>
+      <tr>
+        <td>待办 tasks</td>
+        <td>{ kind:"tasks" }</td>
+        <td>filter (pending/all) · selectedTaskId · selectedTitle</td>
+      </tr>
+      <tr>
+        <td>联系人 contacts</td>
+        <td>{ kind:"contacts" }</td>
+        <td>selectedEmail · 是否 VIP · 30d 互动次数</td>
+      </tr>
+      <tr>
+        <td>主页 home/briefing</td>
+        <td>{ kind:"briefing" }</td>
+        <td>focusedItemId（点了某张卡再按 ⌘K）· focusedTitle</td>
+      </tr>
+      <tr>
+        <td>Topic 内</td>
+        <td>{ kind:"topic" }</td>
+        <td>currentTopicId （提示 agent："用户在另一个 Topic 内问的，那个 Topic 主题是 X"）</td>
+      </tr>
+    </table>
+    <p style="font-size: 12px; color: var(--ink-500); margin-top: 12px; line-height: 1.6;">
+      <strong>不用截图、不用 DOM</strong>：截图需要多模态 LLM 且 200KB+；DOM 噪声大且取不到内部 id（mail_messages.id 在 React state 里，DOM 看不到）。结构化 app state 最小、最准、agent 直接拿 id 去 <code>salmon-query</code> 拉细节。
+    </p>
+  </div>
+
+</body>
+</html>

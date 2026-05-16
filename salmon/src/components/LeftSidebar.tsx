@@ -14,6 +14,11 @@ interface Props {
    *  buttons up top — those live in IconRail). Rendered as the "list
    *  pane" of the 3-column shell when the Topic view is active. */
   onSelect: (id: string) => void;
+  /** v1.17.0: "+ 新建" — quick path, no dialog. Creates a scratch
+   *  Topic under app_data_dir, jumps into it with focus in the input. */
+  onQuickNewTopic: () => void;
+  /** v1.17.0: "在目录新建..." — opens the existing NewTopicDialog so
+   *  the user can bind a real project workdir. */
   onNewTopic: () => void;
   onOpenSearch: (query?: string) => void;
   onDeleteTopic: (id: string) => void;
@@ -68,9 +73,14 @@ export function LeftSidebar(props: Props) {
         <div className="name">Topic</div>
       </div>
 
-      <button className="new-btn" onClick={props.onNewTopic}>
-        <span className="plus">＋</span> 新建 Topic
-      </button>
+      <div className="new-btn-group">
+        <button className="new-btn primary" onClick={props.onQuickNewTopic} title="新建 Topic（⌘N）— 直接进入对话">
+          <span className="plus">＋</span> 新建
+        </button>
+        <button className="new-btn secondary" onClick={props.onNewTopic} title="在指定目录新建（⌘⇧N）— 用于代码 / 文件相关任务">
+          在目录新建…
+        </button>
+      </div>
 
       <div className="search">
         <input
@@ -115,6 +125,9 @@ export function LeftSidebar(props: Props) {
                     {t.engine === "claude" ? "CC" : "CX"}
                   </span>
                   <span className="t-title">{t.title || "(未命名)"}</span>
+                  {t.isScratch && (
+                    <span className="scratch-pill" title="暂存 Topic — 工作目录由 SalmonApp 管理，删除时一并清掉">暂存</span>
+                  )}
                   {spawningId === t.id ? (
                     <span className="spinner-sm" title="启动中" />
                   ) : runningIds.has(t.id) ? (
@@ -123,7 +136,7 @@ export function LeftSidebar(props: Props) {
                 </div>
                 <div className="t-meta">
                   <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 150 }}>
-                    {shortPath(t.workdir)}
+                    {t.isScratch ? "（暂存目录）" : shortPath(t.workdir)}
                   </span>
                   <span>{relativeTime(t.updatedAt)}</span>
                 </div>

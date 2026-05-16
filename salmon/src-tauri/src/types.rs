@@ -12,6 +12,13 @@ pub struct Topic {
     pub danger_mode: bool,
     #[serde(default)]
     pub archived: bool,
+    /// v1.17.0: created via "+ 新建" (quick path). workdir lives under
+    /// app_data_dir/topics/<id>/ and the directory is owned by SalmonApp —
+    /// removed when the topic is deleted. False for "在目录新建..." topics
+    /// that bind to a user-chosen directory (those dirs are NOT touched
+    /// on topic delete).
+    #[serde(default)]
+    pub is_scratch: bool,
     pub created_at: i64,
     pub updated_at: i64,
 }

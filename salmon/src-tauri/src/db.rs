@@ -5,6 +5,22 @@ use std::path::Path;
 
 use crate::types::{Message, Recommendation, SearchResult, Topic};
 
+fn topic_from_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<Topic> {
+    Ok(Topic {
+        id: r.get(0)?,
+        title: r.get(1)?,
+        engine: r.get(2)?,
+        workdir: r.get(3)?,
+        model: r.get(4)?,
+        session_id: r.get(5)?,
+        danger_mode: r.get::<_, i64>(6)? != 0,
+        archived: r.get::<_, i64>(7)? != 0,
+        is_scratch: r.get::<_, i64>(8)? != 0,
+        created_at: r.get(9)?,
+        updated_at: r.get(10)?,
+    })
+}
+
 pub struct Db {
     conn: Connection,
 }
@@ -297,6 +313,13 @@ impl Db {
         // differ across providers and we don't want our agent to overwrite
         // upstream notes that the user wrote elsewhere.
         let _ = conn.execute("ALTER TABLE contacts ADD COLUMN note TEXT", []);
+        // v1.17.0: Topic "+ 新建" (quick path) marks rows as scratch so
+        // the workdir cleanup hook in delete_topic knows it owns the dir
+        // and may rm -rf it. Existing rows default to non-scratch (0).
+        let _ = conn.execute(
+            "ALTER TABLE topics ADD COLUMN is_scratch INTEGER NOT NULL DEFAULT 0",
+            [],
+        );
         Ok(Self { conn })
     }
 
@@ -308,12 +331,26 @@ impl Db {
         model: Option<&str>,
         danger_mode: bool,
     ) -> Result<Topic> {
+        self.create_topic_with_scratch(title, engine, workdir, model, danger_mode, false)
+    }
+
+    /// v1.17.0: variant used by the "+ 新建" path. Sets is_scratch=1 so
+    /// delete_topic later knows it may rm -rf the workdir.
+    pub fn create_topic_with_scratch(
+        &mut self,
+        title: &str,
+        engine: &str,
+        workdir: &str,
+        model: Option<&str>,
+        danger_mode: bool,
+        is_scratch: bool,
+    ) -> Result<Topic> {
         let id = uuid::Uuid::new_v4().to_string();
         let now = Utc::now().timestamp_millis();
         self.conn.execute(
-            "INSERT INTO topics (id,title,engine,workdir,model,session_id,danger_mode,created_at,updated_at)
-             VALUES (?,?,?,?,?,?,?,?,?)",
-            params![id, title, engine, workdir, model, Option::<String>::None, danger_mode as i64, now, now],
+            "INSERT INTO topics (id,title,engine,workdir,model,session_id,danger_mode,is_scratch,created_at,updated_at)
+             VALUES (?,?,?,?,?,?,?,?,?,?)",
+            params![id, title, engine, workdir, model, Option::<String>::None, danger_mode as i64, is_scratch as i64, now, now],
         )?;
         Ok(Topic {
             id,
@@ -324,6 +361,7 @@ impl Db {
             session_id: None,
             danger_mode,
             archived: false,
+            is_scratch,
             created_at: now,
             updated_at: now,
         })
@@ -331,23 +369,10 @@ impl Db {
 
     pub fn list_topics(&self) -> Result<Vec<Topic>> {
         let mut stmt = self.conn.prepare(
-            "SELECT id,title,engine,workdir,model,session_id,danger_mode,archived,created_at,updated_at
+            "SELECT id,title,engine,workdir,model,session_id,danger_mode,archived,is_scratch,created_at,updated_at
              FROM topics ORDER BY updated_at DESC",
         )?;
-        let rows = stmt.query_map([], |r| {
-            Ok(Topic {
-                id: r.get(0)?,
-                title: r.get(1)?,
-                engine: r.get(2)?,
-                workdir: r.get(3)?,
-                model: r.get(4)?,
-                session_id: r.get(5)?,
-                danger_mode: r.get::<_, i64>(6)? != 0,
-                archived: r.get::<_, i64>(7)? != 0,
-                created_at: r.get(8)?,
-                updated_at: r.get(9)?,
-            })
-        })?;
+        let rows = stmt.query_map([], topic_from_row)?;
         let mut out = Vec::new();
         for t in rows {
             out.push(t?);
@@ -357,23 +382,10 @@ impl Db {
 
     pub fn get_topic(&self, id: &str) -> Result<Option<Topic>> {
         let mut stmt = self.conn.prepare(
-            "SELECT id,title,engine,workdir,model,session_id,danger_mode,archived,created_at,updated_at
+            "SELECT id,title,engine,workdir,model,session_id,danger_mode,archived,is_scratch,created_at,updated_at
              FROM topics WHERE id = ?",
         )?;
-        let mut rows = stmt.query_map(params![id], |r| {
-            Ok(Topic {
-                id: r.get(0)?,
-                title: r.get(1)?,
-                engine: r.get(2)?,
-                workdir: r.get(3)?,
-                model: r.get(4)?,
-                session_id: r.get(5)?,
-                danger_mode: r.get::<_, i64>(6)? != 0,
-                archived: r.get::<_, i64>(7)? != 0,
-                created_at: r.get(8)?,
-                updated_at: r.get(9)?,
-            })
-        })?;
+        let mut rows = stmt.query_map(params![id], topic_from_row)?;
         if let Some(t) = rows.next() {
             return Ok(Some(t?));
         }

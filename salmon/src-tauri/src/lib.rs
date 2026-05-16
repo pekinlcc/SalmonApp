@@ -169,6 +169,8 @@ pub fn run() {
             commands::set_topic_turn_duration,
             commands::get_usage_summary,
             commands::get_app_data_dir,
+            commands::create_quick_topic,
+            commands::append_system_message,
             mail_commands::get_oauth_config_path,
             mail_commands::get_oauth_status,
             mail_commands::list_mail_accounts,
