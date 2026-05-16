@@ -113,6 +113,10 @@ export const api = {
     invoke<MailMessageFull>("get_mail_message", { messageId }),
   deleteMailAccount: (accountId: string) =>
     invoke<void>("delete_mail_account", { accountId }),
+  // v1.17.1: forcibly drop any half-finished OAuth flow before launching
+  // a fresh add-account attempt. Belt-and-suspenders against the
+  // "another OAuth attempt is already in progress" sticky-state bug.
+  cancelPendingOauth: () => invoke<void>("cancel_pending_oauth"),
   // ── v0.9.0-alpha.3: send / draft / mark-read ────────────────────────
   startOutlookOauth: () => invoke<MailAccount>("start_outlook_oauth"),
   sendMail: (input: ComposeInput) =>

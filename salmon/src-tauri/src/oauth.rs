@@ -109,18 +109,40 @@ impl OauthBroker {
             return None;
         }
         *b = true;
-        Some(OauthGuard { busy: self.busy.clone() })
+        Some(OauthGuard {
+            busy: self.busy.clone(),
+            pending: self.pending.clone(),
+        })
+    }
+
+    /// v1.17.1: forcibly drop any in-flight OAuth state. Used by the FE's
+    /// "add account" buttons to pre-emptively reset before launching a new
+    /// flow, and by `delete_mail_account` as a belt-and-suspenders cleanup.
+    /// Dropping the pending PendingOauth closes its `sender`, which makes
+    /// any concurrent `rx.await` in run_google_oauth unblock with
+    /// "channel closed", letting that older flow exit and drop its guard.
+    pub fn force_release(&self) {
+        *self.pending.lock() = None;
+        *self.busy.lock() = false;
     }
 }
 
 /// RAII guard for the cross-provider OAuth single-flight slot. Drop
-/// clears the busy bit so the next flow can start.
+/// clears the busy bit AND the pending PendingOauth — without the latter,
+/// run_google_oauth's `if p.is_some()` re-check leaked across early-return
+/// paths (timeout, channel-closed, network errors) and bricked subsequent
+/// add-account attempts with "another OAuth attempt is already in progress".
 pub struct OauthGuard {
     busy: Arc<Mutex<bool>>,
+    pending: Arc<Mutex<Option<PendingOauth>>>,
 }
 
 impl Drop for OauthGuard {
     fn drop(&mut self) {
+        // Clear pending FIRST so any concurrent reader (e.g. the axum
+        // callback handler) doesn't see a stale slot after busy flips
+        // off. Both lock briefly so the order here is just defensive.
+        *self.pending.lock() = None;
         *self.busy.lock() = false;
     }
 }

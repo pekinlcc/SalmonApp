@@ -184,6 +184,7 @@ pub fn run() {
             mail_commands::list_contact_brief_items,
             mail_commands::get_mail_message,
             mail_commands::delete_mail_account,
+            mail_commands::cancel_pending_oauth,
             mail_commands::send_mail,
             mail_commands::save_mail_draft,
             mail_commands::mark_mail_read,

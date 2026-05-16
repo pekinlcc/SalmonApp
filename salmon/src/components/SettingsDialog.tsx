@@ -388,6 +388,12 @@ function AccountsTab() {
     setBusy(provider);
     setError(null);
     try {
+      // v1.17.1: pre-emptively clear any half-finished OAuth flow. If the
+      // user closed the previous browser tab without finishing, the
+      // broker's pending slot would otherwise survive and brick this
+      // attempt with "another OAuth attempt is already in progress". Safe
+      // to call even when nothing is in flight — it's a no-op then.
+      await api.cancelPendingOauth().catch(() => {});
       const account = provider === "gmail"
         ? await api.startGmailOauth()
         : await api.startOutlookOauth();

@@ -671,6 +671,27 @@ pub fn delete_mail_account(
     state: State<'_, AppState>,
     account_id: String,
 ) -> Result<(), String> {
+    // v1.17.1: read the provider BEFORE the row is deleted so we can also
+    // clean up the per-account macOS Keychain refresh-token entry. Without
+    // this, removing + re-adding the same account leaves a stale Keychain
+    // item indefinitely.
+    let provider_opt: Option<String> = {
+        let db = state.db.lock();
+        db.conn()
+            .query_row(
+                "SELECT provider FROM mail_accounts WHERE id = ?",
+                rusqlite::params![&account_id],
+                |r| r.get::<_, String>(0),
+            )
+            .ok()
+    };
+
+    // Drop any in-flight OAuth state — if the user just opened an
+    // add-account flow against THIS provider, the broker.pending slot
+    // would otherwise survive into the next attempt and brick it with
+    // "another OAuth attempt is already in progress".
+    state.oauth_broker.force_release();
+
     let mut db = state.db.lock();
     let tx = db.conn_mut().transaction().map_err(map_err)?;
     tx.execute(
@@ -692,6 +713,41 @@ pub fn delete_mail_account(
     )
     .map_err(map_err)?;
     tx.commit().map_err(map_err)?;
+    drop(db);
+
+    // Soft-clean the Keychain entry on macOS. Failure is non-fatal —
+    // a stale entry is harmless; we just log it.
+    #[cfg(target_os = "macos")]
+    if let Some(provider) = provider_opt.as_deref() {
+        let service = format!("app.salmonapp.desktop.oauth.refresh.{}.{}", provider, account_id);
+        let out = std::process::Command::new("/usr/bin/security")
+            .args(["delete-generic-password", "-a", &account_id, "-s", &service])
+            .output();
+        match out {
+            Ok(o) if !o.status.success() => {
+                // Common when no Keychain entry exists for this account
+                // (refresh token was kept in DB instead). Not an error.
+                eprintln!(
+                    "[salmon][delete_mail_account] keychain delete exit {:?} for {}",
+                    o.status.code(),
+                    account_id
+                );
+            }
+            Err(e) => eprintln!("[salmon][delete_mail_account] keychain delete failed: {}", e),
+            _ => {}
+        }
+    }
+    #[cfg(not(target_os = "macos"))]
+    let _ = provider_opt;
+    Ok(())
+}
+
+/// v1.17.1: force-clear any in-flight OAuth broker state. Called by the
+/// FE before each add-account button click so a previously-aborted flow
+/// (e.g. user closed the browser tab mid-OAuth) can't brick the retry.
+#[tauri::command]
+pub fn cancel_pending_oauth(state: State<'_, AppState>) -> Result<(), String> {
+    state.oauth_broker.force_release();
     Ok(())
 }
 
