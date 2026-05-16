@@ -30,7 +30,7 @@ export function ChatStream(props: Props) {
   const { topic, messages, pendingPermission, errorBanner, chatLayout, busy, workdirMissing } = props;
   const streamRef = useRef<HTMLDivElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
-  const mdComponents = useMemo(() => markdownComponents(topic.workdir), [topic.workdir]);
+  const mdComponents = useMemo(() => markdownComponents(topic.workdir, topic.id), [topic.workdir, topic.id]);
 
   // Typing-indicator visibility: show throughout the assistant turn while
   // the engine is busy. Previously we hid the dots the moment any block
@@ -266,7 +266,11 @@ export function ChatStream(props: Props) {
           )}
           <div className="msg-body">
             <div className="msg-name">
-              {m.role === "user" ? "你" : "SalmonApp · " + (topic.engine === "claude" ? "Claude Code" : "Codex")}
+              {m.role === "user"
+                ? "你"
+                : m.role === "system"
+                  ? "SalmonApp · 本地查询结果"
+                  : "SalmonApp · " + (topic.engine === "claude" ? "Claude Code" : "Codex")}
               <span className="ts">{time(m.createdAt)}</span>
               {m.interrupted && <span className="interrupted-tag">已中断</span>}
               {m.role === "assistant" && !m.pending && renderTurnStats(m)}
@@ -426,9 +430,11 @@ function formatTokens(n: number): string {
   return `${Math.round(n / 1000)}k`;
 }
 
-function markdownComponents(workdir: string): Components {
+function markdownComponents(workdir: string, topicId: string): Components {
   return {
-    pre: CodeBlock,
+    pre({ children }) {
+      return <CodeBlock topicId={topicId}>{children}</CodeBlock>;
+    },
     a({ href, children, node: _node, ...props }) {
       const onClick = (event: MouseEvent<HTMLAnchorElement>) => {
         if (!href || href.startsWith("#") || event.button !== 0) return;

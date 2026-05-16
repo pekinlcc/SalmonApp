@@ -1161,6 +1161,38 @@ export default function App() {
     [consumeQueuedTurn, incrementQueuedTurn]
   );
 
+  const continueWithLocalContext = useCallback(
+    async (topicId: string, content: string) => {
+      setBusyByTopic((b) => ({ ...b, [topicId]: true }));
+      setErrorByTopic((er) => ({ ...er, [topicId]: null }));
+      incrementQueuedTurn(topicId);
+      try {
+        const saved = await api.continueWithLocalContext(topicId, content);
+        const ui = hydrate([saved])[0];
+        setMessagesByTopic((m) => {
+          const list = m[topicId] || [];
+          if (list.some((msg) => msg.id === ui.id)) return m;
+          return { ...m, [topicId]: [...list, ui] };
+        });
+      } catch (e: any) {
+        const remaining = consumeQueuedTurn(topicId);
+        setErrorByTopic((er) => ({ ...er, [topicId]: String(e) }));
+        setBusyByTopic((b) => ({ ...b, [topicId]: remaining > 0 }));
+      }
+    },
+    [consumeQueuedTurn, incrementQueuedTurn]
+  );
+
+  useEffect(() => {
+    const onLocalContext = (event: Event) => {
+      const detail = (event as CustomEvent<{ topicId?: string; content?: string }>).detail;
+      if (!detail?.topicId || !detail.content) return;
+      void continueWithLocalContext(detail.topicId, detail.content);
+    };
+    window.addEventListener("salmon:local-context", onLocalContext);
+    return () => window.removeEventListener("salmon:local-context", onLocalContext);
+  }, [continueWithLocalContext]);
+
   const onSend = useCallback(
     async (text: string) => {
       if (!selectedId) return;

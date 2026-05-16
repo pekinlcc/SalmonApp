@@ -20,6 +20,8 @@ export const api = {
   openTopic: (id: string) => invoke<void>("open_topic", { id }),
   sendMessage: (topicId: string, content: string) =>
     invoke<Message>("send_message", { topicId, content }),
+  continueWithLocalContext: (topicId: string, content: string) =>
+    invoke<Message>("continue_with_local_context", { topicId, content }),
   interruptTopic: (topicId: string) =>
     invoke<void>("interrupt_topic", { topicId }),
   approvePermission: (topicId: string, requestId: string, allow: boolean) =>
@@ -82,6 +84,8 @@ export const api = {
     invoke<number>("sync_mail_account", { accountId }),
   listInboxMessages: (accountId: string, limit?: number) =>
     invoke<MailListItem[]>("list_inbox_messages", { accountId, limit: limit ?? null }),
+  searchMailMessages: (query: string, accountId?: string | null, limit = 20) =>
+    invoke<MailListItem[]>("search_mail_messages", { query, accountId: accountId ?? null, limit }),
   listContactMail: (accountId: string, email: string, limit = 50) =>
     invoke<MailListItem[]>("list_contact_mail", { accountId, email, limit }),
   // v1.1.1: batch lookup mail rows by id — powers the related-mail

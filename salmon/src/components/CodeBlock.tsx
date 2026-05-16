@@ -3,10 +3,14 @@ import { api } from "../lib/api";
 import type { MailAccount } from "../lib/types";
 import type { ToastAction } from "../lib/notify";
 
-export function CodeBlock({ children }: { children?: React.ReactNode }) {
+export function CodeBlock({ children, topicId }: { children?: React.ReactNode; topicId?: string }) {
   const ref = useRef<HTMLPreElement>(null);
   const [copied, setCopied] = useState(false);
   const detected = detectCodeBlock(children);
+
+  if (detected.language === "salmon-query") {
+    return <SalmonQueryCard raw={detected.text} topicId={topicId} />;
+  }
 
   if (detected.language === "salmon-action") {
     return <SalmonActionCard raw={detected.text} />;
@@ -51,6 +55,14 @@ type SalmonAction =
   | { kind: "mail.draft"; draft?: MailActionItem; requiresConfirmation?: boolean }
   | { kind: "mail.send"; mail?: MailActionItem; requiresConfirmation?: boolean };
 
+type SalmonQuery =
+  | { kind: "mail.search"; query?: string; accountId?: string | null; limit?: number }
+  | { kind: "mail.get"; messageId?: string }
+  | { kind: "mail.recent"; accountId?: string | null; limit?: number }
+  | { kind: "mail.contact"; accountId?: string | null; email?: string; limit?: number }
+  | { kind: "calendar.list"; startLocal?: string; endLocal?: string; startMs?: number; endMs?: number }
+  | { kind: "tasks.list"; accountId?: string | null; includeCompleted?: boolean };
+
 interface TaskActionItem {
   title?: string;
   notes?: string | null;
@@ -81,6 +93,69 @@ interface MailActionItem {
 interface SalmonActionExecution {
   message: string;
   actions?: ToastAction[];
+}
+
+function SalmonQueryCard({ raw, topicId }: { raw: string; topicId?: string }) {
+  const parsed = useMemo(() => parseSalmonQuery(raw), [raw]);
+  const key = useMemo(() => `salmon-query:${topicId || "none"}:${hashText(raw)}`, [raw, topicId]);
+  const [status, setStatus] = useState<"pending" | "running" | "done" | "error">(() => {
+    if (typeof sessionStorage !== "undefined" && sessionStorage.getItem(key)) return "done";
+    return "pending";
+  });
+  const [message, setMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!topicId || !parsed.ok || status !== "pending") return;
+    let cancelled = false;
+    setStatus("running");
+    executeSalmonQuery(parsed.query)
+      .then(async (result) => {
+        if (cancelled) return;
+        const content = formatQueryResult(parsed.query, result);
+        sessionStorage.setItem(key, "1");
+        setMessage(result.summary);
+        setStatus("done");
+        window.dispatchEvent(new CustomEvent("salmon:local-context", {
+          detail: { topicId, content },
+        }));
+      })
+      .catch((e: any) => {
+        if (cancelled) return;
+        setMessage(String(e?.message || e));
+        setStatus("error");
+      });
+    return () => { cancelled = true; };
+  }, [key, parsed, status, topicId]);
+
+  const label = parsed.ok ? parsed.query.kind : "invalid";
+  return (
+    <div className="salmon-action-card">
+      <div className="salmon-action-head">
+        <span className="salmon-action-kicker">SalmonApp 本地查询</span>
+        <span className="salmon-action-kind">{label}</span>
+      </div>
+      <div className="salmon-action-summary">
+        {!parsed.ok
+          ? parsed.error
+          : status === "running"
+            ? "正在读取本地缓存..."
+            : status === "done"
+              ? (message || "查询结果已回灌给当前 Topic。")
+              : status === "error"
+                ? `查询失败: ${message || "unknown error"}`
+                : summarizeQuery(parsed.query)}
+      </div>
+      {parsed.ok && (
+        <div className="salmon-action-details">
+          <div className="salmon-action-row">
+            <b>{summarizeQuery(parsed.query)}</b>
+            <small>只读查询；不会发送、创建、修改或删除邮件 / 日历 / 待办。</small>
+          </div>
+        </div>
+      )}
+      {!topicId && <div className="salmon-action-error">缺少 Topic，无法回灌查询结果。</div>}
+    </div>
+  );
 }
 
 function SalmonActionCard({ raw }: { raw: string }) {
@@ -314,6 +389,118 @@ function parseSalmonAction(raw: string): { ok: true; action: SalmonAction } | { 
   }
 }
 
+function parseSalmonQuery(raw: string): { ok: true; query: SalmonQuery } | { ok: false; error: string } {
+  try {
+    const value = JSON.parse(raw.trim());
+    if (!value || typeof value !== "object" || typeof value.kind !== "string") {
+      return { ok: false, error: "查询 JSON 必须包含 kind 字段。" };
+    }
+    if (!["mail.search", "mail.get", "mail.recent", "mail.contact", "calendar.list", "tasks.list"].includes(value.kind)) {
+      return { ok: false, error: `暂不支持的查询: ${value.kind}` };
+    }
+    return { ok: true, query: value as SalmonQuery };
+  } catch (e: any) {
+    return { ok: false, error: `JSON 解析失败: ${String(e?.message || e)}` };
+  }
+}
+
+function summarizeQuery(query: SalmonQuery): string {
+  switch (query.kind) {
+    case "mail.search":
+      return `搜索本地邮件: ${query.query || "(空)"}`;
+    case "mail.get":
+      return `读取邮件详情: ${query.messageId || "(未指定)"}`;
+    case "mail.recent":
+      return `读取最近 ${query.limit || 20} 封邮件`;
+    case "mail.contact":
+      return `读取联系人邮件: ${query.email || "(未指定)"}`;
+    case "calendar.list":
+      return "读取日历事件窗口";
+    case "tasks.list":
+      return query.includeCompleted === false ? "读取未完成待办" : "读取待办列表";
+  }
+}
+
+type SalmonQueryResult = { summary: string; data: any };
+
+async function executeSalmonQuery(query: SalmonQuery): Promise<SalmonQueryResult> {
+  switch (query.kind) {
+    case "mail.search": {
+      const q = query.query?.trim();
+      if (!q) throw new Error("mail.search 缺少 query。");
+      const rows = await api.searchMailMessages(q, query.accountId ?? null, query.limit || 10);
+      return { summary: `找到 ${rows.length} 封匹配邮件`, data: rows };
+    }
+    case "mail.get": {
+      if (!query.messageId) throw new Error("mail.get 缺少 messageId。");
+      const msg = await api.getMailMessage(query.messageId);
+      return { summary: "已读取 1 封邮件详情", data: msg };
+    }
+    case "mail.recent": {
+      const accounts = await api.listMailAccounts();
+      const target = query.accountId ? accounts.filter((a) => a.id === query.accountId) : accounts;
+      const data = [];
+      for (const account of target) {
+        const rows = await api.listInboxMessages(account.id, query.limit || 20);
+        data.push({ account, messages: rows });
+      }
+      const count = data.reduce((n, x) => n + x.messages.length, 0);
+      return { summary: `读取最近邮件 ${count} 封`, data };
+    }
+    case "mail.contact": {
+      const email = query.email?.trim();
+      if (!email) throw new Error("mail.contact 缺少 email。");
+      const accounts = await api.listMailAccounts();
+      const target = query.accountId ? accounts.filter((a) => a.id === query.accountId) : accounts;
+      const data = [];
+      for (const account of target) {
+        const rows = await api.listContactMail(account.id, email, query.limit || 20);
+        data.push({ account, messages: rows });
+      }
+      const count = data.reduce((n, x) => n + x.messages.length, 0);
+      return { summary: `读取 ${email} 相关邮件 ${count} 封`, data };
+    }
+    case "calendar.list": {
+      const startMs = resolveLocalTime(query.startMs, query.startLocal, false);
+      const endMs = resolveLocalTime(query.endMs, query.endLocal, false);
+      if (!startMs || !endMs) throw new Error("calendar.list 需要 startLocal/startMs 和 endLocal/endMs。");
+      const rows = await api.listCalendarEvents(startMs, endMs);
+      return { summary: `读取日历事件 ${rows.length} 条`, data: rows };
+    }
+    case "tasks.list": {
+      const rows = await api.listTasks(query.accountId ?? null, query.includeCompleted ?? true);
+      return { summary: `读取待办 ${rows.length} 条`, data: rows };
+    }
+  }
+}
+
+function formatQueryResult(query: SalmonQuery, result: SalmonQueryResult): string {
+  return [
+    `查询: ${summarizeQuery(query)}`,
+    `结果: ${result.summary}`,
+    "",
+    "```json",
+    JSON.stringify(compactQueryData(result.data), null, 2),
+    "```",
+  ].join("\n");
+}
+
+function compactQueryData(value: any): any {
+  if (Array.isArray(value)) return value.slice(0, 20).map(compactQueryData);
+  if (!value || typeof value !== "object") return value;
+  if ("bodyText" in value || "bodyHtml" in value) {
+    return {
+      ...value,
+      bodyText: truncate(String(value.bodyText || ""), 6000),
+      bodyHtml: value.bodyHtml ? "[html omitted]" : null,
+    };
+  }
+  if ("messages" in value && Array.isArray(value.messages)) {
+    return { ...value, messages: value.messages.slice(0, 20).map(compactQueryData) };
+  }
+  return value;
+}
+
 function summarizeAction(action: SalmonAction): string {
   switch (action.kind) {
     case "tasks.create":
@@ -494,4 +681,13 @@ function readableActionError(error: unknown): string {
 
 function truncate(text: string, max: number): string {
   return text.length > max ? `${text.slice(0, max - 1)}...` : text;
+}
+
+function hashText(text: string): string {
+  let hash = 2166136261;
+  for (let i = 0; i < text.length; i++) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(16);
 }

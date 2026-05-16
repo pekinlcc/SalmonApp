@@ -491,6 +491,90 @@ pub fn list_inbox_messages(
 }
 
 #[tauri::command]
+pub fn search_mail_messages(
+    state: State<'_, AppState>,
+    query: String,
+    account_id: Option<String>,
+    limit: Option<i64>,
+) -> Result<Vec<MailListRow>, String> {
+    let q = query.trim();
+    if q.is_empty() {
+        return Ok(Vec::new());
+    }
+    let limit = limit.unwrap_or(20).max(1).min(100);
+    let like = format!("%{}%", escape_like(&q.to_lowercase()));
+    let db = state.db.lock();
+    let sql = if account_id.is_some() {
+        "SELECT id, account_id, thread_id, from_email, from_name, subject,
+                snippet, date_ms, unread, starred, has_attachments
+         FROM mail_messages
+         WHERE account_id = ?
+           AND (lower(COALESCE(from_email, '')) LIKE ? ESCAPE '\\'
+             OR lower(COALESCE(from_name, '')) LIKE ? ESCAPE '\\'
+             OR lower(COALESCE(subject, '')) LIKE ? ESCAPE '\\'
+             OR lower(COALESCE(snippet, '')) LIKE ? ESCAPE '\\'
+             OR lower(COALESCE(body_text, '')) LIKE ? ESCAPE '\\')
+         ORDER BY date_ms DESC
+         LIMIT ?"
+    } else {
+        "SELECT id, account_id, thread_id, from_email, from_name, subject,
+                snippet, date_ms, unread, starred, has_attachments
+         FROM mail_messages
+         WHERE lower(COALESCE(from_email, '')) LIKE ? ESCAPE '\\'
+            OR lower(COALESCE(from_name, '')) LIKE ? ESCAPE '\\'
+            OR lower(COALESCE(subject, '')) LIKE ? ESCAPE '\\'
+            OR lower(COALESCE(snippet, '')) LIKE ? ESCAPE '\\'
+            OR lower(COALESCE(body_text, '')) LIKE ? ESCAPE '\\'
+         ORDER BY date_ms DESC
+         LIMIT ?"
+    };
+    let mut stmt = db.conn().prepare(sql).map_err(map_err)?;
+    let mut out = Vec::new();
+    if let Some(account_id) = account_id {
+        let rows = stmt
+            .query_map(
+                rusqlite::params![account_id, like, like, like, like, like, limit],
+                mail_list_row_from_sql,
+            )
+            .map_err(map_err)?;
+        for row in rows {
+            out.push(row.map_err(map_err)?);
+        }
+    } else {
+        let rows = stmt
+            .query_map(
+                rusqlite::params![like, like, like, like, like, limit],
+                mail_list_row_from_sql,
+            )
+            .map_err(map_err)?;
+        for row in rows {
+            out.push(row.map_err(map_err)?);
+        }
+    }
+    Ok(out)
+}
+
+fn escape_like(s: &str) -> String {
+    s.replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_")
+}
+
+fn mail_list_row_from_sql(r: &rusqlite::Row<'_>) -> rusqlite::Result<MailListRow> {
+    Ok(MailListRow {
+        id: r.get(0)?,
+        account_id: r.get(1)?,
+        thread_id: r.get(2)?,
+        from_email: r.get(3)?,
+        from_name: r.get(4)?,
+        subject: r.get(5)?,
+        snippet: r.get(6)?,
+        date_ms: r.get(7)?,
+        unread: r.get::<_, i64>(8)? != 0,
+        starred: r.get::<_, i64>(9)? != 0,
+        has_attachments: r.get::<_, i64>(10)? != 0,
+    })
+}
+
+#[tauri::command]
 pub fn get_mail_message(
     state: State<'_, AppState>,
     message_id: String,
