@@ -3,6 +3,7 @@ import type { ChatLayout, CliInfo, ComposerSendMode, DailyUsage, UsageSummary } 
 import type { MailAccount, OauthStatus } from "../lib/types";
 import { api } from "../lib/api";
 import { playChime } from "../lib/notify";
+import { IS_LINUX } from "../lib/platform";
 import pkg from "../../package.json";
 
 interface Props {
@@ -361,22 +362,25 @@ function PreferencesTab({
         </label>
       </section>
 
-      <section className="settings-section">
-        <div className="settings-section-title">Ubuntu 桌面模式 (Phase 1)</div>
-        <div className="settings-section-desc">
-          把 Salmon 主页换成一个 GNOME 风格的桌面壳：壁纸 + AI Brief widget + 底部 Dock。
-          Linux 用户默认开启；Mac / Windows 上属于实验性视觉。Dock 上点 Mail/Calendar/Tasks
-          会切到对应视图（Phase 2 起会拆成独立窗口，Phase 3 是真 Wayland session）。
-        </div>
-        <label className="toggle-row">
-          <input
-            type="checkbox"
-            checked={desktopModeEnabled}
-            onChange={(e) => onChangeDesktopMode(e.target.checked)}
-          />
-          <span className="toggle-label">启用桌面视图</span>
-        </label>
-      </section>
+      {IS_LINUX && (
+        <section className="settings-section">
+          <div className="settings-section-title">Ubuntu 桌面模式 · 实验性</div>
+          <div className="settings-section-desc">
+            把 Salmon 主页换成一个 GNOME 风格的桌面壳：壁纸 + AI Brief widget + 底部
+            Dock。<strong>这是一个过渡形态</strong>——v2 起这部分会拆成独立的
+            <code>SalmonApp Desktop</code> 包，普通的 SalmonApp 不再包含桌面视图。
+            届时你装哪个包就是哪个体验，不再靠开关切换。
+          </div>
+          <label className="toggle-row">
+            <input
+              type="checkbox"
+              checked={desktopModeEnabled}
+              onChange={(e) => onChangeDesktopMode(e.target.checked)}
+            />
+            <span className="toggle-label">启用桌面视图</span>
+          </label>
+        </section>
+      )}
     </>
   );
 }
