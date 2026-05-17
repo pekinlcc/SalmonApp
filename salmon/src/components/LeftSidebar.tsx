@@ -125,9 +125,15 @@ export function LeftSidebar(props: Props) {
                     {t.engine === "claude" ? "CC" : "CX"}
                   </span>
                   <span className="t-title">{t.title || "(未命名)"}</span>
-                  {t.isScratch && (
+                  {t.isScratch ? (
                     <span className="scratch-pill" title="暂存 Topic — 工作目录由 SalmonApp 管理，删除时一并清掉">暂存</span>
-                  )}
+                  ) : t.workdir ? (
+                    <span
+                      className="workdir-pill"
+                      title={`绑定工作目录：${t.workdir}`}
+                      aria-label="绑定工作目录"
+                    >📁</span>
+                  ) : null}
                   {spawningId === t.id ? (
                     <span className="spinner-sm" title="启动中" />
                   ) : runningIds.has(t.id) ? (
@@ -135,9 +141,6 @@ export function LeftSidebar(props: Props) {
                   ) : null}
                 </div>
                 <div className="t-meta">
-                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 150 }}>
-                    {t.isScratch ? "（暂存目录）" : shortPath(t.workdir)}
-                  </span>
                   <span>{relativeTime(t.updatedAt)}</span>
                 </div>
                 {menuFor === t.id && (
@@ -218,11 +221,13 @@ export function LeftSidebar(props: Props) {
                     {t.engine === "claude" ? "CC" : "CX"}
                   </span>
                   <span className="t-title">{t.title || "(未命名)"}</span>
+                  {t.isScratch ? (
+                    <span className="scratch-pill" title="暂存 Topic">暂存</span>
+                  ) : t.workdir ? (
+                    <span className="workdir-pill" title={`绑定工作目录：${t.workdir}`} aria-label="绑定工作目录">📁</span>
+                  ) : null}
                 </div>
                 <div className="t-meta">
-                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 150 }}>
-                    {shortPath(t.workdir)}
-                  </span>
                   <span>{relativeTime(t.updatedAt)}</span>
                 </div>
                 {menuFor === t.id && (
@@ -283,12 +288,3 @@ function groupByTime(topics: Topic[]): [string, Topic[]][] {
   return Object.entries(buckets).filter(([, v]) => v.length > 0);
 }
 
-function shortPath(p: string): string {
-  const home = (window as any).__SALMON_HOME__ || "";
-  let q = p;
-  if (home && p.startsWith(home)) q = "~" + p.slice(home.length);
-  if (q.length <= 30) return q;
-  const parts = q.split("/").filter(Boolean);
-  if (parts.length <= 2) return q;
-  return "…/" + parts.slice(-2).join("/");
-}

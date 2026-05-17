@@ -167,6 +167,19 @@ button { font-family: inherit; }
   letter-spacing: 0.2px;
 }
 
+/* v1.18.1: workdir indicator for "在目录新建..." Topics. Tooltip shows
+   the bound path; the inline pill keeps the list visually clean while
+   still telling code-mode users which Topic is bound to a project. */
+.workdir-pill {
+  font-size: 10.5px;
+  color: var(--ink-500, #8C7E73);
+  margin-left: 4px;
+  flex-shrink: 0;
+  cursor: help;
+  opacity: 0.65;
+}
+.workdir-pill:hover { opacity: 1; }
+
 /* v1.17.0: global ⌘K AI button — FAB bottom-right + popover above it. */
 .ai-fab {
   position: fixed;
