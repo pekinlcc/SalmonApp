@@ -1,11 +1,16 @@
-// GNOME-style minimal top bar for the desktop shell. Centred clock + date,
-// system tray on the right (placeholder icons), Activities label on the left
-// that opens the launcher.
+// GNOME-style minimal top bar for the desktop shell.
+//   left:   Activities label → opens launcher
+//   center: Date + clock, with Brief item count badge
+//   right:  Tray icons (placeholders for net/audio/battery) + wallpaper
+//           cycle button + exit-desktop button.
 import { useEffect, useState } from "react";
+import { WALLPAPER_VARIANTS, type WallpaperVariant } from "./Wallpaper";
 
 interface Props {
   briefCount: number;
+  wallpaper: WallpaperVariant;
   onActivities: () => void;
+  onCycleWallpaper: () => void;
   onExitDesktop: () => void;
 }
 
@@ -17,12 +22,20 @@ function tick(): { time: string; date: string } {
   return { time: `${hh}:${mm}`, date: md };
 }
 
-export function DesktopTopBar({ briefCount, onActivities, onExitDesktop }: Props) {
+export function DesktopTopBar({
+  briefCount,
+  wallpaper,
+  onActivities,
+  onCycleWallpaper,
+  onExitDesktop,
+}: Props) {
   const [{ time, date }, setNow] = useState(tick);
   useEffect(() => {
     const t = window.setInterval(() => setNow(tick()), 30_000);
     return () => window.clearInterval(t);
   }, []);
+
+  const currentLabel = WALLPAPER_VARIANTS.find((v) => v.id === wallpaper)?.label ?? wallpaper;
 
   return (
     <div className="dt-topbar" role="banner">
@@ -30,7 +43,7 @@ export function DesktopTopBar({ briefCount, onActivities, onExitDesktop }: Props
         type="button"
         className="dt-topbar-activities"
         onClick={onActivities}
-        title="Activities · 打开 launcher"
+        title="Activities · 打开 launcher · 快捷键 Super"
       >
         Activities
       </button>
@@ -54,6 +67,15 @@ export function DesktopTopBar({ briefCount, onActivities, onExitDesktop }: Props
         <span className="dt-tray-ico" title="网络">↑↓</span>
         <span className="dt-tray-ico" title="音量">♪</span>
         <span className="dt-tray-ico" title="电量">100%</span>
+        <button
+          type="button"
+          className="dt-tray-wallpaper"
+          onClick={onCycleWallpaper}
+          title={`切换壁纸 · 当前: ${currentLabel}`}
+          aria-label={`切换壁纸（当前 ${currentLabel}）`}
+        >
+          ◐
+        </button>
         <button
           type="button"
           className="dt-tray-exit"
