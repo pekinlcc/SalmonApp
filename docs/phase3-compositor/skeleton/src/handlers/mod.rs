@@ -23,6 +23,14 @@ pub mod output;
 pub mod layer_shell;
 pub mod decoration;
 pub mod text_input;
+pub mod foreign_toplevel;
+pub mod keyboard_shortcuts;
+
+// XWayland — bridge for legacy X11 apps. Gated behind feature flag
+// because Smithay's xwayland integration pulls in extra deps and
+// you may want to ship a Wayland-only build for size reasons.
+#[cfg(feature = "xwayland")]
+pub mod xwayland;
 
 use smithay::{
     desktop::WindowSurfaceType,

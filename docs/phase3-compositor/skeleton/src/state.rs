@@ -21,6 +21,7 @@ use smithay::{
     },
     wayland::{
         compositor::{CompositorClientState, CompositorState},
+        foreign_toplevel_list::ForeignToplevelListState,
         input_method::InputMethodManagerState,
         output::OutputManagerState,
         selection::data_device::DataDeviceState,
@@ -33,6 +34,8 @@ use smithay::{
         text_input::TextInputManagerState,
     },
 };
+
+use crate::handlers::keyboard_shortcuts::SuperKeyTracker;
 
 /// Per-client state stored alongside Smithay's CompositorClientState.
 /// Currently empty; future protocols (e.g. security-context) bolt extra
@@ -80,6 +83,15 @@ pub struct SalmonState {
     pub xdg_decoration_state: XdgDecorationState,
     pub text_input_manager_state: TextInputManagerState,
     pub input_method_manager_state: InputMethodManagerState,
+    pub foreign_toplevel_list_state: ForeignToplevelListState,
+
+    // Shell-level state (not Wayland-protocol state per se).
+    pub super_key_tracker: SuperKeyTracker,
+
+    // XWayland — populated after handlers::xwayland::launch_xwayland
+    // runs and we receive the Ready event.
+    #[cfg(feature = "xwayland")]
+    pub xwm_socket: Option<smithay::xwayland::X11Surface>,
 
     // Desktop layer — windows + popups managed in Smithay's coordinate
     // space. Space tracks every Toplevel; PopupManager handles the
@@ -127,6 +139,7 @@ impl SalmonState {
         // whitelist fcitx5 / ibus / nimf binaries.
         let input_method_manager_state =
             InputMethodManagerState::new::<Self, _>(&dh, |_| true);
+        let foreign_toplevel_list_state = ForeignToplevelListState::new::<Self>(&dh);
 
         // Create the seat. The name matters for some clients (e.g.
         // libinput-named seats); "seat0" is the conventional default.
@@ -159,6 +172,10 @@ impl SalmonState {
                 xdg_decoration_state,
                 text_input_manager_state,
                 input_method_manager_state,
+                foreign_toplevel_list_state,
+                super_key_tracker: SuperKeyTracker::new(),
+                #[cfg(feature = "xwayland")]
+                xwm_socket: None,
                 space: Space::default(),
                 popups: PopupManager::default(),
                 seat,
