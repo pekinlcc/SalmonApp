@@ -39,7 +39,10 @@ jobs:
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
         with:
-          workspaces: salmon/src-tauri
+          # v2.0 Phase 2a: workspace lives at the repo root now. The
+          # single member is still salmon/src-tauri so binary paths
+          # don't change yet, but the shared target/ moved up.
+          workspaces: .
 
       - name: Setup Node
         uses: actions/setup-node@v4
