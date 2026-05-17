@@ -16,7 +16,12 @@ use smithay::{
     },
     reexports::{
         wayland_protocols::xdg::shell::server::xdg_toplevel,
-        wayland_server::protocol::{wl_seat, wl_surface::WlSurface},
+        wayland_server::{
+            protocol::{wl_seat, wl_surface::WlSurface},
+            // `Resource` trait brings `.id()` onto WlSurface (etc.) so
+            // we can compare client ownership during popup grab setup.
+            Resource,
+        },
     },
     utils::{IsAlive, Logical, Point, Rectangle, Serial, Size},
     wayland::shell::xdg::{
@@ -119,8 +124,17 @@ impl XdgShellHandler for SalmonState {
         let Some(seat) = Seat::<Self>::from_resource(&seat) else {
             return;
         };
+        // Smithay 0.7: grab_popup wants the parent *KeyboardFocus* (i.e.
+        // the surface the popup nests beneath), not the compositor state.
+        // KeyboardFocus is declared as WlSurface in handlers/seat.rs.
+        // `PopupKind::parent` is private in 0.7, so reach into the xdg
+        // surface directly before wrapping it in a PopupKind.
+        let Some(root) = surface.get_parent_surface() else {
+            tracing::warn!("popup has no parent surface, refusing grab");
+            return;
+        };
         let kind = smithay::desktop::PopupKind::Xdg(surface);
-        if let Err(err) = self.popups.grab_popup(self, kind, &seat, serial) {
+        if let Err(err) = self.popups.grab_popup(root, kind, &seat, serial) {
             tracing::warn!(?err, "popup grab failed");
         }
     }
@@ -176,7 +190,7 @@ impl PointerGrab<SalmonState> for MoveSurfaceGrab {
         &mut self,
         data: &mut SalmonState,
         handle: &mut PointerInnerHandle<'_, SalmonState>,
-        _focus: Option<(WlSurface, Point<i32, Logical>)>,
+        _focus: Option<(WlSurface, Point<f64, Logical>)>,
         event: &MotionEvent,
     ) {
         // While dragging, focus stays on the dragged surface; no enter/leave.
@@ -191,7 +205,7 @@ impl PointerGrab<SalmonState> for MoveSurfaceGrab {
         &mut self,
         data: &mut SalmonState,
         handle: &mut PointerInnerHandle<'_, SalmonState>,
-        focus: Option<(WlSurface, Point<i32, Logical>)>,
+        focus: Option<(WlSurface, Point<f64, Logical>)>,
         event: &RelativeMotionEvent,
     ) {
         handle.relative_motion(data, focus, event);
@@ -221,6 +235,59 @@ impl PointerGrab<SalmonState> for MoveSurfaceGrab {
     fn frame(&mut self, data: &mut SalmonState, handle: &mut PointerInnerHandle<'_, SalmonState>) {
         handle.frame(data);
     }
+
+    // Touch-gesture stubs — Smithay 0.7 added these to the PointerGrab
+    // trait. We don't initiate window moves from gestures, so each one
+    // just delegates to the inner handle (which fires the right events
+    // on the focused client).
+    fn gesture_swipe_begin(
+        &mut self,
+        data: &mut SalmonState,
+        handle: &mut PointerInnerHandle<'_, SalmonState>,
+        event: &smithay::input::pointer::GestureSwipeBeginEvent,
+    ) { handle.gesture_swipe_begin(data, event); }
+    fn gesture_swipe_update(
+        &mut self,
+        data: &mut SalmonState,
+        handle: &mut PointerInnerHandle<'_, SalmonState>,
+        event: &smithay::input::pointer::GestureSwipeUpdateEvent,
+    ) { handle.gesture_swipe_update(data, event); }
+    fn gesture_swipe_end(
+        &mut self,
+        data: &mut SalmonState,
+        handle: &mut PointerInnerHandle<'_, SalmonState>,
+        event: &smithay::input::pointer::GestureSwipeEndEvent,
+    ) { handle.gesture_swipe_end(data, event); }
+    fn gesture_pinch_begin(
+        &mut self,
+        data: &mut SalmonState,
+        handle: &mut PointerInnerHandle<'_, SalmonState>,
+        event: &smithay::input::pointer::GesturePinchBeginEvent,
+    ) { handle.gesture_pinch_begin(data, event); }
+    fn gesture_pinch_update(
+        &mut self,
+        data: &mut SalmonState,
+        handle: &mut PointerInnerHandle<'_, SalmonState>,
+        event: &smithay::input::pointer::GesturePinchUpdateEvent,
+    ) { handle.gesture_pinch_update(data, event); }
+    fn gesture_pinch_end(
+        &mut self,
+        data: &mut SalmonState,
+        handle: &mut PointerInnerHandle<'_, SalmonState>,
+        event: &smithay::input::pointer::GesturePinchEndEvent,
+    ) { handle.gesture_pinch_end(data, event); }
+    fn gesture_hold_begin(
+        &mut self,
+        data: &mut SalmonState,
+        handle: &mut PointerInnerHandle<'_, SalmonState>,
+        event: &smithay::input::pointer::GestureHoldBeginEvent,
+    ) { handle.gesture_hold_begin(data, event); }
+    fn gesture_hold_end(
+        &mut self,
+        data: &mut SalmonState,
+        handle: &mut PointerInnerHandle<'_, SalmonState>,
+        event: &smithay::input::pointer::GestureHoldEndEvent,
+    ) { handle.gesture_hold_end(data, event); }
 
     fn start_data(&self) -> &PointerGrabStartData<SalmonState> {
         &self.start_data
@@ -271,7 +338,7 @@ impl PointerGrab<SalmonState> for ResizeSurfaceGrab {
         &mut self,
         data: &mut SalmonState,
         handle: &mut PointerInnerHandle<'_, SalmonState>,
-        _focus: Option<(WlSurface, Point<i32, Logical>)>,
+        _focus: Option<(WlSurface, Point<f64, Logical>)>,
         event: &MotionEvent,
     ) {
         handle.motion(data, None, event);
@@ -301,7 +368,7 @@ impl PointerGrab<SalmonState> for ResizeSurfaceGrab {
             let (min, max) = smithay::wayland::compositor::with_states(
                 toplevel.wl_surface(),
                 |states| {
-                    let cached = states.cached_state.get::<SurfaceCachedState>();
+                    let mut cached = states.cached_state.get::<SurfaceCachedState>();
                     let current = cached.current();
                     (current.min_size, current.max_size)
                 },
@@ -331,7 +398,7 @@ impl PointerGrab<SalmonState> for ResizeSurfaceGrab {
         &mut self,
         data: &mut SalmonState,
         handle: &mut PointerInnerHandle<'_, SalmonState>,
-        focus: Option<(WlSurface, Point<i32, Logical>)>,
+        focus: Option<(WlSurface, Point<f64, Logical>)>,
         event: &RelativeMotionEvent,
     ) {
         handle.relative_motion(data, focus, event);
@@ -368,6 +435,56 @@ impl PointerGrab<SalmonState> for ResizeSurfaceGrab {
     fn frame(&mut self, data: &mut SalmonState, handle: &mut PointerInnerHandle<'_, SalmonState>) {
         handle.frame(data);
     }
+
+    // Gesture stubs (Smithay 0.7) — same passthrough policy as MoveSurfaceGrab.
+    fn gesture_swipe_begin(
+        &mut self,
+        data: &mut SalmonState,
+        handle: &mut PointerInnerHandle<'_, SalmonState>,
+        event: &smithay::input::pointer::GestureSwipeBeginEvent,
+    ) { handle.gesture_swipe_begin(data, event); }
+    fn gesture_swipe_update(
+        &mut self,
+        data: &mut SalmonState,
+        handle: &mut PointerInnerHandle<'_, SalmonState>,
+        event: &smithay::input::pointer::GestureSwipeUpdateEvent,
+    ) { handle.gesture_swipe_update(data, event); }
+    fn gesture_swipe_end(
+        &mut self,
+        data: &mut SalmonState,
+        handle: &mut PointerInnerHandle<'_, SalmonState>,
+        event: &smithay::input::pointer::GestureSwipeEndEvent,
+    ) { handle.gesture_swipe_end(data, event); }
+    fn gesture_pinch_begin(
+        &mut self,
+        data: &mut SalmonState,
+        handle: &mut PointerInnerHandle<'_, SalmonState>,
+        event: &smithay::input::pointer::GesturePinchBeginEvent,
+    ) { handle.gesture_pinch_begin(data, event); }
+    fn gesture_pinch_update(
+        &mut self,
+        data: &mut SalmonState,
+        handle: &mut PointerInnerHandle<'_, SalmonState>,
+        event: &smithay::input::pointer::GesturePinchUpdateEvent,
+    ) { handle.gesture_pinch_update(data, event); }
+    fn gesture_pinch_end(
+        &mut self,
+        data: &mut SalmonState,
+        handle: &mut PointerInnerHandle<'_, SalmonState>,
+        event: &smithay::input::pointer::GesturePinchEndEvent,
+    ) { handle.gesture_pinch_end(data, event); }
+    fn gesture_hold_begin(
+        &mut self,
+        data: &mut SalmonState,
+        handle: &mut PointerInnerHandle<'_, SalmonState>,
+        event: &smithay::input::pointer::GestureHoldBeginEvent,
+    ) { handle.gesture_hold_begin(data, event); }
+    fn gesture_hold_end(
+        &mut self,
+        data: &mut SalmonState,
+        handle: &mut PointerInnerHandle<'_, SalmonState>,
+        event: &smithay::input::pointer::GestureHoldEndEvent,
+    ) { handle.gesture_hold_end(data, event); }
 
     fn start_data(&self) -> &PointerGrabStartData<SalmonState> {
         &self.start_data

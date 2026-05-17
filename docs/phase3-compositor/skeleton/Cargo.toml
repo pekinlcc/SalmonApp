@@ -26,7 +26,10 @@ description = "SalmonApp's Wayland compositor + desktop shell"
 license = "MIT OR Apache-2.0"
 
 [features]
-default = ["nested", "xwayland"]
+# v0 default: nested-only. XWayland integration requires a real rewrite
+# against Smithay 0.7's reworked `XWayland::spawn` API and is feature-gated
+# off by default until that's done. Opt in with --features xwayland.
+default = ["nested"]
 # nested: winit backend → compositor runs inside an existing Wayland
 # session (your normal GNOME). Safe to iterate on; crashes don't take
 # down your real session. Start here.
@@ -68,3 +71,9 @@ serde_json = "1"
 [[bin]]
 name = "salmon-shell"
 path = "src/main.rs"
+
+# Detach from the root Cargo workspace — this skeleton has its own deps
+# (Smithay, GL renderers) that don't belong in the SalmonApp App / Desktop
+# binary build graph. The empty [workspace] table marks this Cargo.toml
+# as the root of its own (one-package) workspace.
+[workspace]

@@ -26,7 +26,8 @@ use smithay::{
         fractional_scale::FractionalScaleManagerState,
         input_method::InputMethodManagerState,
         output::OutputManagerState,
-        screencopy::ScreencopyState,
+        // screencopy not in Smithay 0.7 release; re-enable when bumped.
+        // screencopy::ScreencopyState,
         selection::data_device::DataDeviceState,
         shell::{
             wlr_layer::WlrLayerShellState,
@@ -91,7 +92,7 @@ pub struct SalmonState {
     pub dmabuf_state: DmabufState,
     pub fractional_scale_manager_state: FractionalScaleManagerState,
     pub viewporter_state: ViewporterState,
-    pub screencopy_state: ScreencopyState,
+    // pub screencopy_state: ScreencopyState,  // see import comment above
 
     // Shell-level state (not Wayland-protocol state per se).
     pub super_key_tracker: SuperKeyTracker,
@@ -154,7 +155,7 @@ impl SalmonState {
         let dmabuf_state = DmabufState::new();
         let (fractional_scale_manager_state, viewporter_state) =
             crate::handlers::scaling::build_states(&dh);
-        let screencopy_state = ScreencopyState::new::<Self>(&dh);
+        // ScreencopyState::new not available in Smithay 0.7 — see imports.
 
         // Create the seat. The name matters for some clients (e.g.
         // libinput-named seats); "seat0" is the conventional default.
@@ -191,7 +192,6 @@ impl SalmonState {
                 dmabuf_state,
                 fractional_scale_manager_state,
                 viewporter_state,
-                screencopy_state,
                 super_key_tracker: SuperKeyTracker::new(),
                 #[cfg(feature = "xwayland")]
                 xwm_socket: None,

@@ -29,9 +29,8 @@ use smithay::{
             damage::OutputDamageTracker,
             element::surface::WaylandSurfaceRenderElement,
             gles::GlesRenderer,
-            Bind,
         },
-        winit::{self, WinitEvent, WinitGraphicsBackend},
+        winit::{self, WinitEvent},
     },
     desktop::space::SpaceRenderElements,
     output::{Mode as OutputMode, Output, PhysicalProperties, Subpixel},
@@ -76,14 +75,26 @@ pub fn run(args: &crate::Args) -> Result<()> {
         .map_err(|e| anyhow::anyhow!("insert socket source: {e}"))?;
 
     // 5. Hook the Display fd into the loop so per-tick we drain whatever
-    // clients sent us.
-    let display_fd = display.backend().poll_fd().as_raw_fd();
+    // clients sent us. Smithay 0.7: `poll_fd()` returns `BorrowedFd`
+    // tied to `display`; we clone it to an OwnedFd (impl AsFd, 'static)
+    // so calloop's Generic source can hold onto it for the program's
+    // lifetime without borrow gymnastics.
+    let display_fd = display
+        .backend()
+        .poll_fd()
+        .try_clone_to_owned()
+        .map_err(|e| anyhow::anyhow!("clone display poll fd: {e}"))?;
+    // `dispatch_clients` is a method on `Display<T>` in 0.7 (no longer
+    // on `DisplayHandle`), so we move the actual Display into the
+    // closure. The main loop below uses `state.display_handle.flush_clients`
+    // for the flush path which doesn't need the owned Display.
     event_loop
         .handle()
         .insert_source(
             Generic::new(display_fd, Interest::READ, CalloopMode::Level),
-            |_, _, state| {
-                state.display_handle.dispatch_clients(state)
+            move |_, _, state: &mut SalmonState| {
+                display
+                    .dispatch_clients(state)
                     .map(|_| PostAction::Continue)
                     .map_err(|e| {
                         tracing::error!(?e, "dispatch_clients");
@@ -164,71 +175,63 @@ pub fn run(args: &crate::Args) -> Result<()> {
             WinitEvent::CloseRequested => {
                 state.loop_signal.stop();
             }
-            WinitEvent::Focus(_) | WinitEvent::Refresh => {}
+            // WinitEvent::Refresh dropped in Smithay 0.7.
+            WinitEvent::Focus(_) => {}
+            // WinitEvent::Redraw added in Smithay 0.7; the host
+            // compositor is asking us to redraw. We already redraw
+            // unconditionally each loop tick below, so accepting +
+            // ignoring is correct (it'll fall through to the render
+            // block immediately).
+            WinitEvent::Redraw => {}
         });
 
-        if let Err(err) = dispatch_result {
-            tracing::error!(?err, "winit dispatch failed; exiting");
+        // Smithay 0.7: dispatch_new_events now returns PumpStatus, not
+        // a Result. Exit means the host window was closed.
+        if let smithay::reexports::winit::platform::pump_events::PumpStatus::Exit(code) = dispatch_result {
+            tracing::info!(?code, "winit pump exited; shutting down");
             break;
         }
 
-        // Render every mapped window + every layer surface into the
-        // GL context. Layer ordering, bottom → top:
-        //   background layer (wallpaper) → bottom layer (salmon-app
-        //   UI lives here) → app windows (Space) → top layer
-        //   (notifications) → overlay layer (lock screen, modals)
-        let size = backend.window_size();
-        let damage = Rectangle::from_loc_and_size((0, 0), size);
+        // Render every mapped window into the GL context. Layer-surface
+        // collection is deferred (v0): see "Tier 2 — layer surface" task
+        // in the README. We render only Space windows for hello-world.
+        let _size = backend.window_size();
+
+        // Smithay 0.7 split bind() into (renderer, framebuffer). Both
+        // borrow `backend` mutably, so we scope them tightly: the bind
+        // + render happens in a block that ends BEFORE we call
+        // `backend.submit()` (which also needs &mut backend).
+        {
+            let (renderer, mut framebuffer) = backend
+                .bind()
+                .map_err(|e| anyhow::anyhow!("backend bind: {e}"))?;
+
+            let space_elements: Vec<SpaceRenderElements<_, WaylandSurfaceRenderElement<GlesRenderer>>> =
+                smithay::desktop::space::space_render_elements(
+                    renderer,
+                    [&state.space],
+                    &output,
+                    1.0,
+                )
+                .map_err(|e| anyhow::anyhow!("collect render elements: {e:?}"))?;
+
+            damage_tracker
+                .render_output(
+                    renderer,
+                    &mut framebuffer,
+                    0,
+                    &space_elements,
+                    [0.05, 0.05, 0.08, 1.0], // background colour (dark navy)
+                )
+                .map_err(|e| anyhow::anyhow!("render_output: {e:?}"))?;
+        } // framebuffer + renderer (=&mut backend) dropped here.
+        // Submit with `None` damage = full-frame swap. v0 doesn't yet
+        // track per-tick damage; the OutputDamageTracker we just used
+        // returns it (in its result) and a real impl would forward it
+        // here. For hello-world, full-frame is fine on a 60Hz nested
+        // window — it's just a bit more GPU bandwidth.
         backend
-            .bind()
-            .map_err(|e| anyhow::anyhow!("backend bind: {e}"))?;
-
-        // Collect the four layer-shell layers, then app windows, in
-        // bottom-to-top order. Smithay's layer_map_for_output gives us
-        // the per-output layer surfaces grouped by Layer enum value.
-        let mut elements: Vec<smithay::backend::renderer::element::AsRenderElements<GlesRenderer>>
-            = Vec::new();
-
-        // TODO(verify): the exact API for collecting layer surface
-        // render elements changed across Smithay versions. In 0.7 the
-        // pattern is:
-        //
-        //   let layer_map = smithay::desktop::layer_map_for_output(&output);
-        //   for layer in [Layer::Background, Layer::Bottom] {
-        //       for surface in layer_map.layers_on(layer) {
-        //           elements.extend(surface.render_elements(...));
-        //       }
-        //   }
-        //   // ... space.render_elements between bottom and top
-        //   for layer in [Layer::Top, Layer::Overlay] { /* same */ }
-        //
-        // For v0 of this skeleton we render only Space windows so the
-        // build doesn't break on layer-surface element type generics.
-        // Once you confirm the actual collector signature in your
-        // Smithay version, uncomment the layer iteration above and
-        // remove this comment block.
-        let space_elements: Vec<SpaceRenderElements<_, WaylandSurfaceRenderElement<GlesRenderer>>> =
-            smithay::desktop::space::space_render_elements(
-                backend.renderer(),
-                [&state.space],
-                &output,
-                1.0,
-            )
-            .map_err(|e| anyhow::anyhow!("collect render elements: {e:?}"))?;
-
-        damage_tracker
-            .render_output(
-                backend.renderer(),
-                0,
-                &space_elements,
-                [0.05, 0.05, 0.08, 1.0], // background colour (dark navy)
-            )
-            .map_err(|e| anyhow::anyhow!("render_output: {e:?}"))?;
-
-        // Quiet "unused" while elements vec is a placeholder.
-        let _ = elements;
-        backend
-            .submit(Some(&[damage]))
+            .submit(None)
             .map_err(|e| anyhow::anyhow!("backend submit: {e}"))?;
 
         // Send frame callbacks to clients so they know they can draw
@@ -247,14 +250,11 @@ pub fn run(args: &crate::Args) -> Result<()> {
             .dispatch(Some(Duration::from_millis(16)), &mut state)
             .map_err(|e| anyhow::anyhow!("calloop dispatch: {e}"))?;
 
-        // Flush pending events back to clients.
-        let _ = display.flush_clients();
+        // Flush pending events back to clients. DisplayHandle is a
+        // cheap clone and unlike `Display::dispatch_clients`, `flush_clients`
+        // doesn't need ownership of the full Display — DisplayHandle has it.
+        let _ = state.display_handle.flush_clients();
     }
 
     Ok(())
 }
-
-// AsRawFd shim: depending on rust version + features, the Generic::new
-// signature changed between calloop 0.13 / 0.14. If your build chokes
-// here, replace with .raw_fd() or .as_raw_fd() as appropriate.
-use std::os::unix::io::AsRawFd;

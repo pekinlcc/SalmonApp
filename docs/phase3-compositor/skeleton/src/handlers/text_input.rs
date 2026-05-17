@@ -18,22 +18,44 @@
 
 use smithay::{
     delegate_input_method_manager, delegate_text_input_manager,
+    reexports::wayland_server::protocol::wl_surface::WlSurface,
+    utils::{Logical, Rectangle},
     wayland::{
-        input_method::InputMethodManagerState, text_input::TextInputManagerState,
+        input_method::{InputMethodHandler, InputMethodManagerState, PopupSurface as IMPopupSurface},
+        text_input::TextInputManagerState,
     },
 };
 
 use crate::state::SalmonState;
 
-// Both manager types have empty handler traits in current Smithay —
-// the actual surface routing happens through the seat / focus system
-// which is wired by `TextInputManagerState::new::<Self>(&dh)` and
-// `InputMethodManagerState::new::<Self, _>(&dh, |_| true)`.
-//
-// The `|_| true` filter in InputMethodManagerState::new is the
-// "which client may register as an IME?" policy. v0 accepts any
-// client; a hardened version would check the client's PID against
-// a whitelist (fcitx5 / ibus / nimf binaries).
+// Smithay 0.7 requires `InputMethodHandler` impl for the delegate macro
+// to compile. v0 stubs: accept popup creation, dismissal, and report
+// the focused surface's geometry so the IME daemon can anchor its
+// candidate window correctly. Enough for fcitx5 to come up; tuning
+// focus transitions (so the right input field gets the right
+// candidates) is iterative work that needs real testing.
+impl InputMethodHandler for SalmonState {
+    fn new_popup(&mut self, _surface: IMPopupSurface) {
+        // v0: accept the popup but don't draw-track it yet. Once a
+        // text-input field is focused we'll know where to anchor.
+    }
+
+    fn dismiss_popup(&mut self, _surface: IMPopupSurface) {
+        // v0: nothing to clean up since new_popup didn't track.
+    }
+
+    fn popup_repositioned(&mut self, _surface: IMPopupSurface) {
+        // v0: relayout would happen here.
+    }
+
+    fn parent_geometry(&self, _parent: &WlSurface) -> Rectangle<i32, Logical> {
+        // Should return the bounding box of the focused text-input
+        // surface so the IME positions candidates correctly. v0
+        // returns a zero rect — fcitx5 will anchor at (0,0) until we
+        // track focused-input geometry. Not blocking for hello-world.
+        Rectangle::from_loc_and_size((0, 0), (0, 0))
+    }
+}
 
 delegate_text_input_manager!(SalmonState);
 delegate_input_method_manager!(SalmonState);

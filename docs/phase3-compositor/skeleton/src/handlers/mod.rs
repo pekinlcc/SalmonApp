@@ -27,7 +27,12 @@ pub mod foreign_toplevel;
 pub mod keyboard_shortcuts;
 pub mod dmabuf;
 pub mod scaling;
-pub mod screencopy;
+// Smithay 0.7 has not landed `wlr-screencopy-v1` in upstream yet. The
+// handler is kept on disk for the future bump but not compiled — the
+// `screencopy` module would import `smithay::wayland::screencopy` which
+// only exists on Smithay's git main, not the 0.7 crate release. Re-enable
+// once we update the smithay dep to a version that ships it.
+// pub mod screencopy;
 
 // XWayland — bridge for legacy X11 apps. Gated behind feature flag
 // because Smithay's xwayland integration pulls in extra deps and

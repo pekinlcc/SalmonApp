@@ -19,10 +19,22 @@
 use smithay::{
     backend::allocator::dmabuf::Dmabuf,
     delegate_dmabuf,
-    wayland::dmabuf::{DmabufFeedback, DmabufFeedbackBuilder, DmabufGlobal, DmabufHandler, DmabufState, ImportNotifier},
+    reexports::wayland_server::protocol::wl_buffer::WlBuffer,
+    wayland::{
+        buffer::BufferHandler,
+        dmabuf::{DmabufFeedback, DmabufFeedbackBuilder, DmabufGlobal, DmabufHandler, DmabufState, ImportNotifier},
+    },
 };
 
 use crate::state::SalmonState;
+
+// `DmabufHandler` requires `BufferHandler`. Smithay calls `buffer_destroyed`
+// when a client tears down a wl_buffer so the compositor can drop GPU
+// resources tied to it. We have no per-buffer resources yet (the renderer
+// holds its own cache keyed by Dmabuf), so this is a no-op for now.
+impl BufferHandler for SalmonState {
+    fn buffer_destroyed(&mut self, _buffer: &WlBuffer) {}
+}
 
 impl DmabufHandler for SalmonState {
     fn dmabuf_state(&mut self) -> &mut DmabufState {

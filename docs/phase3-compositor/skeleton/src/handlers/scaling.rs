@@ -39,8 +39,13 @@ impl FractionalScaleHandler for SalmonState {
             .next()
             .map(|o| o.current_scale().fractional_scale())
             .unwrap_or(1.0);
-        smithay::wayland::fractional_scale::with_fractional_scale(&surface, |fs| {
-            fs.set_preferred_scale(scale);
+        // Smithay 0.7: `with_fractional_scale` takes `&SurfaceData`, not
+        // `&WlSurface`. Bridge via `compositor::with_states`, which gives
+        // us the surface's data block.
+        smithay::wayland::compositor::with_states(&surface, |states| {
+            smithay::wayland::fractional_scale::with_fractional_scale(states, |fs| {
+                fs.set_preferred_scale(scale);
+            });
         });
     }
 }

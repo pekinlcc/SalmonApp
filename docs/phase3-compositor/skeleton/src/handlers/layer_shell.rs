@@ -54,24 +54,30 @@ impl WlrLayerShellHandler for SalmonState {
         };
 
         let layer_surface = LayerSurface::new(surface, namespace);
-        if let Some(map) = smithay::desktop::layer_map_for_output(&output)
-            .map_layer(&layer_surface)
-            .err()
-        {
-            tracing::warn!(?map, "failed to map layer surface");
+        // `layer_map_for_output` returns a guard tied to its argument's
+        // lifetime; bind to a local so the chain below doesn't borrow a
+        // temporary that drops at the semicolon.
+        let mut map = smithay::desktop::layer_map_for_output(&output);
+        if let Err(err) = map.map_layer(&layer_surface) {
+            tracing::warn!(?err, "failed to map layer surface");
         }
     }
 
     fn layer_destroyed(&mut self, surface: WlrLayerSurface) {
         // Find the wrapping LayerSurface, then remove it from every
-        // output's layer map.
-        for output in self.space.outputs() {
-            let mut map = smithay::desktop::layer_map_for_output(output);
-            if let Some(ls) = map
+        // output's layer map. Two-step (find → drop iter → unmap) so we
+        // don't hold `.layers()`' immutable borrow across `unmap_layer`'s
+        // mutable one.
+        // Collect outputs separately so we don't hold a borrow on
+        // `self.space` while taking a layer-map guard.
+        let outputs: Vec<_> = self.space.outputs().cloned().collect();
+        for output in outputs {
+            let mut map = smithay::desktop::layer_map_for_output(&output);
+            let target = map
                 .layers()
                 .find(|l| l.layer_surface() == &surface)
-                .cloned()
-            {
+                .cloned();
+            if let Some(ls) = target {
                 map.unmap_layer(&ls);
             }
         }
