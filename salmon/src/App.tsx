@@ -1560,7 +1560,11 @@ export default function App() {
   // still work from inside the desktop. Conditioned on (a) the user
   // selected the desktop view AND (b) no topic is currently open AND (c)
   // they haven't disabled it in Settings.
-  const desktopActive = topView === "desktop" && !selectedTopic && desktopModeEnabled;
+  // v1.20.2: Desktop shell is Linux-only — a non-Linux user with a stale
+  // `desktop_mode = 1` in their DB (from earlier versions where the toggle
+  // was visible everywhere) should still land on WelcomeBack. The setting
+  // can stay in DB; we just don't honour it off Linux.
+  const desktopActive = IS_LINUX && topView === "desktop" && !selectedTopic && desktopModeEnabled;
 
   // v0.11: layout columns are IconRail(56) + [LeftSidebar(260)] + middle(1fr) + [RightPane(380)].
   // LeftSidebar only renders for topic view; RightPane only when a topic is selected.
@@ -1603,7 +1607,8 @@ export default function App() {
           // v1.20: when Ubuntu Desktop shell is enabled, "home" is the
           // desktop — the IconRail home button doubles as "back to desktop".
           // Settings has a toggle for users who'd rather see WelcomeBack.
-          if (v === "home" && desktopModeEnabled) {
+          // v1.20.2: home → desktop redirect is Linux-only.
+          if (v === "home" && desktopModeEnabled && IS_LINUX) {
             setTopView("desktop");
           } else {
             setTopView(v);
