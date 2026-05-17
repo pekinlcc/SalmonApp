@@ -21,9 +21,12 @@ use smithay::{
     },
     wayland::{
         compositor::{CompositorClientState, CompositorState},
+        dmabuf::DmabufState,
         foreign_toplevel_list::ForeignToplevelListState,
+        fractional_scale::FractionalScaleManagerState,
         input_method::InputMethodManagerState,
         output::OutputManagerState,
+        screencopy::ScreencopyState,
         selection::data_device::DataDeviceState,
         shell::{
             wlr_layer::WlrLayerShellState,
@@ -32,6 +35,7 @@ use smithay::{
         shm::ShmState,
         socket::ListeningSocketSource,
         text_input::TextInputManagerState,
+        viewporter::ViewporterState,
     },
 };
 
@@ -84,6 +88,10 @@ pub struct SalmonState {
     pub text_input_manager_state: TextInputManagerState,
     pub input_method_manager_state: InputMethodManagerState,
     pub foreign_toplevel_list_state: ForeignToplevelListState,
+    pub dmabuf_state: DmabufState,
+    pub fractional_scale_manager_state: FractionalScaleManagerState,
+    pub viewporter_state: ViewporterState,
+    pub screencopy_state: ScreencopyState,
 
     // Shell-level state (not Wayland-protocol state per se).
     pub super_key_tracker: SuperKeyTracker,
@@ -140,6 +148,13 @@ impl SalmonState {
         let input_method_manager_state =
             InputMethodManagerState::new::<Self, _>(&dh, |_| true);
         let foreign_toplevel_list_state = ForeignToplevelListState::new::<Self>(&dh);
+        // DmabufState starts empty; nested.rs / tty.rs adds the
+        // appropriate global once the renderer is up and we know
+        // the main render device.
+        let dmabuf_state = DmabufState::new();
+        let (fractional_scale_manager_state, viewporter_state) =
+            crate::handlers::scaling::build_states(&dh);
+        let screencopy_state = ScreencopyState::new::<Self>(&dh);
 
         // Create the seat. The name matters for some clients (e.g.
         // libinput-named seats); "seat0" is the conventional default.
@@ -173,6 +188,10 @@ impl SalmonState {
                 text_input_manager_state,
                 input_method_manager_state,
                 foreign_toplevel_list_state,
+                dmabuf_state,
+                fractional_scale_manager_state,
+                viewporter_state,
+                screencopy_state,
                 super_key_tracker: SuperKeyTracker::new(),
                 #[cfg(feature = "xwayland")]
                 xwm_socket: None,

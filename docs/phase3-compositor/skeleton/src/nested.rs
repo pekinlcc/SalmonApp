@@ -172,13 +172,42 @@ pub fn run(args: &crate::Args) -> Result<()> {
             break;
         }
 
-        // Render every mapped window into the GL context.
+        // Render every mapped window + every layer surface into the
+        // GL context. Layer ordering, bottom → top:
+        //   background layer (wallpaper) → bottom layer (salmon-app
+        //   UI lives here) → app windows (Space) → top layer
+        //   (notifications) → overlay layer (lock screen, modals)
         let size = backend.window_size();
         let damage = Rectangle::from_loc_and_size((0, 0), size);
         backend
             .bind()
             .map_err(|e| anyhow::anyhow!("backend bind: {e}"))?;
-        let elements: Vec<SpaceRenderElements<_, WaylandSurfaceRenderElement<GlesRenderer>>> =
+
+        // Collect the four layer-shell layers, then app windows, in
+        // bottom-to-top order. Smithay's layer_map_for_output gives us
+        // the per-output layer surfaces grouped by Layer enum value.
+        let mut elements: Vec<smithay::backend::renderer::element::AsRenderElements<GlesRenderer>>
+            = Vec::new();
+
+        // TODO(verify): the exact API for collecting layer surface
+        // render elements changed across Smithay versions. In 0.7 the
+        // pattern is:
+        //
+        //   let layer_map = smithay::desktop::layer_map_for_output(&output);
+        //   for layer in [Layer::Background, Layer::Bottom] {
+        //       for surface in layer_map.layers_on(layer) {
+        //           elements.extend(surface.render_elements(...));
+        //       }
+        //   }
+        //   // ... space.render_elements between bottom and top
+        //   for layer in [Layer::Top, Layer::Overlay] { /* same */ }
+        //
+        // For v0 of this skeleton we render only Space windows so the
+        // build doesn't break on layer-surface element type generics.
+        // Once you confirm the actual collector signature in your
+        // Smithay version, uncomment the layer iteration above and
+        // remove this comment block.
+        let space_elements: Vec<SpaceRenderElements<_, WaylandSurfaceRenderElement<GlesRenderer>>> =
             smithay::desktop::space::space_render_elements(
                 backend.renderer(),
                 [&state.space],
@@ -186,14 +215,18 @@ pub fn run(args: &crate::Args) -> Result<()> {
                 1.0,
             )
             .map_err(|e| anyhow::anyhow!("collect render elements: {e:?}"))?;
+
         damage_tracker
             .render_output(
                 backend.renderer(),
                 0,
-                &elements,
+                &space_elements,
                 [0.05, 0.05, 0.08, 1.0], // background colour (dark navy)
             )
             .map_err(|e| anyhow::anyhow!("render_output: {e:?}"))?;
+
+        // Quiet "unused" while elements vec is a placeholder.
+        let _ = elements;
         backend
             .submit(Some(&[damage]))
             .map_err(|e| anyhow::anyhow!("backend submit: {e}"))?;
