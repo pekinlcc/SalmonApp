@@ -155,9 +155,18 @@ export default function App() {
     let un2: (() => void) | undefined;
     listen("salmon-mail-sync", () => refreshBadges()).then((u) => { un1 = u; });
     listen("salmon-mail-accounts", () => refreshBadges()).then((u) => { un2 = u; });
-    // Tasks have no event yet; rely on the 5-min interval below.
+    // v1.19.1: any path that mutates tasks (TasksView toggle/create/delete,
+    // CodeBlock salmon-action tasks.*, BriefingFeed TaskCreated step
+    // result) dispatches salmon:tasks-changed so the rail badge refreshes
+    // instantly instead of waiting up to 5 min on the fallback interval.
+    const onTasksChanged = () => refreshBadges();
+    window.addEventListener("salmon:tasks-changed", onTasksChanged);
     const t = setInterval(refreshBadges, 5 * 60 * 1000);
-    return () => { un1?.(); un2?.(); clearInterval(t); };
+    return () => {
+      un1?.(); un2?.();
+      window.removeEventListener("salmon:tasks-changed", onTasksChanged);
+      clearInterval(t);
+    };
   }, [refreshBadges]);
   const [searchInitialQuery, setSearchInitialQuery] = useState("");
   const [showSearch, setShowSearch] = useState(false);

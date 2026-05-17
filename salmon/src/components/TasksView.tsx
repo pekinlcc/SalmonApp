@@ -98,6 +98,7 @@ export function TasksView({ pendingOpenTask, onConsumePendingOpenTask }: TasksVi
     setTasks((cur) => cur.map((x) => x.id === t.id ? { ...x, completed: !wasCompleted } : x));
     try {
       await api.updateTask({ id: t.id, completed: !wasCompleted });
+      window.dispatchEvent(new CustomEvent("salmon:tasks-changed"));
     } catch (e: any) {
       // Revert.
       setTasks((cur) => cur.map((x) => x.id === t.id ? { ...x, completed: wasCompleted } : x));
@@ -112,6 +113,7 @@ export function TasksView({ pendingOpenTask, onConsumePendingOpenTask }: TasksVi
     try {
       await api.deleteTask(t.id);
       setTasks((cur) => cur.filter((x) => x.id !== t.id));
+      window.dispatchEvent(new CustomEvent("salmon:tasks-changed"));
       window.dispatchEvent(new CustomEvent("salmon:toast", {
         detail: { title: "✓ 已删除", kind: "done" },
       }));
@@ -493,6 +495,7 @@ function NewTaskModal({
         sourceBriefItemId: null,
       });
       onCreated(t);
+      window.dispatchEvent(new CustomEvent("salmon:tasks-changed"));
       window.dispatchEvent(new CustomEvent("salmon:toast", {
         detail: {
           title: `✓ 已创建待办: ${t.title}`,

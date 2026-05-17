@@ -1041,6 +1041,7 @@ async function executeSalmonAction(action: SalmonAction, accountId: string): Pro
           target: { view: "tasks", taskId: task.id, accountId: task.accountId },
         });
       }
+      window.dispatchEvent(new CustomEvent("salmon:tasks-changed"));
       return { message: `已创建 ${items.length} 个待办`, actions };
     }
     case "tasks.update": {
@@ -1055,6 +1056,7 @@ async function executeSalmonAction(action: SalmonAction, accountId: string): Pro
           : (patch.dueLocal != null ? resolveLocalTime(null, patch.dueLocal, true) : null),
         completed: patch.completed ?? null,
       });
+      window.dispatchEvent(new CustomEvent("salmon:tasks-changed"));
       return {
         message: "已更新待办",
         actions: [{ label: "查看待办", primary: true, target: { view: "tasks", taskId: updated.id, accountId: updated.accountId } }],
@@ -1063,6 +1065,7 @@ async function executeSalmonAction(action: SalmonAction, accountId: string): Pro
     case "tasks.delete": {
       if (!action.taskId) throw new Error("tasks.delete 缺少 taskId。");
       await api.deleteTask(action.taskId);
+      window.dispatchEvent(new CustomEvent("salmon:tasks-changed"));
       return { message: "已删除待办" };
     }
     case "tasks.toggle": {
@@ -1071,6 +1074,7 @@ async function executeSalmonAction(action: SalmonAction, accountId: string): Pro
         id: action.taskId,
         completed: action.completed ?? true,
       });
+      window.dispatchEvent(new CustomEvent("salmon:tasks-changed"));
       return {
         message: `已${action.completed === false ? "取消完成" : "标记完成"}`,
         actions: [{ label: "查看待办", primary: true, target: { view: "tasks", taskId: updated.id, accountId: updated.accountId } }],

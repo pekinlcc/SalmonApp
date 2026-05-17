@@ -184,6 +184,7 @@ export function BriefingFeed(props: Props) {
                   } else if (r.kind === "TaskCreated") {
                     const when = r.dueMs ? ` · 截止 ${new Date(r.dueMs).toLocaleDateString("zh-CN")}` : "";
                     msg = `✓ 已加待办: ${r.title}${when}`; kind = "done";
+                    window.dispatchEvent(new CustomEvent("salmon:tasks-changed"));
                     actions = [{
                       label: "查看待办",
                       primary: true,
