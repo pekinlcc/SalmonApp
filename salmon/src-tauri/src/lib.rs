@@ -151,6 +151,8 @@ pub fn run() {
             commands::set_chat_layout,
             commands::get_notify_sound,
             commands::set_notify_sound,
+            commands::get_desktop_mode,
+            commands::set_desktop_mode,
             commands::get_composer_send_mode,
             commands::set_composer_send_mode,
             commands::set_archived,

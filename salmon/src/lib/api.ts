@@ -56,6 +56,11 @@ export const api = {
   getNotifySound: () => invoke<boolean>("get_notify_sound"),
   setNotifySound: (enabled: boolean) =>
     invoke<void>("set_notify_sound", { enabled }),
+  // v1.20: Ubuntu Desktop shell toggle. null = user never set (App.tsx
+  // falls back to platform default — on for Linux, off elsewhere).
+  getDesktopMode: () => invoke<boolean | null>("get_desktop_mode"),
+  setDesktopMode: (enabled: boolean) =>
+    invoke<void>("set_desktop_mode", { enabled }),
   getChatLayout: () => invoke<string>("get_chat_layout"),
   setChatLayout: (layout: string) =>
     invoke<void>("set_chat_layout", { layout }),

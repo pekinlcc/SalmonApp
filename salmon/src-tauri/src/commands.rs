@@ -735,6 +735,29 @@ pub fn set_notify_sound(state: State<'_, AppState>, enabled: bool) -> Result<(),
         .map_err(map_err)
 }
 
+/// v1.20: Ubuntu Desktop shell toggle. Persisted as "desktop_mode" setting.
+/// Returns Some(true|false) when the user has explicitly chosen, None when
+/// never set — App.tsx then falls back to the platform default (on for
+/// Linux, off for macOS / Windows where the metaphor is less meaningful).
+#[tauri::command]
+pub fn get_desktop_mode(state: State<'_, AppState>) -> Result<Option<bool>, String> {
+    let v = state
+        .db
+        .lock()
+        .get_setting("desktop_mode")
+        .map_err(map_err)?;
+    Ok(v.as_deref().map(|s| s == "1"))
+}
+
+#[tauri::command]
+pub fn set_desktop_mode(state: State<'_, AppState>, enabled: bool) -> Result<(), String> {
+    state
+        .db
+        .lock()
+        .set_setting("desktop_mode", if enabled { "1" } else { "0" })
+        .map_err(map_err)
+}
+
 #[tauri::command]
 pub fn get_composer_send_mode(state: State<'_, AppState>) -> Result<String, String> {
     let v = state
