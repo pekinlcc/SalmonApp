@@ -3,7 +3,7 @@
 //!
 //! Sync window: 7 days back, 90 days forward. CRUD via dedicated commands.
 
-use crate::db::Db;
+use salmon_core::db::Db;
 use crate::microsoft::refresh_microsoft_access;
 use crate::oauth::{refresh_google_access, OauthTokens};
 use crate::oauth_config::OauthConfig;

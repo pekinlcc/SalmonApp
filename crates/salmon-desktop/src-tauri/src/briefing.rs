@@ -13,7 +13,7 @@
 //! keeps the home feed *instant* on every refresh: no waiting on an LLM,
 //! while still surfacing AI suggestions when they exist.
 
-use crate::db::Db;
+use salmon_core::db::Db;
 use anyhow::Result;
 use rusqlite::params;
 use serde::{Deserialize, Serialize};

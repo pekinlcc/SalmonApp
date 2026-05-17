@@ -3,7 +3,7 @@ use chrono::Utc;
 use rusqlite::{params, Connection};
 use std::path::Path;
 
-use salmon_core::types::{Message, Recommendation, SearchResult, Topic};
+use crate::types::{Message, Recommendation, SearchResult, Topic};
 
 fn topic_from_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<Topic> {
     Ok(Topic {
@@ -830,8 +830,8 @@ impl Db {
     /// joined with topics, bucketed by (today / week / month / total) using
     /// LOCAL day boundaries so "今日" matches what the user sees on their
     /// clock.
-    pub fn usage_summary(&self) -> Result<salmon_core::types::UsageSummary> {
-        use salmon_core::types::{EngineUsage, TopicUsage, UsageSummary};
+    pub fn usage_summary(&self) -> Result<crate::types::UsageSummary> {
+        use crate::types::{EngineUsage, TopicUsage, UsageSummary};
         let now = chrono::Local::now();
         let today_start = now
             .date_naive()
@@ -925,7 +925,7 @@ impl Db {
         // first (today, today-1, …, today-29), then layer in whatever the
         // SQL aggregation returned. Missing days stay at 0 so the bar
         // chart x-axis is stable regardless of activity gaps.
-        use salmon_core::types::DailyUsage;
+        use crate::types::DailyUsage;
         let mut day_map: std::collections::HashMap<String, (i64, i64)> =
             std::collections::HashMap::new();
         let mut stmt = self.conn.prepare(

@@ -4,7 +4,7 @@
 //! sync also derives interaction_count + last_seen_ms from the local
 //! mail_messages table so the AI ranker has signal even on first run.
 
-use crate::db::Db;
+use salmon_core::db::Db;
 use crate::microsoft::refresh_microsoft_access;
 use crate::oauth::{refresh_google_access, OauthTokens};
 use crate::oauth_config::OauthConfig;

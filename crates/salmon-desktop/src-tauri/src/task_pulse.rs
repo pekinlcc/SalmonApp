@@ -7,7 +7,7 @@
 //! Output PulseItems are written by the orchestrator with kind="task" in
 //! brief_items.
 
-use crate::db::Db;
+use salmon_core::db::Db;
 use crate::pulse::{ActionStep, PulseItem, SuggestedAction};
 use crate::tasks::{list_tasks_local, Task};
 use anyhow::Result;
