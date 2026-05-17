@@ -2,9 +2,9 @@ mod db;
 mod engine;
 mod commands;
 mod permission_bridge;
-mod platform;
-mod path_dirs;
-mod types;
+// v2.0 Phase 2c: shared modules now live in salmon_core. Removed locally:
+//   stage 1: types
+//   stage 2: path_dirs, platform
 mod oauth;
 mod oauth_config;
 mod gmail;
@@ -65,7 +65,7 @@ pub fn run() {
     // Repair the GUI process's PATH so child CLIs (claude/codex) can be
     // located the same way they would from a user's terminal. On macOS
     // this is mandatory; on Linux it's a no-op.
-    platform::fix_path_for_gui();
+    salmon_core::platform::fix_path_for_gui();
 
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -236,7 +236,7 @@ fn redirect_stderr_to_log_file() {
     use std::io::Write;
     use std::os::fd::AsRawFd;
 
-    let Some(dir) = path_dirs::log_dir() else { return };
+    let Some(dir) = salmon_core::path_dirs::log_dir() else { return };
     if std::fs::create_dir_all(&dir).is_err() { return }
     let path = dir.join("salmon.log");
 

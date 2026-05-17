@@ -78,7 +78,7 @@ fn is_filled(value: &str) -> bool {
 }
 
 pub fn config_file_path() -> Option<PathBuf> {
-    crate::path_dirs::config_dir().map(|base| base.join("oauth_config.toml"))
+    salmon_core::path_dirs::config_dir().map(|base| base.join("oauth_config.toml"))
 }
 
 fn resolve_path() -> Option<PathBuf> {

@@ -14,5 +14,6 @@
 members = [
     "salmon/src-tauri",
     "crates/salmon-desktop/src-tauri",
+    "crates/salmon-core",
 ]
 resolver = "2"

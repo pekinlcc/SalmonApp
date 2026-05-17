@@ -14,6 +14,9 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
+# v2.0 Phase 2c: shared backend code. Stage 1 only exposes `types`;
+# later stages will move db / engine / mail / cal / tasks here.
+salmon-core = { path = "../../crates/salmon-core" }
 tauri = { version = "2", features = [] }
 tauri-plugin-dialog = "2"
 tauri-plugin-notification = "2"
