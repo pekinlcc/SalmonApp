@@ -1656,7 +1656,7 @@ pub fn render_office_preview(path: String) -> Result<Vec<String>, String> {
     path.hash(&mut h);
     let key = format!("{:016x}-{}", h.finish(), mtime);
 
-    let cache_root = crate::path_dirs::cache_dir()
+    let cache_root = salmon_core::path_dirs::cache_dir()
         .unwrap_or_else(std::env::temp_dir)
         .join("preview");
     let dir = cache_root.join(&key);
@@ -1672,8 +1672,8 @@ pub fn render_office_preview(path: String) -> Result<Vec<String>, String> {
         std::fs::create_dir_all(&profile_dir).map_err(map_err)?;
         let profile_url = format!("file://{}", profile_dir.display());
 
-        let soffice_bin = crate::platform::find_soffice().ok_or_else(|| {
-            crate::platform::install_hint_for_office_preview().to_string()
+        let soffice_bin = salmon_core::platform::find_soffice().ok_or_else(|| {
+            salmon_core::platform::install_hint_for_office_preview().to_string()
         })?;
         let soffice_out = Command::new(&soffice_bin)
             .args([
@@ -1696,7 +1696,7 @@ pub fn render_office_preview(path: String) -> Result<Vec<String>, String> {
                     "无法运行 {}: {}。{}",
                     soffice_bin.display(),
                     e,
-                    crate::platform::install_hint_for_office_preview()
+                    salmon_core::platform::install_hint_for_office_preview()
                 ));
             }
         };
@@ -2179,7 +2179,7 @@ pub fn save_pasted_image(
         return Err("topic_id 非法".into());
     }
 
-    let cache_root = crate::path_dirs::cache_dir()
+    let cache_root = salmon_core::path_dirs::cache_dir()
         .unwrap_or_else(std::env::temp_dir)
         .join("pastes")
         .join(&topic_id);

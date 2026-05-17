@@ -2,9 +2,9 @@ mod db;
 mod engine;
 mod commands;
 mod permission_bridge;
-mod platform;
-mod path_dirs;
-// v2.0 Phase 2c stage 1: `types` moved to salmon_core.
+// v2.0 Phase 2c: shared modules now live in salmon_core. Removed locally:
+//   stage 1: types
+//   stage 2: path_dirs, platform
 mod oauth;
 mod oauth_config;
 mod gmail;

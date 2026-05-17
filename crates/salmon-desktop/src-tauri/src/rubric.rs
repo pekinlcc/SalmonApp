@@ -61,7 +61,7 @@ pub const DEFAULT_RUBRIC: &str = r#"# SalmonApp Rubric · v1
 "#;
 
 pub fn rubric_path() -> Result<PathBuf> {
-    let base = crate::path_dirs::config_dir()
+    let base = salmon_core::path_dirs::config_dir()
         .ok_or_else(|| anyhow!("HOME unset — cannot resolve rubric path"))?;
     Ok(base.join("rubric.md"))
 }

@@ -1,6 +1,8 @@
 // SalmonApp shared backend.
 //
-// Phase 2c-stage1: only `types` is here. As later stages land, this lib.rs
-// will grow `pub mod db; pub mod engine; pub mod mail; …` etc. and the
-// binary crates will shrink accordingly.
+// Stage 1: types.
+// Stage 2: path_dirs + platform (pure std utility modules).
+// Future stages: db, engine, mail, calendar, tasks, briefing, etc.
 pub mod types;
+pub mod path_dirs;
+pub mod platform;
