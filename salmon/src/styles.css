@@ -3148,6 +3148,26 @@ button { font-family: inherit; }
     conic-gradient(from 200deg at 70% 40%, rgba(157,71,255,0.45), rgba(13,114,255,0.30), rgba(240,55,118,0.40), rgba(157,71,255,0.45)),
     linear-gradient(160deg, #1a0e2e 0%, #0a0a18 55%, #050610 100%);
 }
+.dt-wp-ubuntu {
+  background:
+    radial-gradient(ellipse 80% 60% at 30% 24%, rgba(233,84,32,0.55), transparent 55%),
+    radial-gradient(ellipse 60% 50% at 80% 78%, rgba(119,33,111,0.65), transparent 60%),
+    radial-gradient(ellipse 70% 60% at 70% 22%, rgba(233,84,32,0.30), transparent 60%),
+    linear-gradient(160deg, #2c001e 0%, #1a0010 55%, #0d0008 100%);
+}
+.dt-wp-deep {
+  background:
+    radial-gradient(ellipse 60% 45% at 50% 25%, rgba(13,114,255,0.40), transparent 60%),
+    radial-gradient(ellipse 90% 70% at 50% 105%, rgba(48,81,242,0.45), transparent 55%),
+    linear-gradient(180deg, #050818 0%, #02030b 100%);
+}
+.dt-wp-salmon {
+  background:
+    radial-gradient(ellipse 80% 60% at 28% 18%, rgba(255,122,89,0.60), transparent 55%),
+    radial-gradient(ellipse 60% 50% at 80% 72%, rgba(255,51,102,0.50), transparent 55%),
+    radial-gradient(ellipse 70% 60% at 75% 18%, rgba(255,191,0,0.28), transparent 60%),
+    linear-gradient(160deg, #1c0f13 0%, #100509 55%, #060305 100%);
+}
 .dt-wp-grid {
   position: absolute; inset: 0; pointer-events: none;
   background-image:
@@ -3198,11 +3218,15 @@ button { font-family: inherit; }
   font-size: 11px; color: rgba(255, 255, 255, 0.72);
   font-variant-numeric: tabular-nums;
 }
-.dt-tray-exit {
+.dt-tray-exit,
+.dt-tray-wallpaper {
   padding: 2px 6px; border-radius: 4px;
   color: rgba(255, 255, 255, 0.7); font-size: 13px;
+  line-height: 1;
 }
-.dt-tray-exit:hover { background: rgba(255, 255, 255, 0.14); color: #fff; }
+.dt-tray-exit:hover,
+.dt-tray-wallpaper:hover { background: rgba(255, 255, 255, 0.14); color: #fff; }
+.dt-tray-wallpaper { font-size: 14px; }
 
 /* --- Stage (Brief widget) --- */
 .dt-stage {
@@ -3381,6 +3405,28 @@ button { font-family: inherit; }
   text-align: center;
   border: 2px solid rgba(0, 0, 0, 0.6);
 }
+/* Subtle "running / has content" indicator under dock app icons —
+   shown when the matching view has unread/pending items but no numeric
+   badge is needed (e.g. Calendar with upcoming event). */
+.dt-dock-item-dot {
+  position: absolute; bottom: -2px; left: 50%;
+  transform: translateX(-50%);
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--oc-blue, #0D72FF);
+  box-shadow: 0 0 6px rgba(13, 114, 255, 0.7);
+}
+.dt-dock-item-active::after {
+  content: "";
+  position: absolute;
+  bottom: -2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 18px; height: 2px;
+  border-radius: 1px;
+  background: rgba(13, 114, 255, 0.55);
+}
+.dt-dock-item-active .dt-dock-item-dot { display: none; }
 
 /* --- Launcher overlay --- */
 .dt-launcher {
