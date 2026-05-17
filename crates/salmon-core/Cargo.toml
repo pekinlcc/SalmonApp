@@ -1,0 +1,22 @@
+# v2.0 Phase 2c — shared backend code for both SalmonApp and SalmonApp Desktop.
+#
+# Stage 1 (this commit) ships only the shared `types` module. Subsequent
+# stages will move db, engine, mail, calendar, tasks, briefing, etc. here
+# so the two binary crates stop carrying duplicate copies of the same logic.
+#
+# Pure library crate — no [bin], no Tauri build script. Binary crates own
+# the Tauri integration.
+[package]
+name = "salmon-core"
+version = "0.0.0"
+edition = "2021"
+rust-version = "1.77"
+description = "Shared backend logic for SalmonApp / SalmonApp Desktop"
+
+[lib]
+name = "salmon_core"
+path = "src/lib.rs"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

@@ -4,7 +4,7 @@ mod commands;
 mod permission_bridge;
 mod platform;
 mod path_dirs;
-mod types;
+// v2.0 Phase 2c stage 1: `types` moved to salmon_core.
 mod oauth;
 mod oauth_config;
 mod gmail;

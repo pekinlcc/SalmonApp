@@ -1,4 +1,4 @@
-use crate::types::{CliInfo, Message, Recommendation, SearchResult, Topic};
+use salmon_core::types::{CliInfo, Message, Recommendation, SearchResult, Topic};
 use crate::AppState;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -2137,7 +2137,7 @@ pub fn set_topic_turn_duration(
 #[tauri::command]
 pub fn get_usage_summary(
     state: State<'_, AppState>,
-) -> Result<crate::types::UsageSummary, String> {
+) -> Result<salmon_core::types::UsageSummary, String> {
     state.db.lock().usage_summary().map_err(map_err)
 }
 
