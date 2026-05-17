@@ -1,0 +1,15 @@
+# v2.0 workspace root — Phase 2a of the three-product split.
+# See docs/refactor-three-products/README.md for the full plan.
+#
+# Today this workspace has exactly one member: the existing
+# salmonapp Tauri binary, still living at its old path. Adding
+# the workspace at the root lets us add more members (salmon-core,
+# salmonapp-desktop) in subsequent phases without re-locating the
+# existing crate.
+#
+# Side effect: Cargo's shared target directory moves from
+# `salmon/src-tauri/target/` to `target/` at the repo root. The
+# release CI workflow and .gitignore are updated to match.
+[workspace]
+members = ["salmon/src-tauri"]
+resolver = "2"
