@@ -1,9 +1,13 @@
 # Phase 3 Compositor Skeleton
 
 A starting point for `salmon-shell`, the Wayland compositor that
-SalmonApp Desktop will eventually become. ~1500 lines of Rust across
-~10 files, modeled after [Smithay's anvil reference
+SalmonApp Desktop will eventually become. ~2000 lines of Rust across
+~17 files, modeled after [Smithay's anvil reference
 compositor](https://github.com/Smithay/smithay/tree/master/anvil).
+
+Coverage now includes **all Tier 1 + key Tier 2 protocols** — enough
+that fcitx5 (IME), waybar / mako (layer-shell), and GTK apps (decoration
+negotiation) should all be able to come up.
 
 **Honest status**: this code was written without ability to
 compile-test. Treat the first `cargo build` as the start of an API
@@ -27,12 +31,21 @@ not found". When that happens:
 |---|---|---|
 | `Cargo.toml` | Deps, features (`nested` / `tty`) | Real, should compile |
 | `src/main.rs` | CLI + backend dispatch | Real |
-| `src/state.rs` | `SalmonState` central struct | Real, anvil-style |
-| `src/handlers.rs` | Compositor / Shell / Shm / Seat / DataDevice / Output | Tier-1 protocols, real impls |
+| `src/state.rs` | `SalmonState` central struct | All 10 protocol states wired |
+| `src/handlers/mod.rs` | Module index + helpers | Real |
+| `src/handlers/compositor.rs` | `wl_compositor` surface lifecycle | Real |
+| `src/handlers/shell.rs` | `xdg_shell` windows + popups | Real (move/resize grabs TODO) |
+| `src/handlers/shm.rs` | `wl_shm` shared memory | Real (3 lines) |
+| `src/handlers/seat.rs` | `wl_seat` input routing | Real (cursor draw TODO) |
+| `src/handlers/data_device.rs` | Clipboard + DnD | Minimum-viable |
+| `src/handlers/output.rs` | `wl_output` + `xdg-output-v1` | Real |
+| `src/handlers/layer_shell.rs` | `wlr-layer-shell-v1` panel surfaces | **Real impl** — needed for salmon-app UI anchor |
+| `src/handlers/decoration.rs` | `xdg-decoration-v1` titlebar negotiation | Real (forces ClientSide v0) |
+| `src/handlers/text_input.rs` | `text-input-v3` + `input-method-v2` for IME | Scaffold (fcitx5 can connect) |
 | `src/input.rs` | Routes backend InputEvent → seat methods | Keyboard + pointer working; touch/tablet TODO |
 | `src/nested.rs` | winit-backend bootstrap | **Most likely to actually run.** Build with `--features nested` |
 | `src/tty.rs` | udev/DRM bootstrap | **Stub only.** Anvil's `udev.rs` is ~2000 lines; port that |
-| `src/ui_layer.rs` | How to anchor salmon-app as layer-shell surface | Plan + env-var contract only; layer-shell protocol not implemented |
+| `src/ui_layer.rs` | Env-var contract for spawning salmon-app | Anchoring works once salmon-app uses the layer-shell client lib |
 | `src/render.rs` | Shared rendering helpers | Empty shim |
 
 ## Build
@@ -87,16 +100,18 @@ quality but the foundation works.
 - `xwayland` — Smithay supports it (the dep is enabled) but
   bringing up XwaylandServer + handling X11 windows is its own
   ~500-line file.
-- `layer-shell` — needed for the desktop UI integration. Implement
-  via `smithay::wayland::shell::wlr_layer`.
 - Real cursor rendering — nested mode borrows the host cursor;
   TTY mode you draw it via a hardware cursor plane.
 - HiDPI / fractional scaling — the per-output scale code in anvil
   is a good port target.
 - Multi-monitor — `Space::map_output` supports it but you need a
   Smithay-side `wlr-output-management` impl for runtime config.
-- IME — `text-input-v3` + `input-method-v2`. Required for Chinese
-  input.
+- `wlr-foreign-toplevel-management-v1` — without this the dock can't
+  list running apps. Add when you wire the dock data flow.
+- `wlr-screencopy-v1` — screenshots + Zoom-style screen sharing.
+- Real move / resize / popup grabs — `xdg_shell` accepts the requests
+  but doesn't yet install pointer grabs to follow through. Anvil's
+  `input.rs::move_request` is a clean port target.
 
 Each of these is its own multi-week project. See
 `../wayland-protocols.md` for the full checklist.

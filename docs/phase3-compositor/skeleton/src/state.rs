@@ -10,7 +10,6 @@
 // handler's state directly — go through methods on SalmonState.
 
 use std::ffi::OsString;
-use std::sync::Arc;
 use std::time::Instant;
 
 use smithay::{
@@ -22,11 +21,16 @@ use smithay::{
     },
     wayland::{
         compositor::{CompositorClientState, CompositorState},
+        input_method::InputMethodManagerState,
         output::OutputManagerState,
         selection::data_device::DataDeviceState,
-        shell::xdg::XdgShellState,
+        shell::{
+            wlr_layer::WlrLayerShellState,
+            xdg::{decoration::XdgDecorationState, XdgShellState},
+        },
         shm::ShmState,
         socket::ListeningSocketSource,
+        text_input::TextInputManagerState,
     },
 };
 
@@ -62,6 +66,8 @@ pub struct SalmonState {
 
     // Wayland protocol state. Each handler trait we implement gets
     // its piece of state here.
+
+    // Tier 1 — minimum-viable compositor.
     pub compositor_state: CompositorState,
     pub shm_state: ShmState,
     pub xdg_shell_state: XdgShellState,
@@ -69,9 +75,16 @@ pub struct SalmonState {
     pub data_device_state: DataDeviceState,
     pub output_manager_state: OutputManagerState,
 
+    // Tier 2 — daily-driver protocols.
+    pub layer_shell_state: WlrLayerShellState,
+    pub xdg_decoration_state: XdgDecorationState,
+    pub text_input_manager_state: TextInputManagerState,
+    pub input_method_manager_state: InputMethodManagerState,
+
     // Desktop layer — windows + popups managed in Smithay's coordinate
     // space. Space tracks every Toplevel; PopupManager handles the
-    // nested popup hierarchy (menus, tooltips).
+    // nested popup hierarchy (menus, tooltips). Layer surfaces are
+    // tracked per-output via smithay::desktop::layer_map_for_output.
     pub space: Space<Window>,
     pub popups: PopupManager,
 
@@ -107,6 +120,14 @@ impl SalmonState {
         let data_device_state = DataDeviceState::new::<Self>(&dh);
         let output_manager_state = OutputManagerState::new_with_xdg_output::<Self>(&dh);
 
+        let layer_shell_state = WlrLayerShellState::new::<Self>(&dh);
+        let xdg_decoration_state = XdgDecorationState::new::<Self>(&dh);
+        let text_input_manager_state = TextInputManagerState::new::<Self>(&dh);
+        // Filter `|_| true` accepts any client as IME. v2 should
+        // whitelist fcitx5 / ibus / nimf binaries.
+        let input_method_manager_state =
+            InputMethodManagerState::new::<Self, _>(&dh, |_| true);
+
         // Create the seat. The name matters for some clients (e.g.
         // libinput-named seats); "seat0" is the conventional default.
         let mut seat = seat_state.new_wl_seat(&dh, "seat0".to_string());
@@ -134,6 +155,10 @@ impl SalmonState {
                 seat_state,
                 data_device_state,
                 output_manager_state,
+                layer_shell_state,
+                xdg_decoration_state,
+                text_input_manager_state,
+                input_method_manager_state,
                 space: Space::default(),
                 popups: PopupManager::default(),
                 seat,
