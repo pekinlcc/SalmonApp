@@ -66,7 +66,7 @@ export function SettingsDialog({
             </button>
           ))}
           <div className="rail-spacer" />
-          <button className="btn rail-close" onClick={onClose}>关闭</button>
+          <button className="btn btn-block" onClick={onClose}>关闭</button>
         </aside>
 
         <section className="settings-content-v2">
@@ -339,8 +339,8 @@ function PreferencesTab({
           <span className="toggle-label">完成时播放提示音</span>
           <button
             type="button"
-            className="btn"
-            style={{ marginLeft: "auto", padding: "4px 10px", fontSize: 11.5 }}
+            className="btn btn-sm"
+            style={{ marginLeft: "auto" }}
             onClick={() => {
               playChime();
             }}
@@ -453,8 +453,8 @@ function AccountsTab() {
             未配置的服务需要先填写 <code>{oauthConfigPath}</code>，重启 SalmonApp 后生效。安装版 Mac 不读取源码目录；设置方法见仓库根目录 <code>OAUTH-SETUP.md</code>。
             <button
               type="button"
-              className="btn"
-              style={{ marginLeft: 8, padding: "3px 8px", fontSize: 11.5 }}
+              className="btn btn-sm"
+              style={{ marginLeft: 8 }}
               onClick={() => navigator.clipboard?.writeText(oauthConfigPath).catch(() => {})}
             >
               复制路径
@@ -485,7 +485,7 @@ function AccountsTab() {
                   {a.lastSyncError && <div className="account-error">{a.lastSyncError}</div>}
                 </div>
                 <button
-                  className="btn"
+                  className="btn btn-sm btn-danger"
                   disabled={busy !== null}
                   onClick={() => removeAccount(a)}
                 >

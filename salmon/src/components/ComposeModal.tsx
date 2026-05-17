@@ -131,7 +131,7 @@ export function ComposeModal({ accounts, defaultAccountId, replyTo, onClose, onS
           <div className="compose-title">
             {replyTo ? (replyTo.mode === "forward" ? "转发邮件" : "回复邮件") : "新邮件"}
           </div>
-          <button className="btn-ghost" onClick={onClose}>×</button>
+          <button className="btn btn-ghost" onClick={onClose}>×</button>
         </div>
 
         <div className="compose-from">
@@ -198,13 +198,13 @@ export function ComposeModal({ accounts, defaultAccountId, replyTo, onClose, onS
         {error && <div className="compose-error">{error}</div>}
 
         <div className="compose-foot">
-          <button className="btn-ghost" onClick={pickAttachments}>＋ 附件</button>
-          <button className="btn-ghost" onClick={onSaveDraft} disabled={saving || sending}>
+          <button className="btn btn-ghost" onClick={pickAttachments}>＋ 附件</button>
+          <button className="btn btn-ghost" onClick={onSaveDraft} disabled={saving || sending}>
             {saving ? "保存中…" : "存草稿"}
           </button>
           <div style={{ flex: 1 }} />
           <button className="btn" onClick={onClose} disabled={sending}>取消</button>
-          <button className="btn primary" onClick={onSend} disabled={sending}>
+          <button className="btn btn-primary" onClick={onSend} disabled={sending}>
             {sending ? "发送中…" : "发送"}
           </button>
         </div>

@@ -123,7 +123,7 @@ export function SearchDialog({ topics, initialQuery = "", onClose, onNavigate }:
       <div className="modal search-modal" onClick={(e) => e.stopPropagation()}>
         <div className="search-modal-head">
           <h3>全局搜索</h3>
-          <button className="btn icon-btn" onClick={onClose} title="关闭">×</button>
+          <button className="btn btn-sm btn-icon btn-ghost" onClick={onClose} title="关闭">×</button>
         </div>
         <input
           ref={inputRef}

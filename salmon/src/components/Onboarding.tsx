@@ -53,7 +53,7 @@ export function Onboarding({ cliStatus, onContinue, onRefresh }: Props) {
 
         <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
           <button className="btn" onClick={onRefresh}>重新检测</button>
-          <button className="btn primary" disabled={!ready} onClick={onContinue} style={{ marginLeft: "auto" }}>
+          <button className="btn btn-primary" disabled={!ready} onClick={onContinue} style={{ marginLeft: "auto" }}>
             {ready ? "创建第一个 Topic →" : "至少需要一个已登录的 CLI"}
           </button>
         </div>

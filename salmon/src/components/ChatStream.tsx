@@ -214,7 +214,7 @@ export function ChatStream(props: Props) {
             {searchQuery.trim() && `${searchResults.length} 条`}
           </span>
           <button
-            className="btn-ghost"
+            className="btn btn-ghost"
             onClick={() => { setSearchOpen(false); setSearchQuery(""); }}
             title="关闭（Esc）"
           >×</button>
@@ -260,7 +260,7 @@ export function ChatStream(props: Props) {
           </div>
           <div className="wm-actions">
             <button className="btn" onClick={props.onArchive}>归档(从主列表收起)</button>
-            <button className="btn" style={{ color: "#B7493D" }} onClick={props.onDelete}>永久删除</button>
+            <button className="btn btn-danger" onClick={props.onDelete}>永久删除</button>
           </div>
         </div>
       )}

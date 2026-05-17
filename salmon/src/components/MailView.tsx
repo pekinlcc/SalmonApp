@@ -374,10 +374,10 @@ export function MailView({
         </div>
         <div className="empty-actions" style={{ gap: 10 }}>
           {oauthStatus.googleConfigured && (
-            <button className="btn primary" onClick={onAddGmail}>＋ 添加 Gmail</button>
+            <button className="btn btn-primary" onClick={onAddGmail}>＋ 添加 Gmail</button>
           )}
           {oauthStatus.microsoftConfigured && (
-            <button className="btn primary" onClick={onAddOutlook}>＋ 添加 Outlook</button>
+            <button className="btn btn-primary" onClick={onAddOutlook}>＋ 添加 Outlook</button>
           )}
         </div>
       </div>
@@ -402,13 +402,13 @@ export function MailView({
               {syncProgress.stage === "listing" ? "枚举中…" : `${syncProgress.fetched}/${syncProgress.total}`}
             </span>
           )}
-          <button className="btn primary" onClick={() => setCompose({ mode: "new" })}>＋ 新邮件</button>
-          <button className="btn-ghost" onClick={onResync} disabled={syncing}>
+          <button className="btn btn-primary" onClick={() => setCompose({ mode: "new" })}>＋ 新邮件</button>
+          <button className="btn btn-ghost" onClick={onResync} disabled={syncing}>
             {syncing ? "同步中…" : "↻ 同步"}
           </button>
           <div className="add-account-wrap" ref={addMenuRef}>
             <button
-              className="btn-ghost"
+              className="btn btn-ghost"
               onClick={() => setAddMenuOpen((v) => !v)}
               title="添加邮箱账号"
             >
@@ -433,7 +433,7 @@ export function MailView({
               </div>
             )}
           </div>
-          <button className="btn-ghost" onClick={onRemoveAccount}>移除当前</button>
+          <button className="btn btn-ghost" onClick={onRemoveAccount}>移除当前</button>
         </div>
       </div>
       <div className={`mail-grid ${accounts.length <= 1 ? "single-account" : ""}`}>
@@ -542,11 +542,11 @@ function Reader({
   return (
     <div className="reader-body">
       <div className="reader-actions">
-        <button className="btn-ghost" onClick={onReply}>↩ 回复</button>
-        <button className="btn-ghost" onClick={onReplyAll}>↩↩ 回复全部</button>
-        <button className="btn-ghost" onClick={onForward}>↪ 转发</button>
+        <button className="btn btn-ghost" onClick={onReply}>↩ 回复</button>
+        <button className="btn btn-ghost" onClick={onReplyAll}>↩↩ 回复全部</button>
+        <button className="btn btn-ghost" onClick={onForward}>↪ 转发</button>
         <div style={{ flex: 1 }} />
-        <button className="btn-ghost" onClick={onMarkUnread}>● 标记未读</button>
+        <button className="btn btn-ghost" onClick={onMarkUnread}>● 标记未读</button>
       </div>
       <div className="reader-subj">{msg.subject || "(无主题)"}</div>
       <div className="reader-meta">

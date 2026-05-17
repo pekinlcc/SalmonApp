@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>SalmonApp · 按钮系统设计稿</title>
+  <style>
+    :root {
+      --salmon-50:  #FFF1EA;
+      --salmon-100: #FFE0CF;
+      --salmon-200: #F8C5A6;
+      --salmon-300: #E8A082;
+      --salmon-500: #D86F4A;
+      --salmon-600: #C25B38;
+      --salmon-700: #B7493D;
+
+      --ink-50:  #F7F4F1;
+      --ink-100: #E8E2DC;
+      --ink-200: #D2C9C0;
+      --ink-300: #B8AC9F;
+      --ink-500: #8C7E73;
+      --ink-700: #5A4F47;
+      --ink-900: #2C2723;
+
+      --rust-50: #FCEDEA;
+      --rust-700: #B7493D;
+
+      --bg: #F4F0EC;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, "PingFang SC", sans-serif;
+      margin: 0; padding: 32px;
+      background: var(--bg);
+      color: var(--ink-900);
+    }
+    h1 { font-size: 22px; margin: 0 0 6px; }
+    h1 small { font-weight: 400; color: var(--ink-500); font-size: 13px; margin-left: 10px; }
+    h2 { font-size: 16px; margin: 36px 0 12px; padding-bottom: 6px; border-bottom: 2px solid var(--ink-100); }
+    h3 { font-size: 13px; color: var(--ink-700); margin: 18px 0 8px; }
+    p.intro { color: var(--ink-700); font-size: 13px; line-height: 1.6; max-width: 900px; margin: 0 0 8px; }
+    p.muted { color: var(--ink-500); font-size: 12px; line-height: 1.5; max-width: 900px; }
+
+    code, kbd {
+      font-family: ui-monospace, "SF Mono", monospace;
+      background: var(--ink-50);
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-size: 11.5px;
+    }
+
+    /* ============================================================== */
+    /*  THE BUTTON SYSTEM — all rules below                          */
+    /* ============================================================== */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      height: 30px;
+      padding: 0 14px;
+      font-size: 12.5px;
+      font-weight: 500;
+      font-family: inherit;
+      border: 1px solid var(--ink-200);
+      border-radius: 6px;
+      background: white;
+      color: var(--ink-900);
+      cursor: pointer;
+      transition: background 120ms ease, border-color 120ms ease, color 120ms ease, box-shadow 120ms ease;
+      user-select: none;
+      white-space: nowrap;
+    }
+    .btn:hover {
+      background: var(--ink-50);
+      border-color: var(--ink-300);
+    }
+    .btn:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(232,160,130,0.35);
+    }
+    .btn:active { transform: translateY(0.5px); }
+    .btn:disabled,
+    .btn[aria-disabled="true"] {
+      opacity: 0.45;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+
+    /* Sizes */
+    .btn-sm { height: 24px; padding: 0 10px; font-size: 11.5px; gap: 4px; border-radius: 5px; }
+    .btn-lg { height: 36px; padding: 0 18px; font-size: 13.5px; gap: 8px; border-radius: 7px; }
+
+    /* Variants */
+    .btn-primary {
+      background: var(--salmon-700);
+      border-color: var(--salmon-700);
+      color: white;
+      font-weight: 600;
+    }
+    .btn-primary:hover {
+      background: var(--salmon-600);
+      border-color: var(--salmon-600);
+    }
+    .btn-primary:disabled,
+    .btn-primary[aria-disabled="true"] {
+      background: var(--ink-300);
+      border-color: var(--ink-300);
+    }
+
+    .btn-ghost {
+      background: transparent;
+      border-color: transparent;
+      color: var(--ink-700);
+    }
+    .btn-ghost:hover {
+      background: var(--ink-50);
+      border-color: transparent;
+      color: var(--ink-900);
+    }
+
+    .btn-danger {
+      color: var(--rust-700);
+      border-color: var(--ink-200);
+      background: white;
+    }
+    .btn-danger:hover {
+      background: var(--rust-50);
+      border-color: var(--rust-700);
+      color: var(--rust-700);
+    }
+    .btn-danger.btn-primary {
+      background: var(--rust-700);
+      color: white;
+      border-color: var(--rust-700);
+    }
+    .btn-danger.btn-primary:hover {
+      background: #9A3D33;
+      border-color: #9A3D33;
+    }
+
+    /* Icon-only square. Combine with btn-sm / btn-lg for the square size. */
+    .btn-icon { padding: 0; width: 30px; }
+    .btn-icon.btn-sm { width: 24px; }
+    .btn-icon.btn-lg { width: 36px; }
+
+    /* Block (full width inside its container) */
+    .btn-block { display: flex; width: 100%; }
+
+    /* Optional inline kbd next to a button label. */
+    .btn kbd {
+      font-family: ui-monospace, monospace;
+      font-size: 10px;
+      background: rgba(0,0,0,0.06);
+      color: inherit;
+      padding: 1px 5px;
+      border-radius: 3px;
+      opacity: 0.7;
+      margin-left: 2px;
+    }
+    .btn-primary kbd { background: rgba(255,255,255,0.22); opacity: 0.95; }
+
+    /* SVG inside button picks up text color naturally. */
+    .btn svg {
+      width: 14px; height: 14px;
+      stroke: currentColor; stroke-width: 2;
+      fill: none;
+      stroke-linecap: round; stroke-linejoin: round;
+      flex-shrink: 0;
+    }
+    .btn-sm svg { width: 12px; height: 12px; }
+    .btn-lg svg { width: 16px; height: 16px; }
+
+    /* ============================================================== */
+    /*  Layout helpers for this mockup page                           */
+    /* ============================================================== */
+    .panel {
+      background: white;
+      border-radius: 10px;
+      padding: 18px 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+      margin-bottom: 18px;
+    }
+    .panel h2 { margin-top: 0; }
+
+    .matrix {
+      display: grid;
+      grid-template-columns: 80px repeat(5, 1fr);
+      gap: 12px;
+      align-items: center;
+    }
+    .matrix > .head {
+      font-size: 11px;
+      color: var(--ink-500);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      text-align: center;
+    }
+    .matrix > .row-head {
+      font-size: 11px;
+      color: var(--ink-500);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-weight: 600;
+    }
+    .matrix > .cell {
+      display: flex; flex-direction: column; gap: 6px;
+      align-items: center;
+    }
+
+    .swatches {
+      display: flex; gap: 10px; flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .tokens {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      gap: 10px;
+    }
+    .token {
+      border: 1px solid var(--ink-100);
+      border-radius: 6px;
+      padding: 10px;
+      font-size: 11px;
+      color: var(--ink-700);
+    }
+    .token .swatch {
+      width: 100%; height: 36px;
+      border-radius: 4px; margin-bottom: 6px;
+      border: 1px solid var(--ink-100);
+    }
+
+    /* Mock context wrappers */
+    .ctx {
+      background: white;
+      border: 1px solid var(--ink-100);
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 12px;
+    }
+    .ctx-label {
+      font-size: 11px;
+      color: var(--ink-500);
+      font-weight: 600;
+      margin-bottom: 10px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    /* Mail header bar styled like the actual screenshot */
+    .mail-head {
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px 14px;
+      background: var(--bg);
+      border-radius: 8px;
+    }
+
+    /* Sidebar mockup */
+    .sb {
+      background: var(--ink-50);
+      width: 240px;
+      border-radius: 8px;
+      padding: 12px;
+    }
+    .sb-head {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 13px; color: var(--ink-700);
+      margin-bottom: 10px;
+    }
+    .sb .btn-group {
+      display: flex; flex-direction: column; gap: 4px;
+      margin-bottom: 10px;
+    }
+    .sb-search {
+      background: white;
+      border: 1px solid var(--ink-100);
+      border-radius: 5px;
+      padding: 6px 8px;
+      font-size: 12px;
+      color: var(--ink-500);
+      margin-bottom: 12px;
+    }
+
+    /* Brief card mockup */
+    .brief-card {
+      background: white;
+      border: 1px solid var(--ink-100);
+      border-radius: 8px;
+      padding: 14px;
+      max-width: 520px;
+    }
+    .brief-title { font-size: 13.5px; font-weight: 600; margin-bottom: 4px; }
+    .brief-desc { font-size: 12px; color: var(--ink-700); margin-bottom: 12px; line-height: 1.5; }
+    .brief-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+    /* Permission card mockup */
+    .perm-card {
+      background: white;
+      border: 1px solid var(--salmon-200);
+      border-radius: 8px;
+      padding: 14px;
+      max-width: 520px;
+    }
+    .perm-row { font-size: 12.5px; color: var(--ink-900); margin-bottom: 10px; }
+    .perm-actions { display: flex; gap: 8px; }
+
+    /* Composer mockup */
+    .composer {
+      background: white;
+      border: 1px solid var(--ink-100);
+      border-radius: 10px;
+      padding: 12px;
+    }
+    .composer textarea {
+      width: 100%; height: 60px;
+      border: none; outline: none;
+      font-family: inherit; font-size: 13px;
+      resize: none; color: var(--ink-900);
+    }
+    .composer-bar {
+      display: flex; align-items: center; gap: 8px;
+      padding-top: 8px;
+      border-top: 1px solid var(--ink-50);
+    }
+    .composer-hint { font-size: 11px; color: var(--ink-500); margin-right: auto; }
+
+    /* Settings modal footer */
+    .modal-foot {
+      display: flex; gap: 8px; justify-content: flex-end;
+      padding: 12px;
+      background: var(--ink-50);
+      border-radius: 8px;
+    }
+
+    /* salmon-action confirmation card */
+    .action-card {
+      background: white;
+      border: 1px solid var(--salmon-200);
+      border-radius: 8px;
+      padding: 12px 14px;
+      max-width: 480px;
+    }
+    .action-head {
+      display: flex; align-items: center; gap: 6px; margin-bottom: 6px;
+    }
+    .action-kicker { font-size: 10.5px; color: var(--ink-500); }
+    .action-kind { font-size: 10.5px; background: var(--ink-50); padding: 1px 6px; border-radius: 3px; font-family: ui-monospace, monospace; }
+    .action-summary { font-size: 12.5px; margin-bottom: 10px; color: var(--ink-700); }
+    .action-row { font-size: 11.5px; padding: 4px 0; color: var(--ink-700); }
+    .action-row b { color: var(--ink-900); }
+    .action-foot { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; }
+
+    /* Topic chat header */
+    .topic-head {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 14px;
+      background: white;
+      border: 1px solid var(--ink-100);
+      border-radius: 8px;
+    }
+    .topic-title { font-size: 13.5px; font-weight: 600; }
+    .topic-path { font-size: 11px; color: var(--ink-500); font-family: ui-monospace, monospace; }
+    .topic-spacer { flex: 1; }
+    .topic-stat { font-size: 11.5px; color: var(--ink-500); }
+    .engine-pill {
+      font-size: 9.5px; padding: 1px 5px; border-radius: 3px;
+      background: #E6F0FF; color: #2F5BB7; font-weight: 600;
+    }
+
+    /* AI popover mockup */
+    .ai-pop {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 12px 28px rgba(0,0,0,0.10);
+      border: 1px solid var(--ink-100);
+      padding: 12px;
+      width: 360px;
+    }
+    .ai-pop-chip {
+      font-size: 11px;
+      background: var(--ink-50);
+      padding: 5px 8px;
+      border-radius: 5px;
+      margin-bottom: 8px;
+      color: var(--ink-700);
+    }
+    .ai-pop textarea {
+      width: 100%; min-height: 50px;
+      border: 1px solid var(--ink-100);
+      border-radius: 6px; padding: 8px 10px;
+      font-family: inherit; font-size: 12.5px;
+      outline: none; resize: none;
+      color: var(--ink-900);
+    }
+    .ai-pop-foot {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-top: 8px;
+    }
+    .ai-pop-hint { font-size: 10.5px; color: var(--ink-500); }
+
+    /* Inline magnifier glyph */
+    .glyph-mag {
+      stroke: currentColor; stroke-width: 2;
+      fill: none; stroke-linecap: round; stroke-linejoin: round;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>SalmonApp 按钮系统设计稿 <small>v1 提案 · 等你确认后落地</small></h1>
+  <p class="intro">
+    全局 15+ 种按钮 className 统一成 <strong>5 个变体 × 3 个尺寸</strong>。所有按钮高度对齐、间距对齐、focus 行为对齐。下面分四块：
+    ① <strong>设计 token</strong>、② <strong>变体矩阵</strong>、③ <strong>实际页面 mockup</strong>、④ <strong>当前 → 新规范映射表</strong>。
+  </p>
+
+  <!-- ============================================================== -->
+  <!-- 1. 设计 token                                                 -->
+  <!-- ============================================================== -->
+  <h2>1 · 设计 token</h2>
+  <div class="panel">
+    <h3>颜色（salmon 主调 + ink 中性 + rust 警示）</h3>
+    <div class="tokens">
+      <div class="token"><div class="swatch" style="background: #B7493D;"></div>salmon-700 · 主操作</div>
+      <div class="token"><div class="swatch" style="background: #C25B38;"></div>salmon-600 · 主操作 hover</div>
+      <div class="token"><div class="swatch" style="background: #D86F4A;"></div>salmon-500 · 强调</div>
+      <div class="token"><div class="swatch" style="background: #E8A082;"></div>salmon-300 · focus ring</div>
+      <div class="token"><div class="swatch" style="background: #FFE0CF;"></div>salmon-100 · 浅强调</div>
+      <div class="token"><div class="swatch" style="background: #FFF1EA;"></div>salmon-50 · 轻 hover</div>
+      <div class="token"><div class="swatch" style="background: #2C2723;"></div>ink-900 · 主文字</div>
+      <div class="token"><div class="swatch" style="background: #5A4F47;"></div>ink-700 · 次文字 / ghost</div>
+      <div class="token"><div class="swatch" style="background: #8C7E73;"></div>ink-500 · 弱文字 / 占位</div>
+      <div class="token"><div class="swatch" style="background: #D2C9C0;"></div>ink-200 · 默认边框</div>
+      <div class="token"><div class="swatch" style="background: #E8E2DC;"></div>ink-100 · 浅边框</div>
+      <div class="token"><div class="swatch" style="background: #F7F4F1;"></div>ink-50 · hover 背景</div>
+      <div class="token"><div class="swatch" style="background: #B7493D;"></div>rust-700 · danger</div>
+      <div class="token"><div class="swatch" style="background: #FCEDEA;"></div>rust-50 · danger hover bg</div>
+    </div>
+    <h3>尺寸（高度对齐 · 圆角对齐 · 字号阶梯）</h3>
+    <table style="border-collapse: collapse; font-size: 12px; color: var(--ink-700);">
+      <thead>
+        <tr style="border-bottom: 1px solid var(--ink-100);">
+          <th style="text-align: left; padding: 6px 14px 6px 0;">size</th>
+          <th style="text-align: left; padding: 6px 14px 6px 0;">height</th>
+          <th style="text-align: left; padding: 6px 14px 6px 0;">padding-x</th>
+          <th style="text-align: left; padding: 6px 14px 6px 0;">font</th>
+          <th style="text-align: left; padding: 6px 14px 6px 0;">radius</th>
+          <th style="text-align: left; padding: 6px 14px 6px 0;">用在哪</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td style="padding: 6px 14px 6px 0;"><code>btn-sm</code></td><td>24</td><td>10</td><td>11.5</td><td>5</td><td>brief 卡片动作、permission、composer 辅助、icon 旁说明</td></tr>
+        <tr><td style="padding: 6px 14px 6px 0;"><code>btn</code> (默认)</td><td>30</td><td>14</td><td>12.5</td><td>6</td><td><strong>默认</strong> · mail header、settings、对话框、绝大多数</td></tr>
+        <tr><td style="padding: 6px 14px 6px 0;"><code>btn-lg</code></td><td>36</td><td>18</td><td>13.5</td><td>7</td><td>welcome 大 CTA、空状态主按钮</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ============================================================== -->
+  <!-- 2. 变体矩阵                                                   -->
+  <!-- ============================================================== -->
+  <h2>2 · 变体矩阵 <small style="font-size:12px; color: var(--ink-500); margin-left:6px;">每格示例：default · hover (鼠标试) · disabled</small></h2>
+  <div class="panel">
+    <div class="matrix">
+      <div></div>
+      <div class="head">primary<br><span style="font-weight: 400; text-transform: none; letter-spacing: 0;">主操作</span></div>
+      <div class="head">secondary<br><span style="font-weight: 400; text-transform: none; letter-spacing: 0;">次操作 / 默认</span></div>
+      <div class="head">ghost<br><span style="font-weight: 400; text-transform: none; letter-spacing: 0;">弱化 / 工具栏</span></div>
+      <div class="head">danger<br><span style="font-weight: 400; text-transform: none; letter-spacing: 0;">删除 / 危险</span></div>
+      <div class="head">icon-only</div>
+
+      <div class="row-head">sm</div>
+      <div class="cell"><button class="btn btn-sm btn-primary">保存</button><button class="btn btn-sm btn-primary" disabled>保存</button></div>
+      <div class="cell"><button class="btn btn-sm">取消</button><button class="btn btn-sm" disabled>取消</button></div>
+      <div class="cell"><button class="btn btn-sm btn-ghost">忽略</button></div>
+      <div class="cell"><button class="btn btn-sm btn-danger">删除</button><button class="btn btn-sm btn-danger btn-primary">永久删除</button></div>
+      <div class="cell"><button class="btn btn-sm btn-icon btn-ghost" aria-label="close"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+
+      <div class="row-head">md<br>默认</div>
+      <div class="cell"><button class="btn btn-primary">+ 新邮件</button><button class="btn btn-primary" disabled>+ 新邮件</button></div>
+      <div class="cell"><button class="btn">同步</button><button class="btn" disabled>同步</button></div>
+      <div class="cell"><button class="btn btn-ghost">移除当前</button></div>
+      <div class="cell"><button class="btn btn-danger">删除账号</button><button class="btn btn-danger btn-primary">永久删除</button></div>
+      <div class="cell"><button class="btn btn-icon btn-ghost" aria-label="settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 1-1 3.5L20 17l-1.5 1.5-1.5-2a7 7 0 0 1-3.5 1V20h-3v-2.5a7 7 0 0 1-3.5-1l-1.5 2L4 17l2-1.5A7 7 0 0 1 5 12c0-1.2.3-2.4.9-3.5L4 7l1.5-1.5 1.5 2A7 7 0 0 1 10.5 6.5V4h3v2.5a7 7 0 0 1 3.5 1l1.5-2L20 7l-2 1.5c.6 1 1 2.3 1 3.5Z"/></svg></button></div>
+
+      <div class="row-head">lg</div>
+      <div class="cell"><button class="btn btn-lg btn-primary">立即开始</button><button class="btn btn-lg btn-primary" disabled>立即开始</button></div>
+      <div class="cell"><button class="btn btn-lg">稍后</button></div>
+      <div class="cell"><button class="btn btn-lg btn-ghost">跳过</button></div>
+      <div class="cell"><button class="btn btn-lg btn-danger">放弃所有</button></div>
+      <div class="cell"><button class="btn btn-lg btn-icon btn-ghost" aria-label="more"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="19" cy="12" r="1.5" fill="currentColor"/></svg></button></div>
+    </div>
+    <p class="muted" style="margin-top: 18px;">
+      <strong>规则</strong>：每页通常只有 <strong>一个</strong> primary、其余用 secondary/ghost；danger 只用在删除 / 不可逆操作；
+      lg 几乎只用在 Welcome / 空状态 / Settings 对话框确认按钮。focus ring 是 3px salmon-300 半透明环（键盘 Tab 试试）。
+    </p>
+  </div>
+
+  <!-- ============================================================== -->
+  <!-- 3. 实际场景 mockup                                            -->
+  <!-- ============================================================== -->
+  <h2>3 · 实际页面 mockup</h2>
+
+  <div class="panel">
+    <div class="ctx-label">A. 邮件视图头栏（截图里那个）</div>
+    <div class="mail-head">
+      <button class="btn btn-primary">
+        <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+        新邮件
+      </button>
+      <button class="btn">
+        <svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 1 3 6.7"/><path d="M3 19v-4h4"/></svg>
+        同步
+      </button>
+      <button class="btn btn-ghost">
+        <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+        添加账号
+        <svg viewBox="0 0 24 24" style="width:10px;height:10px;"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+      <button class="btn btn-ghost">移除当前</button>
+    </div>
+    <p class="muted">
+      高度、间距、圆角全一致。primary（新邮件）是唯一填色，其它 ghost 退到弱化色；不再像现在主次混乱 + 高度参差。
+    </p>
+  </div>
+
+  <div class="panel">
+    <div class="ctx-label">B. 左侧 Topic 列表头</div>
+    <div class="sb">
+      <div class="sb-head">🐟 Topic</div>
+      <div class="btn-group">
+        <button class="btn btn-primary btn-block">
+          <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+          新建
+          <kbd>⌘N</kbd>
+        </button>
+        <button class="btn btn-ghost btn-block" style="justify-content: flex-start;">
+          在目录新建…
+          <kbd>⌘⇧N</kbd>
+        </button>
+      </div>
+      <div class="sb-search">搜索 Topic 标题…</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="ctx-label">C. Briefing 推荐卡片</div>
+    <div class="brief-card">
+      <div class="brief-title">渣打打印流水待办与日程冲突</div>
+      <div class="brief-desc">⚠ AI 解读：待办截止 05-15，但日历事件 05-17 12:00 才安排"渣打打印银行办流水"，已逾期 2 天。</div>
+      <div class="brief-actions">
+        <button class="btn btn-sm btn-primary">更新待办截止日</button>
+        <button class="btn btn-sm">我已线下完成</button>
+        <button class="btn btn-sm btn-ghost">我已知晓</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="ctx-label">D. Permission 授权请求卡片</div>
+    <div class="perm-card">
+      <div class="perm-row">CLI 想要运行：<code>git status</code></div>
+      <div class="perm-actions">
+        <button class="btn btn-sm btn-primary">允许</button>
+        <button class="btn btn-sm btn-danger">拒绝</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="ctx-label">E. Composer 输入栏</div>
+    <div class="composer">
+      <textarea placeholder="问点什么…  ⌘+Enter 发送 · Enter 换行"></textarea>
+      <div class="composer-bar">
+        <span class="composer-hint">⌘+Enter 发送 · Enter 换行 · 你复上一条 · 可拖拽文件</span>
+        <button class="btn btn-sm btn-ghost">停止</button>
+        <button class="btn btn-sm btn-primary">
+          发送
+          <kbd>⌘↵</kbd>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="ctx-label">F. 设置 / 对话框底部</div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost">取消</button>
+      <button class="btn btn-primary">保存</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="ctx-label">G. salmon-action 确认卡（送邮件）</div>
+    <div class="action-card">
+      <div class="action-head">
+        <span class="action-kicker">SalmonApp 本地动作</span>
+        <span class="action-kind">mail.send</span>
+      </div>
+      <div class="action-summary">准备发送邮件。请仔细核对收件人、主题和正文，确认后才会发送。</div>
+      <div class="action-row"><b>5/17 入住 AC Hotel</b><br>To: olivia.mo-biz@…</div>
+      <div class="action-foot">
+        <button class="btn btn-sm btn-ghost">取消</button>
+        <button class="btn btn-sm btn-primary">确认发送</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="ctx-label">H. Topic 对话头栏（含"在此 Topic 搜索"按钮）</div>
+    <div class="topic-head">
+      <span class="engine-pill">CX</span>
+      <span class="topic-title">渣打中午营业</span>
+      <span class="topic-path">~/Desktop/Salmon Main</span>
+      <span class="topic-spacer"></span>
+      <button class="btn btn-sm btn-ghost">
+        <svg class="glyph-mag" viewBox="0 0 24 24" style="width:12px;height:12px;">
+          <circle cx="11" cy="11" r="6.5"/>
+          <path d="m20 20-4.3-4.3"/>
+        </svg>
+        在此 Topic 搜索
+        <kbd>⌘F</kbd>
+      </button>
+      <span class="topic-stat">13 messages · 1.0M tokens</span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="ctx-label">I. 全局 ⌘K AI 弹窗</div>
+    <div class="ai-pop">
+      <div class="ai-pop-chip">📎 <strong>上下文：</strong>邮件 · 渣打银行办流水 · Olivia Mo</div>
+      <textarea placeholder="问任何事，比如：&#10;'把这事变成今天下午的待办'&#10;'给 Olivia 回个收到'"></textarea>
+      <div class="ai-pop-foot">
+        <span class="ai-pop-hint">⌘↵ 发送 · 自动新建 Topic</span>
+        <button class="btn btn-sm btn-primary">发送 →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================== -->
+  <!-- 4. 映射表                                                     -->
+  <!-- ============================================================== -->
+  <h2>4 · 当前 className → 新规范映射</h2>
+  <div class="panel">
+    <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+      <thead>
+        <tr style="border-bottom: 2px solid var(--ink-100); color: var(--ink-500); text-transform: uppercase; letter-spacing: 0.5px; font-size: 10.5px;">
+          <th style="text-align: left; padding: 8px 12px;">现在</th>
+          <th style="text-align: left; padding: 8px 12px;">改成</th>
+          <th style="text-align: left; padding: 8px 12px;">用在哪</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td style="padding: 7px 12px;"><code>.btn</code></td><td><code>.btn</code> (md, secondary)</td><td>通用</td></tr>
+        <tr><td style="padding: 7px 12px;"><code>.btn.primary</code></td><td><code>.btn .btn-primary</code></td><td>主 CTA</td></tr>
+        <tr><td style="padding: 7px 12px;"><code>.btn-ghost</code></td><td><code>.btn .btn-ghost</code></td><td>"添加账号"、"移除当前" 这类</td></tr>
+        <tr><td style="padding: 7px 12px;"><code>.btn-sm</code></td><td><code>.btn .btn-sm</code></td><td>brief / 表格内 / 卡片内</td></tr>
+        <tr><td style="padding: 7px 12px;"><code>.btn-link</code></td><td>不变（不是按钮，文字链接）</td><td>邮件设置里 path 链接等</td></tr>
+        <tr><td style="padding: 7px 12px;"><code>.icon-btn</code></td><td><code>.btn .btn-icon .btn-ghost</code></td><td>关闭 ×、设置 ⚙</td></tr>
+        <tr><td style="padding: 7px 12px;"><code>.new-btn.primary</code></td><td><code>.btn .btn-primary .btn-block</code></td><td>侧边栏 + 新建</td></tr>
+        <tr><td style="padding: 7px 12px;"><code>.new-btn.secondary</code></td><td><code>.btn .btn-ghost .btn-block</code></td><td>侧边栏 在目录新建…</td></tr>
+        <tr><td style="padding: 7px 12px;"><code>.brief-btn</code></td><td><code>.btn .btn-sm</code></td><td>briefing 推荐卡 action</td></tr>
+        <tr><td style="padding: 7px 12px;"><code>.brief-btn.primary</code></td><td><code>.btn .btn-sm .btn-primary</code></td><td>brief 主动作</td></tr>
+        <tr><td style="padding: 7px 12px;"><code>.brief-btn.dismiss</code></td><td><code>.btn .btn-sm .btn-ghost</code></td><td>brief 忽略</td></tr>
+        <tr><td style="padding: 7px 12px;"><code>.perm-btn</code></td><td><code>.btn .btn-sm</code></td><td>授权请求</td></tr>
+        <tr><td style="padding: 7px 12px;"><code>.perm-btn.primary</code></td><td><code>.btn .btn-sm .btn-primary</code></td><td>授权"允许"</td></tr>
+        <tr><td style="padding: 7px 12px;"><code>.perm-btn.deny</code></td><td><code>.btn .btn-sm .btn-danger</code></td><td>授权"拒绝"</td></tr>
+        <tr><td style="padding: 7px 12px;"><code>.send-btn</code></td><td><code>.btn .btn-sm .btn-primary</code></td><td>composer 发送</td></tr>
+        <tr><td style="padding: 7px 12px;"><code>.stop-btn</code></td><td><code>.btn .btn-sm .btn-ghost</code></td><td>composer 停止</td></tr>
+        <tr><td style="padding: 7px 12px;"><code>.topic-search-btn</code></td><td><code>.btn .btn-sm .btn-ghost</code></td><td>chat 头栏内搜索</td></tr>
+        <tr><td style="padding: 7px 12px;"><code>.ai-popover-send</code></td><td><code>.btn .btn-sm .btn-primary</code></td><td>⌘K 弹窗发送</td></tr>
+        <tr><td style="padding: 7px 12px;"><code>.right-rail-btn</code></td><td><code>.btn .btn-icon .btn-ghost</code></td><td>右侧 rail 展开</td></tr>
+        <tr><td style="padding: 7px 12px;"><code>.right-collapse-btn</code></td><td><code>.btn .btn-icon .btn-ghost</code></td><td>右侧 pane 折叠</td></tr>
+        <tr><td style="padding: 7px 12px;"><code>.mail-send-btn</code></td><td><code>.btn .btn-primary</code></td><td>mail compose 发送</td></tr>
+      </tbody>
+    </table>
+    <p class="muted" style="margin-top: 14px;">
+      ⛔ 不再使用的：<code>.btn-ghost</code> 独立类、<code>.new-btn.*</code>、<code>.brief-btn.*</code>、<code>.perm-btn.*</code>、<code>.send-btn</code>、<code>.stop-btn</code>、<code>.icon-btn</code> 独立、<code>.topic-search-btn</code>、<code>.ai-popover-send</code>、<code>.right-rail-btn</code>、<code>.right-collapse-btn</code>、<code>.mail-send-btn</code>。<br>
+      ✅ 留下的：<code>.btn</code> + 6 个修饰（btn-sm/btn-lg/btn-primary/btn-ghost/btn-danger/btn-icon）+ <code>.btn-block</code> 全宽 + <code>.btn-link</code>（文字链接，独立保留）。
+    </p>
+  </div>
+
+  <p class="muted" style="margin-top: 30px;">
+    确认后我会：① 把上面所有 <code>.btn</code> 规则写进 <code>styles.css</code>；② 删除全部老 .new-btn / .brief-btn / .perm-btn / .send-btn / .stop-btn / .icon-btn / .topic-search-btn / .ai-popover-send / .right-rail-btn / .right-collapse-btn / .mail-send-btn 旧规则；③ 改全部组件 className（17 处左右）。预计 y bump 到 v1.19.0。
+  </p>
+</body>
+</html>

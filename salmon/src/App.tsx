@@ -1608,42 +1608,58 @@ export default function App() {
         <>
           <section className="middle">
             <div className="mid-head">
-              <div className="title" onDoubleClick={() => setRenamingTopicId(selectedTopic.id)}>
-                {selectedTopic.title}
+              {/* v1.19.0: title cluster — engine pill + title +
+                  (scratch pill | breadcrumb short path with full path
+                  tooltip). Scratch topics no longer expose the ugly
+                  app_data_dir path; non-scratch shows ~/foo as a hint. */}
+              <div className="title-cluster">
+                <span className={`engine-pill ${selectedTopic.engine === "claude" ? "engine-cc" : "engine-cx"}`}>
+                  {selectedTopic.engine === "claude" ? "CC" : "CX"}
+                </span>
+                <span className="title" onDoubleClick={() => setRenamingTopicId(selectedTopic.id)}>
+                  {selectedTopic.title}
+                </span>
+                {selectedTopic.isScratch ? (
+                  <span className="scratch-pill" title="暂存 Topic — 工作目录由 SalmonApp 管理">暂存</span>
+                ) : selectedTopic.workdir ? (
+                  <span className="breadcrumb" title={selectedTopic.workdir}>
+                    {shortenHomePath(selectedTopic.workdir)}
+                  </span>
+                ) : null}
+                {selectedTopic.model && (
+                  <span className="model-hint" title="活跃模型">{selectedTopic.model}</span>
+                )}
               </div>
-              <div className="path">{selectedTopic.workdir}</div>
-              <span className={`engine-pill ${selectedTopic.engine === "claude" ? "engine-cc" : "engine-cx"}`}>
-                {selectedTopic.engine === "claude" ? "Claude Code" : "Codex"}
-                {selectedTopic.model ? " · " + selectedTopic.model : ""}
-              </span>
+              <div className="spacer" />
+              {/* Bypass is a state, not an action — use toggle, not button. */}
               <button
                 type="button"
-                className={`danger-toggle ${selectedTopic.dangerMode ? "on" : "off"}`}
+                className={`toggle ${selectedTopic.dangerMode ? "on" : ""}`}
                 onClick={() => onToggleDangerMode(selectedTopic.id, !selectedTopic.dangerMode)}
                 title={selectedTopic.dangerMode
-                  ? "Bypass 模式开启:工具调用不再弹授权框。点击关闭。"
-                  : "默认权限:每次工具调用都会请求授权。点击开启 Bypass。"}
+                  ? "Bypass 模式开启：工具调用不再弹授权框。点击关闭。"
+                  : "默认权限：每次工具调用都会请求授权。点击开启 Bypass。"}
               >
-                {selectedTopic.dangerMode ? "⚠ Bypass" : "默认权限"}
+                <span className="toggle-track" />
+                <span>Bypass</span>
               </button>
               {dangerHintTopicId === selectedTopic.id && (
                 <span className="danger-hint">下次发送起生效</span>
               )}
-              <div className="spacer" />
               <button
-                className="topic-search-btn"
+                className="btn btn-sm btn-ghost"
                 title="在本 Topic 内搜索对话（⌘F）"
                 onClick={() => window.dispatchEvent(new CustomEvent("salmon:open-topic-search"))}
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg viewBox="0 0 24 24">
                   <circle cx="11" cy="11" r="6.5" />
                   <path d="m20 20-4.3-4.3" />
                 </svg>
-                <span>在此 Topic 搜索</span>
+                <span>搜索</span>
                 <kbd>⌘F</kbd>
               </button>
               <div className="stat">
-                {selectedMessages.length} messages
+                {selectedMessages.length} msg
                 {(() => {
                   const total = selectedMessages.reduce(
                     (n, m) => n + (m.tokenIn || 0) + (m.tokenOut || 0),
@@ -1651,8 +1667,8 @@ export default function App() {
                   );
                   if (total === 0) return null;
                   return (
-                    <span style={{ marginLeft: 8 }} title="本 Topic 累计 tokens (in + out)">
-                      · {formatTokensCompact(total)} tokens
+                    <span style={{ marginLeft: 6 }} title="本 Topic 累计 tokens (in + out)">
+                      · {formatTokensCompact(total)}
                     </span>
                   );
                 })()}
@@ -1868,6 +1884,20 @@ function formatAIContextSeed(ctx: GlobalAIContext): string {
   return lines.join("\n");
 }
 
+/** v1.19.0: shorten a filesystem path for the mid-head breadcrumb.
+ *  Replaces $HOME prefix with "~" and trims the middle if too long,
+ *  leaving the last two segments visible. The full path is kept in
+ *  the parent's tooltip so users can hover to see everything. */
+function shortenHomePath(p: string): string {
+  const home = (window as any).__SALMON_HOME__ || "";
+  let q = p;
+  if (home && p.startsWith(home)) q = "~" + p.slice(home.length);
+  if (q.length <= 32) return q;
+  const parts = q.split("/").filter(Boolean);
+  if (parts.length <= 2) return q;
+  return "…/" + parts.slice(-2).join("/");
+}
+
 function formatTokensCompact(n: number): string {
   if (n < 1000) return String(n);
   if (n < 10000) return `${(n / 1000).toFixed(1)}k`;
@@ -1899,7 +1929,7 @@ function RightRail({ onExpand }: { onExpand: () => void }) {
   const mod = /mac|iphone|ipad|ipod/i.test(navigator.platform) ? "⌘" : "Ctrl";
   return (
     <aside className="right-rail" title={`展开右栏 (${mod}+\\)`} onClick={onExpand}>
-      <button className="right-rail-btn">◂</button>
+      <button className="btn btn-sm btn-icon btn-ghost">◂</button>
     </aside>
   );
 }

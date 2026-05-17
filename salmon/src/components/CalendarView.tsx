@@ -125,9 +125,9 @@ export function CalendarView({ pendingOpenEvent, onConsumePendingOpenEvent }: Ca
       <div className="cal-head">
         <div className="cal-title">📅 日历</div>
         <div className="cal-nav">
-          <button className="btn-ghost" onClick={() => setWeekStart(addDays(weekStart, -7))}>‹ 上周</button>
-          <button className="btn-ghost" onClick={() => setWeekStart(startOfWeek(new Date()))}>本周</button>
-          <button className="btn-ghost" onClick={() => setWeekStart(addDays(weekStart, 7))}>下周 ›</button>
+          <button className="btn btn-ghost" onClick={() => setWeekStart(addDays(weekStart, -7))}>‹ 上周</button>
+          <button className="btn btn-ghost" onClick={() => setWeekStart(startOfWeek(new Date()))}>本周</button>
+          <button className="btn btn-ghost" onClick={() => setWeekStart(addDays(weekStart, 7))}>下周 ›</button>
           <span className="cal-range">{fmtMD(weekStart)} – {fmtMD(addDays(weekEnd, -1))}</span>
         </div>
         <div className="cal-actions">
@@ -149,8 +149,8 @@ export function CalendarView({ pendingOpenEvent, onConsumePendingOpenEvent }: Ca
               列表
             </button>
           </div>
-          <button className="btn primary" onClick={onNewClick}>＋ 新建</button>
-          <button className="btn-ghost" onClick={onSyncAll} disabled={syncing}>
+          <button className="btn btn-primary" onClick={onNewClick}>＋ 新建</button>
+          <button className="btn btn-ghost" onClick={onSyncAll} disabled={syncing}>
             {syncing ? "同步中…" : "↻ 同步"}
           </button>
         </div>
@@ -458,7 +458,7 @@ function EventDetailModal({
       <div className="compose-modal" style={{ width: 480 }}>
         <div className="compose-head">
           <div className="compose-title">📅 {ev.title || "(无标题)"}</div>
-          <button className="btn-ghost" onClick={onClose}>×</button>
+          <button className="btn btn-ghost" onClick={onClose}>×</button>
         </div>
         <div style={{ padding: "14px 18px", fontSize: 13, lineHeight: 1.7 }}>
           <div>
@@ -484,7 +484,7 @@ function EventDetailModal({
           )}
         </div>
         <div className="compose-foot">
-          <button className="btn" onClick={onDelete} disabled={deleting} style={{ color: "#B7493D" }}>
+          <button className="btn btn-danger" onClick={onDelete} disabled={deleting}>
             {deleting ? "删除中…" : "🗑 删除事件"}
           </button>
           <div style={{ flex: 1 }} />
@@ -589,7 +589,7 @@ function NewEventModal({
       <div className="compose-modal" style={{ width: 560 }}>
         <div className="compose-head">
           <div className="compose-title">新建日历事件</div>
-          <button className="btn-ghost" onClick={onClose}>×</button>
+          <button className="btn btn-ghost" onClick={onClose}>×</button>
         </div>
         <div className="compose-from">
           <span className="compose-label">账号:</span>
@@ -638,7 +638,7 @@ function NewEventModal({
         <div className="compose-foot">
           <div style={{ flex: 1 }} />
           <button className="btn" onClick={onClose} disabled={creating}>取消</button>
-          <button className="btn primary" onClick={onCreate} disabled={creating}>
+          <button className="btn btn-primary" onClick={onCreate} disabled={creating}>
             {creating ? "创建中…" : "创建"}
           </button>
         </div>

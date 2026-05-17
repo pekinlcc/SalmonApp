@@ -74,11 +74,24 @@ export function LeftSidebar(props: Props) {
       </div>
 
       <div className="new-btn-group">
-        <button className="new-btn primary" onClick={props.onQuickNewTopic} title="新建 Topic（⌘N）— 直接进入对话">
-          <span className="plus">＋</span> 新建
+        <button
+          className="btn btn-primary btn-block"
+          onClick={props.onQuickNewTopic}
+          title="新建 Topic（⌘N）— 直接进入对话"
+          style={{ justifyContent: "flex-start" }}
+        >
+          <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+          新建
+          <kbd style={{ marginLeft: "auto" }}>⌘N</kbd>
         </button>
-        <button className="new-btn secondary" onClick={props.onNewTopic} title="在指定目录新建（⌘⇧N）— 用于代码 / 文件相关任务">
+        <button
+          className="btn btn-ghost btn-block"
+          onClick={props.onNewTopic}
+          title="在指定目录新建（⌘⇧N）— 用于代码 / 文件相关任务"
+          style={{ justifyContent: "flex-start" }}
+        >
           在目录新建…
+          <kbd style={{ marginLeft: "auto" }}>⌘⇧N</kbd>
         </button>
       </div>
 

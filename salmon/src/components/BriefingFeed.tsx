@@ -335,10 +335,10 @@ function BriefDetail({
       <div className="mid-head">
         <div className="title">{item.title}</div>
         {item.status === "pending" && item.actionResults.length > 0 && (
-          <button className="btn-ghost" onClick={onArchive}>归档</button>
+          <button className="btn btn-ghost" onClick={onArchive}>归档</button>
         )}
         {item.status === "pending" && (
-          <button className="btn-ghost" onClick={onDismiss} style={{ color: "#B7493D" }}>不重要</button>
+          <button className="btn btn-sm btn-danger" onClick={onDismiss}>不重要</button>
         )}
       </div>
       <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px" }}>
@@ -363,7 +363,7 @@ function BriefDetail({
             return (
               <button
                 key={i}
-                className={`brief-btn ${isPrimary ? "primary" : ""}`}
+                className={`btn btn-sm ${isPrimary ? "btn-primary" : ""}`}
                 disabled={readOnly || busyAction !== null}
                 onClick={() => click(i)}
                 title={a.steps.map((s) => `${s.kind}: ${s.detail || "(空)"}`).join("\n")}
@@ -429,7 +429,7 @@ function StepResultView({ result: r }: { result: StepResult }) {
               <pre className="draft-body">{r.draft}</pre>
               <div className="draft-actions">
                 <button
-                  className="brief-btn primary"
+                  className="btn btn-sm btn-primary"
                   onClick={() => {
                     window.dispatchEvent(new CustomEvent("salmon:open-compose-reply", {
                       detail: { replyToMailId: r.replyToMailId, bodyText: r.draft },
@@ -439,7 +439,7 @@ function StepResultView({ result: r }: { result: StepResult }) {
                   在邮件撰写窗口打开
                 </button>
                 <button
-                  className="brief-btn"
+                  className="btn btn-sm"
                   onClick={() => {
                     navigator.clipboard.writeText(r.draft).catch(() => {});
                     window.dispatchEvent(new CustomEvent("salmon:toast", {
@@ -477,7 +477,7 @@ function StepResultView({ result: r }: { result: StepResult }) {
               </div>
               <div className="draft-actions">
                 <button
-                  className="brief-btn primary"
+                  className="btn btn-sm btn-primary"
                   onClick={() => window.dispatchEvent(new CustomEvent("salmon:navigate", {
                     detail: { view: "calendar", eventId: r.eventId, startMs: r.startMs },
                   }))}
@@ -500,7 +500,7 @@ function StepResultView({ result: r }: { result: StepResult }) {
               </div>
               <div className="draft-actions">
                 <button
-                  className="brief-btn primary"
+                  className="btn btn-sm btn-primary"
                   onClick={() => window.dispatchEvent(new CustomEvent("salmon:navigate", {
                     detail: { view: "tasks", taskId: r.taskId },
                   }))}
@@ -526,7 +526,7 @@ function StepResultView({ result: r }: { result: StepResult }) {
               {topicId && (
                 <div className="draft-actions">
                   <button
-                    className="brief-btn primary"
+                    className="btn btn-sm btn-primary"
                     onClick={() => window.dispatchEvent(new CustomEvent("salmon:navigate", {
                       detail: { view: "topic", topicId },
                     }))}
@@ -736,7 +736,7 @@ function HomeOverview({
     <>
       <div className="mid-head">
         <div className="title"><span className="welcome-spark">✦</span> 欢迎回来</div>
-        <button className="btn-ghost" onClick={onNewTopic}>＋ 新建 Topic</button>
+        <button className="btn btn-ghost" onClick={onNewTopic}>＋ 新建 Topic</button>
       </div>
       <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px" }}>
         <p style={{ color: "var(--ink-500)", fontSize: 13, marginTop: 0 }}>

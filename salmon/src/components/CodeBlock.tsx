@@ -308,7 +308,7 @@ function SalmonActionCard({ raw, topicId }: { raw: string; topicId?: string }) {
       {error && <div className="salmon-action-error">{error}</div>}
       {done && <div className="salmon-action-done">{done}</div>}
       <div className="salmon-action-actions">
-        <button className="btn primary" onClick={onConfirm} disabled={!canRun}>
+        <button className="btn btn-sm btn-primary" onClick={onConfirm} disabled={!canRun}>
           {busy ? "执行中..." : done ? "已执行" : "确认执行"}
         </button>
       </div>
@@ -429,7 +429,7 @@ function MailActionCard({
       {error && <div className="salmon-action-error">{error}</div>}
       {done && <div className="salmon-action-done">{done}</div>}
       <div className="mail-action-actions">
-        <button className="btn primary mail-send-btn" onClick={onConfirm} disabled={!canRun}>
+        <button className="btn btn-primary" onClick={onConfirm} disabled={!canRun}>
           {busy ? (isSend ? "Sending..." : "Saving...") : done ? "Done" : buttonLabel}
         </button>
       </div>

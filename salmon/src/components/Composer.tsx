@@ -325,12 +325,12 @@ export function Composer({ topicId, busy, disabled, sendMode, onSend, onInterrup
         )}
         <div className="composer-toolbar">
           {busy && (
-            <button className="stop-btn" onClick={onInterrupt} title="发送 SIGINT 给后台 CLI">
+            <button className="btn btn-sm btn-ghost" onClick={onInterrupt} title="发送 SIGINT 给后台 CLI">
               ■ 中断
             </button>
           )}
           <button
-            className="send-btn"
+            className="btn btn-sm btn-primary"
             disabled={disabled || (!text.trim() && attachments.length === 0)}
             onClick={submit}
             style={{ marginLeft: "auto" }}

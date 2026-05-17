@@ -279,7 +279,7 @@ function ContactDetail({
           )}
         </div>
         {contact.isSaved && (
-          <button className="btn-ghost" onClick={onToggleVip}>
+          <button className="btn btn-sm btn-ghost" onClick={onToggleVip}>
             {contact.isVip ? "取消 VIP" : "设为 VIP"}
           </button>
         )}

@@ -107,7 +107,7 @@ export function GlobalAIButton({ context, onSubmit }: Props) {
           />
           <div className="ai-popover-actions">
             <span className="ai-popover-hint">⌘↵ 发送 · 自动新建 Topic</span>
-            <button className="ai-popover-send" onClick={submit} disabled={busy || !text.trim()}>
+            <button className="btn btn-sm btn-primary" onClick={submit} disabled={busy || !text.trim()}>
               {busy ? "新建中..." : "发送 →"}
             </button>
           </div>

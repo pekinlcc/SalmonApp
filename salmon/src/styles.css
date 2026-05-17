@@ -1,6 +1,7 @@
 :root {
   --salmon-50:  #FFF1ED;
   --salmon-100: #FFD9CD;
+  --salmon-200: #F8C5A6;
   --salmon-300: #FFA68A;
   --salmon-500: #FA8072;
   --salmon-600: #E5685A;
@@ -9,8 +10,11 @@
   --ink-700: #3A4047;
   --ink-500: #6B7280;
   --ink-300: #B7BDC4;
+  --ink-200: #D2C9C0;
   --ink-100: #E6E8EB;
   --ink-50:  #F5F6F7;
+  --rust-50: #FCEDEA;
+  --rust-700: #B7493D;
   --bg:      #FAFAF9;
   --panel:   #FFFFFF;
   --side:    #F7F5F3;
@@ -64,19 +68,8 @@ button { font-family: inherit; }
   transition: background .12s;
 }
 .right-rail:hover { background: var(--salmon-50); }
-.right-rail-btn {
-  background: transparent; border: 0; cursor: pointer;
-  color: var(--ink-500); font-size: 14px; padding: 4px;
-}
-.right-rail:hover .right-rail-btn { color: var(--salmon-700); }
-
-.right-collapse-btn {
-  background: transparent; border: 0; cursor: pointer;
-  color: var(--ink-500); font-size: 13px; padding: 4px 8px;
-  margin-left: auto; align-self: center;
-  border-radius: 4px;
-}
-.right-collapse-btn:hover { background: var(--ink-50); color: var(--salmon-700); }
+/* v1.19.0: .right-rail-btn and .right-collapse-btn removed — both are
+   now styled by the unified .btn .btn-sm .btn-icon .btn-ghost combo. */
 .tabs { align-items: stretch; }
 
 /* ===== Left ===== */
@@ -118,43 +111,14 @@ button { font-family: inherit; }
 .home-sub { margin-left: auto; color: var(--ink-500); font-size: 10.5px; }
 .home-btn.active .home-sub { color: var(--salmon-700); }
 
-.new-btn {
-  margin: 4px 12px 10px;
-  padding: 8px 10px;
-  border: 1px solid var(--ink-100);
-  background: white;
-  border-radius: var(--radius-sm);
-  font-size: 12.5px; color: var(--ink-700);
-  display: flex; align-items: center; gap: 8px;
-  cursor: pointer;
-}
-.new-btn:hover { border-color: var(--salmon-300); color: var(--salmon-700); }
-.new-btn .plus { color: var(--salmon-500); font-weight: 700; }
-
-/* v1.17.0: split new-topic into primary (quick "+ 新建") + secondary
-   ("在目录新建..."). The primary spans the row visually; secondary is a
-   smaller, ghost button below to keep the quick path one click & one
-   eye-hop away. */
+/* v1.19.0: .new-btn rules removed — sidebar new-topic buttons are now
+   .btn .btn-primary .btn-block and .btn .btn-ghost .btn-block. The
+   .new-btn-group container kept for its margin/layout but its child
+   rules are gone — selectors with .new-btn no longer match anything. */
 .new-btn-group {
   display: flex; flex-direction: column; gap: 4px;
   margin: 4px 12px 10px;
 }
-.new-btn-group .new-btn { margin: 0; }
-.new-btn-group .new-btn.primary {
-  background: var(--salmon-50, #FFE4DA);
-  border-color: var(--salmon-300, #E8A082);
-  color: var(--salmon-700, #B7493D);
-  font-weight: 600;
-  justify-content: flex-start;
-}
-.new-btn-group .new-btn.primary:hover { background: var(--salmon-100, #FFD2C0); }
-.new-btn-group .new-btn.secondary {
-  padding: 5px 10px;
-  font-size: 11.5px;
-  color: var(--ink-500);
-  justify-content: flex-start;
-}
-.new-btn-group .new-btn.secondary:hover { color: var(--ink-700); }
 
 .scratch-pill {
   font-size: 9px;
@@ -285,18 +249,7 @@ button { font-family: inherit; }
   font-size: 10.5px;
   color: var(--ink-500);
 }
-.ai-popover-send {
-  background: #D86F4A;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  padding: 5px 12px;
-  font-size: 12.5px;
-  font-weight: 600;
-  cursor: pointer;
-}
-.ai-popover-send:hover:not(:disabled) { background: #C25B38; }
-.ai-popover-send:disabled { opacity: 0.5; cursor: not-allowed; }
+/* v1.19.0: .ai-popover-send removed — unified .btn .btn-sm .btn-primary. */
 
 .search {
   margin: 0 12px 8px;
@@ -396,29 +349,49 @@ button { font-family: inherit; }
 
 /* ===== Middle ===== */
 .middle { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--panel); }
-.mid-head { padding: 12px 18px; border-bottom: 1px solid var(--ink-100); display: flex; align-items: center; gap: 12px; }
-.mid-head .title { font-weight: 600; font-size: 14px; cursor: text; }
-.mid-head .path { font-family: var(--mono); font-size: 11.5px; color: var(--ink-500); background: var(--ink-50); padding: 2px 7px; border-radius: 4px; }
-.mid-head .spacer { flex: 1; }
-.mid-head .stat { font-size: 11.5px; color: var(--ink-500); }
-.mid-head .danger { background: #FFE4E1; color: #B7493D; padding: 2px 6px; border-radius: 3px; font-size: 10.5px; font-weight: 700; }
-.mid-head .danger-toggle {
-  font-size: 10.5px; font-weight: 700; letter-spacing: .3px;
-  padding: 2px 8px; border-radius: 3px; border: 1px solid transparent;
-  cursor: pointer; transition: background .12s, color .12s, border-color .12s;
+.mid-head {
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--ink-100);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+}
+.mid-head .title-cluster {
+  display: flex; align-items: center; gap: 8px;
+  min-width: 0;  /* allow children to truncate */
+  flex-shrink: 1;
+  /* Cap so it doesn't push the right-side controls off screen on
+     very long Topic titles. */
+  max-width: 60%;
+}
+.mid-head .title {
+  font-weight: 600; font-size: 14px; cursor: text;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  min-width: 0;
+}
+.mid-head .breadcrumb {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-500);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  max-width: 200px;
+  flex-shrink: 1;
+}
+.mid-head .model-hint {
+  font-size: 10.5px;
+  color: var(--ink-500);
+  background: var(--ink-50);
+  padding: 1px 5px;
+  border-radius: 3px;
   flex-shrink: 0;
 }
-.mid-head .danger-toggle.off {
-  background: var(--ink-50); color: var(--ink-600); border-color: var(--ink-100);
-}
-.mid-head .danger-toggle.off:hover { background: var(--ink-100); color: var(--ink-800); }
-.mid-head .danger-toggle.on {
-  background: #FFE4E1; color: #B7493D; border-color: #F5BFB7;
-}
-.mid-head .danger-toggle.on:hover { background: #FFD4CD; }
+.mid-head .spacer { flex: 1; }
+.mid-head .stat { font-size: 11.5px; color: var(--ink-500); font-family: var(--mono); flex-shrink: 0; }
 .mid-head .danger-hint {
   font-size: 10.5px; color: var(--ink-500); font-style: italic;
   animation: danger-hint-fade 4s ease-out forwards;
+  flex-shrink: 0;
 }
 @keyframes danger-hint-fade {
   0%, 70% { opacity: 1; }
@@ -773,10 +746,7 @@ button { font-family: inherit; }
 .perm-cmd { font-family: var(--mono); font-size: 12px; background: #1B1F23; color: #E6E8EB; padding: 8px 12px; border-radius: var(--radius-sm); white-space: pre-wrap; word-break: break-all; }
 .perm-meta { font-size: 11px; color: var(--ink-500); margin-top: 6px; }
 .perm-actions { display: flex; gap: 6px; padding: 8px 12px 12px; flex-wrap: wrap; }
-.perm-btn { border: 1px solid var(--ink-100); background: #fff; padding: 5px 12px; border-radius: var(--radius-sm); font-size: 12px; cursor: pointer; color: var(--ink-700); }
-.perm-btn.primary { background: var(--salmon-500); color: white; border-color: var(--salmon-500); font-weight: 600; }
-.perm-btn.primary:hover { background: var(--salmon-600); border-color: var(--salmon-600); }
-.perm-btn.deny { color: #B7493D; }
+/* v1.19.0: .perm-btn removed — unified .btn .btn-sm + .btn-primary / .btn-danger. */
 
 .composer { padding: 10px 16px 14px; border-top: 1px solid var(--ink-100); background: var(--panel); }
 .composer-box { border: 1px solid var(--ink-100); border-radius: var(--radius); padding: 10px 12px 8px; background: var(--panel); box-shadow: var(--shadow); }
@@ -784,10 +754,7 @@ button { font-family: inherit; }
 .composer-box.drag-active { border-color: var(--salmon-400); background: var(--salmon-50); box-shadow: 0 0 0 3px var(--salmon-100); }
 .composer-box textarea { width: 100%; border: 0; outline: 0; resize: none; font-family: inherit; font-size: 13px; line-height: 1.5; background: transparent; min-height: 44px; max-height: 240px; overflow-y: auto; }
 .composer-toolbar { display: flex; align-items: center; gap: 8px; margin-top: 4px; color: var(--ink-500); font-size: 11.5px; }
-.send-btn { margin-left: auto; background: var(--salmon-500); color: white; border: 0; padding: 6px 14px; border-radius: var(--radius-sm); font-weight: 600; font-size: 12px; cursor: pointer; }
-.send-btn:hover { background: var(--salmon-600); }
-.send-btn:disabled { background: var(--ink-300); cursor: not-allowed; }
-.stop-btn { background: #fff; border: 1px solid var(--ink-100); color: var(--ink-700); padding: 4px 10px; border-radius: var(--radius-sm); font-size: 11.5px; cursor: pointer; }
+/* v1.19.0: .send-btn / .stop-btn removed — unified .btn .btn-sm. */
 
 .composer-attachments { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .attach-chip {
@@ -822,15 +789,7 @@ button { font-family: inherit; }
 
 .preview-html { width: 100%; height: 100%; border: 0; background: white; display: block; }
 
-.icon-btn {
-  width: 26px; height: 26px;
-  display: inline-flex; align-items: center; justify-content: center;
-  background: transparent; border: 1px solid var(--ink-100);
-  border-radius: var(--radius-sm);
-  color: var(--ink-700); font-size: 13px;
-  cursor: pointer; padding: 0; flex-shrink: 0;
-}
-.icon-btn:hover { background: var(--ink-50); border-color: var(--salmon-300); color: var(--salmon-700); }
+/* v1.19.0: .icon-btn removed — unified .btn .btn-sm .btn-icon .btn-ghost. */
 
 .preview-overlay {
   position: fixed; inset: 0; z-index: 60;
@@ -928,10 +887,161 @@ button { font-family: inherit; }
 .modal .row-h { display: flex; gap: 8px; }
 .modal .row-h > * { flex: 1; }
 .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; }
-.btn { padding: 7px 14px; border-radius: var(--radius-sm); font-size: 13px; cursor: pointer; border: 1px solid var(--ink-100); background: #fff; color: var(--ink-700); }
-.btn.primary { background: var(--salmon-500); border-color: var(--salmon-500); color: #fff; font-weight: 600; }
-.btn.primary:hover { background: var(--salmon-600); }
-.btn.primary:disabled { background: var(--ink-300); border-color: var(--ink-300); cursor: not-allowed; }
+/* ============================================================== */
+/*  v1.19.0 — Unified button system                              */
+/*  5 variants (default/secondary, primary, ghost, danger, icon)  */
+/*  × 3 sizes (sm 24, md 30 = default, lg 36)                     */
+/*  + .btn-block full-width modifier                              */
+/*  + .toggle for state switches (Bypass etc) — separate from .btn */
+/* ============================================================== */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 14px;
+  font-size: 12.5px;
+  font-weight: 500;
+  font-family: inherit;
+  border: 1px solid var(--ink-200, #D2C9C0);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--ink-900);
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease, box-shadow 120ms ease;
+  user-select: none;
+  white-space: nowrap;
+  /* Subtle to keep alignment in flex rows that mix buttons + text. */
+  line-height: 1;
+}
+.btn:hover { background: var(--ink-50); border-color: var(--ink-300); }
+.btn:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(255,166,138,0.40); }
+.btn:active { transform: translateY(0.5px); }
+.btn:disabled,
+.btn[aria-disabled="true"] {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Sizes */
+.btn-sm { height: 24px; padding: 0 10px; font-size: 11.5px; gap: 4px; border-radius: 5px; }
+.btn-lg { height: 36px; padding: 0 18px; font-size: 13.5px; gap: 8px; border-radius: 7px; }
+
+/* Variants */
+.btn-primary,
+.btn.primary {  /* legacy alias — components used `btn primary` */
+  background: var(--salmon-700);
+  border-color: var(--salmon-700);
+  color: #fff;
+  font-weight: 600;
+}
+.btn-primary:hover,
+.btn.primary:hover { background: var(--salmon-600); border-color: var(--salmon-600); }
+.btn-primary:disabled,
+.btn.primary:disabled { background: var(--ink-300); border-color: var(--ink-300); }
+
+.btn-ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--ink-700);
+}
+.btn-ghost:hover { background: var(--ink-50); border-color: transparent; color: var(--ink-900); }
+
+.btn-danger {
+  color: var(--rust-700);
+  border-color: var(--ink-200);
+  background: #fff;
+}
+.btn-danger:hover { background: var(--rust-50); border-color: var(--rust-700); color: var(--rust-700); }
+.btn-danger.btn-primary {
+  background: var(--rust-700);
+  color: #fff;
+  border-color: var(--rust-700);
+}
+.btn-danger.btn-primary:hover {
+  background: #9A3D33;
+  border-color: #9A3D33;
+}
+
+/* Square icon-only button. Combine with btn-sm / btn-lg for matching size. */
+.btn-icon { padding: 0; width: 30px; }
+.btn-icon.btn-sm { width: 24px; }
+.btn-icon.btn-lg { width: 36px; }
+
+/* Full width inside its container */
+.btn-block { display: flex; width: 100%; }
+
+/* SVG inside button: stroke follows currentColor, size tracks button size. */
+.btn svg {
+  width: 14px; height: 14px;
+  stroke: currentColor; stroke-width: 2;
+  fill: none;
+  stroke-linecap: round; stroke-linejoin: round;
+  flex-shrink: 0;
+}
+.btn-sm svg { width: 12px; height: 12px; }
+.btn-lg svg { width: 16px; height: 16px; }
+
+/* Inline keyboard hint inside a button (⌘F / ⌘↵ etc). */
+.btn kbd {
+  font-family: var(--mono);
+  font-size: 10px;
+  background: rgba(0,0,0,0.06);
+  color: inherit;
+  padding: 1px 5px;
+  border-radius: 3px;
+  opacity: 0.7;
+  margin-left: 2px;
+  font-weight: 500;
+}
+.btn-primary kbd { background: rgba(255,255,255,0.22); opacity: 0.95; }
+
+/* ----- Toggle switch (state, not action) ----- */
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 30px;
+  padding: 0 10px 0 6px;
+  border-radius: 6px;
+  border: 1px solid var(--ink-200);
+  background: #fff;
+  cursor: pointer;
+  font-size: 12.5px;
+  color: var(--ink-700);
+  font-family: inherit;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+.toggle:hover { background: var(--ink-50); border-color: var(--ink-300); }
+.toggle:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(255,166,138,0.40); }
+.toggle .toggle-track {
+  width: 28px; height: 16px;
+  background: var(--ink-200);
+  border-radius: 999px;
+  position: relative;
+  transition: background 120ms;
+  flex-shrink: 0;
+}
+.toggle .toggle-track::after {
+  content: '';
+  position: absolute;
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  background: white;
+  top: 2px; left: 2px;
+  transition: left 120ms;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+}
+.toggle.on .toggle-track { background: var(--rust-700); }
+.toggle.on .toggle-track::after { left: 14px; }
+.toggle.on {
+  color: var(--rust-700);
+  font-weight: 600;
+  border-color: var(--rust-700);
+  background: var(--rust-50);
+}
 
 /* ===== Onboarding ===== */
 .onb { display: flex; align-items: center; justify-content: center; height: 100%; background: var(--bg); }
@@ -1511,7 +1621,7 @@ button { font-family: inherit; }
 .search-modal { width: 680px; max-height: calc(100vh - 80px); display: flex; flex-direction: column; }
 .search-modal-head { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
 .search-modal-head h3 { margin: 0; flex: 1; }
-.icon-btn { width: 28px; height: 28px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+/* v1.19.0: legacy .icon-btn override removed. */
 .global-search-input {
   width: 100%; padding: 10px 12px; border: 1px solid var(--ink-100);
   border-radius: var(--radius-sm); font-family: inherit; font-size: 14px; outline: none;
@@ -2014,29 +2124,12 @@ button { font-family: inherit; }
   margin-bottom: 6px;
 }
 .brief-actions { display: flex; flex-wrap: wrap; gap: 6px; }
-.brief-btn {
-  padding: 5px 12px;
-  border-radius: 6px;
-  font-size: 12px;
-  border: 1px solid var(--ink-100);
-  background: var(--panel);
-  color: var(--ink-700);
-  cursor: pointer;
-  line-height: 1.3;
-}
-.brief-btn:hover { border-color: var(--salmon); }
-.brief-btn.primary {
-  background: var(--salmon-700); color: white; border-color: var(--salmon-700);
-}
-.brief-btn.dismiss {
-  margin-left: auto; font-size: 11px; color: var(--ink-500);
-}
-.brief-btn:disabled { color: var(--ink-300, #c8c2b7); cursor: not-allowed; }
+/* v1.19.0: .brief-btn removed — unified .btn .btn-sm + .btn-primary.
+   .brief-gear inline modifier kept for the kbd-style hint inside primary buttons. */
 .brief-gear {
   display: inline-block; margin-left: 5px;
   font-size: 9.5px; color: rgba(255,255,255,0.7);
 }
-.brief-btn:not(.primary) .brief-gear { color: var(--ink-300, #c8c2b7); }
 
 .brief-drafts {
   margin-top: 12px;
@@ -2429,35 +2522,7 @@ button { font-family: inherit; }
 /* v1.16.0: topic-search-fab removed; replaced with .topic-search-btn
    inline in the .mid-head header bar for visual co-location with the
    Topic title. Old FAB styles intentionally removed. */
-.topic-search-btn {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 4px 10px;
-  background: var(--panel);
-  border: 1px solid var(--ink-100);
-  border-radius: 6px;
-  color: var(--ink-700);
-  font-size: 12px;
-  cursor: pointer;
-  margin-right: 10px;
-}
-.topic-search-btn:hover {
-  background: var(--salmon-50);
-  border-color: var(--salmon);
-  color: var(--ink-900);
-}
-.topic-search-btn svg {
-  flex-shrink: 0;
-  color: var(--ink-500);
-}
-.topic-search-btn kbd {
-  font-family: var(--mono);
-  font-size: 10.5px;
-  background: var(--ink-50, #F5F2EF);
-  border: 1px solid var(--ink-100);
-  border-radius: 3px;
-  padding: 0 4px;
-  color: var(--ink-500);
-}
+/* v1.19.0: .topic-search-btn removed — unified .btn .btn-sm .btn-ghost. */
 @keyframes msg-flash-kf {
   0%   { background: rgba(232,160,130,0.35); }
   100% { background: transparent; }
@@ -3046,6 +3111,4 @@ button { font-family: inherit; }
   justify-content: flex-end;
   margin-top: 12px;
 }
-.mail-send-btn {
-  min-width: 118px;
-}
+/* v1.19.0: .mail-send-btn removed — unified .btn .btn-primary. */

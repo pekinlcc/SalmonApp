@@ -193,8 +193,8 @@ export function NewTopicDialog({ cliStatus, defaultEngine, topics, onCancel, onC
         )}
 
         <div className="modal-actions">
-          <button className="btn" onClick={onCancel}>取消</button>
-          <button className="btn primary" disabled={!canSubmit} onClick={submit}>
+          <button className="btn btn-ghost" onClick={onCancel}>取消</button>
+          <button className="btn btn-primary" disabled={!canSubmit} onClick={submit}>
             创建并启动
           </button>
         </div>

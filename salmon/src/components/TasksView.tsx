@@ -181,11 +181,11 @@ export function TasksView({ pendingOpenTask, onConsumePendingOpenTask }: TasksVi
             {syncing ? "…" : "↻"}
           </button>
         </div>
-        <button className="new-btn" onClick={() => setComposeOpen(true)}>
+        <button className="btn" onClick={() => setComposeOpen(true)}>
           <span className="plus">＋</span> 新建待办
         </button>
         <button
-          className="new-btn"
+          className="btn"
           onClick={() => setShowCompleted((v) => !v)}
           style={{ marginTop: 0 }}
         >
@@ -341,10 +341,10 @@ function TaskDetail({
             ? <span style={{ textDecoration: "line-through", color: "var(--ink-500)" }}>{task.title}</span>
             : task.title}
         </div>
-        <button className="btn-ghost" onClick={onToggle}>
+        <button className="btn btn-ghost" onClick={onToggle}>
           {task.completed ? "↺ 标记未完成" : "✓ 标记完成"}
         </button>
-        <button className="btn-ghost" onClick={onDelete} style={{ color: "#B7493D" }}>🗑 删除</button>
+        <button className="btn btn-sm btn-danger" onClick={onDelete}>🗑 删除</button>
       </div>
       <div style={{ flex: 1, overflowY: "auto" }}>
         {task.dueMs && (
@@ -516,7 +516,7 @@ function NewTaskModal({
       <div className="compose-modal" style={{ width: 520 }}>
         <div className="compose-head">
           <div className="compose-title">新建待办</div>
-          <button className="btn-ghost" onClick={onClose}>×</button>
+          <button className="btn btn-ghost" onClick={onClose}>×</button>
         </div>
         <div className="compose-from">
           <span className="compose-label">账号:</span>

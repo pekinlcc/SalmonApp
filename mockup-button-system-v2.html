@@ -1,0 +1,931 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>SalmonApp · 全局按钮系统 v2（含全页效果）</title>
+  <style>
+    :root {
+      --salmon-50:  #FFF1EA;
+      --salmon-100: #FFE0CF;
+      --salmon-200: #F8C5A6;
+      --salmon-300: #E8A082;
+      --salmon-500: #D86F4A;
+      --salmon-600: #C25B38;
+      --salmon-700: #B7493D;
+
+      --ink-50:  #F7F4F1;
+      --ink-100: #E8E2DC;
+      --ink-200: #D2C9C0;
+      --ink-300: #B8AC9F;
+      --ink-500: #8C7E73;
+      --ink-700: #5A4F47;
+      --ink-900: #2C2723;
+
+      --rust-50: #FCEDEA;
+      --rust-700: #B7493D;
+      --warn-50: #FFF3E0;
+      --warn-700: #9A5E0A;
+
+      --bg: #F4F0EC;
+      --panel: #FFFFFF;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, "PingFang SC", sans-serif;
+      margin: 0; padding: 28px;
+      background: var(--bg);
+      color: var(--ink-900);
+    }
+    h1 { font-size: 22px; margin: 0 0 6px; }
+    h1 small { font-weight: 400; color: var(--ink-500); font-size: 13px; margin-left: 10px; }
+    h2 { font-size: 16px; margin: 32px 0 12px; padding-bottom: 6px; border-bottom: 2px solid var(--ink-100); }
+    h3 { font-size: 13px; color: var(--ink-700); margin: 16px 0 8px; }
+    p.intro { color: var(--ink-700); font-size: 13px; line-height: 1.6; max-width: 1000px; margin: 0 0 8px; }
+    p.muted { color: var(--ink-500); font-size: 12px; line-height: 1.5; max-width: 1000px; }
+    code, kbd { font-family: ui-monospace, "SF Mono", monospace; background: var(--ink-50); padding: 1px 5px; border-radius: 3px; font-size: 11.5px; }
+
+    /* ============================================================== */
+    /*  THE BUTTON SYSTEM                                            */
+    /* ============================================================== */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      height: 30px;
+      padding: 0 14px;
+      font-size: 12.5px;
+      font-weight: 500;
+      font-family: inherit;
+      border: 1px solid var(--ink-200);
+      border-radius: 6px;
+      background: white;
+      color: var(--ink-900);
+      cursor: pointer;
+      transition: background 120ms ease, border-color 120ms ease, color 120ms ease, box-shadow 120ms ease;
+      user-select: none;
+      white-space: nowrap;
+    }
+    .btn:hover { background: var(--ink-50); border-color: var(--ink-300); }
+    .btn:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(232,160,130,0.35); }
+    .btn:active { transform: translateY(0.5px); }
+    .btn:disabled, .btn[aria-disabled="true"] { opacity: 0.45; cursor: not-allowed; pointer-events: none; }
+
+    .btn-sm { height: 24px; padding: 0 10px; font-size: 11.5px; gap: 4px; border-radius: 5px; }
+    .btn-lg { height: 36px; padding: 0 18px; font-size: 13.5px; gap: 8px; border-radius: 7px; }
+
+    .btn-primary { background: var(--salmon-700); border-color: var(--salmon-700); color: white; font-weight: 600; }
+    .btn-primary:hover { background: var(--salmon-600); border-color: var(--salmon-600); }
+    .btn-primary:disabled { background: var(--ink-300); border-color: var(--ink-300); }
+
+    .btn-ghost { background: transparent; border-color: transparent; color: var(--ink-700); }
+    .btn-ghost:hover { background: var(--ink-50); border-color: transparent; color: var(--ink-900); }
+
+    .btn-danger { color: var(--rust-700); border-color: var(--ink-200); background: white; }
+    .btn-danger:hover { background: var(--rust-50); border-color: var(--rust-700); }
+    .btn-danger.btn-primary { background: var(--rust-700); color: white; border-color: var(--rust-700); }
+    .btn-danger.btn-primary:hover { background: #9A3D33; border-color: #9A3D33; }
+
+    .btn-icon { padding: 0; width: 30px; }
+    .btn-icon.btn-sm { width: 24px; }
+    .btn-icon.btn-lg { width: 36px; }
+    .btn-block { display: flex; width: 100%; }
+
+    .btn kbd { font-family: ui-monospace, monospace; font-size: 10px; background: rgba(0,0,0,0.06); color: inherit; padding: 1px 5px; border-radius: 3px; opacity: 0.7; margin-left: 2px; }
+    .btn-primary kbd { background: rgba(255,255,255,0.22); opacity: 0.95; }
+
+    .btn svg { width: 14px; height: 14px; stroke: currentColor; stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+    .btn-sm svg { width: 12px; height: 12px; }
+    .btn-lg svg { width: 16px; height: 16px; }
+
+    /* ============================================================== */
+    /*  Toggle switch (not a button — for "Bypass / 默认权限")        */
+    /* ============================================================== */
+    .toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      height: 30px;
+      padding: 0 10px 0 6px;
+      border-radius: 6px;
+      border: 1px solid var(--ink-200);
+      background: white;
+      cursor: pointer;
+      font-size: 12.5px;
+      color: var(--ink-700);
+    }
+    .toggle:hover { background: var(--ink-50); }
+    .toggle .track {
+      width: 28px; height: 16px;
+      background: var(--ink-200);
+      border-radius: 999px;
+      position: relative;
+      transition: background 120ms;
+    }
+    .toggle .track::after {
+      content: '';
+      position: absolute;
+      width: 12px; height: 12px;
+      border-radius: 50%;
+      background: white;
+      top: 2px; left: 2px;
+      transition: left 120ms;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+    }
+    .toggle.on .track { background: var(--rust-700); }
+    .toggle.on .track::after { left: 14px; }
+    .toggle.on { color: var(--rust-700); font-weight: 600; }
+
+    /* ============================================================== */
+    /*  Pills (informational, not interactive)                       */
+    /* ============================================================== */
+    .pill {
+      display: inline-flex; align-items: center; gap: 4px;
+      height: 20px; padding: 0 6px;
+      border-radius: 4px;
+      font-size: 10.5px; font-weight: 600;
+      letter-spacing: 0.3px;
+    }
+    .pill-engine.cc { background: #FFE4DA; color: #B7493D; }
+    .pill-engine.cx { background: #E6F0FF; color: #2F5BB7; }
+    .pill-scratch  { background: var(--ink-50); color: var(--ink-500); font-weight: 500; }
+
+    /* ============================================================== */
+    /*  Layout & full-page mockups                                   */
+    /* ============================================================== */
+    .panel {
+      background: white;
+      border-radius: 10px;
+      padding: 18px 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+      margin-bottom: 18px;
+    }
+    .ctx-label { font-size: 11px; color: var(--ink-500); font-weight: 600; margin-bottom: 10px; letter-spacing: 0.5px; text-transform: uppercase; }
+
+    /* full-page frame */
+    .page {
+      background: var(--bg);
+      border-radius: 10px;
+      overflow: hidden;
+      display: grid;
+      grid-template-columns: 48px 220px 1fr;
+      height: 540px;
+      border: 1px solid var(--ink-100);
+    }
+    .page.full {
+      grid-template-columns: 48px 1fr;  /* mail / cal / tasks: no Topic list */
+    }
+    .rail {
+      background: var(--ink-50);
+      border-right: 1px solid var(--ink-100);
+      padding: 12px 0;
+      display: flex; flex-direction: column; align-items: center; gap: 6px;
+    }
+    .rail-icon {
+      width: 32px; height: 32px;
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px;
+      color: var(--ink-500);
+    }
+    .rail-icon.active { background: var(--salmon-50); color: var(--salmon-700); }
+    .rail-spacer { flex: 1; }
+    .sidebar {
+      background: #FAF7F4;
+      border-right: 1px solid var(--ink-100);
+      padding: 14px;
+      overflow: auto;
+    }
+    .sidebar h3 { margin: 0 0 10px; font-size: 13.5px; color: var(--ink-900); }
+    .topic-item {
+      display: flex; align-items: center; gap: 6px;
+      padding: 6px 8px;
+      border-radius: 5px;
+      font-size: 12px;
+      color: var(--ink-700);
+      margin-bottom: 2px;
+    }
+    .topic-item.active { background: var(--salmon-50); color: var(--salmon-700); font-weight: 500; }
+    .topic-item .pill-engine { flex-shrink: 0; }
+    .topic-item .title-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .topic-item small { color: var(--ink-500); font-size: 10px; margin-left: auto; flex-shrink: 0; }
+
+    .main { display: flex; flex-direction: column; min-width: 0; background: white; }
+
+    /* ============================================================== */
+    /*  Mid-head (the red-boxed area)                                */
+    /* ============================================================== */
+    .mid-head {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--ink-100);
+      min-height: 50px;
+    }
+    .mid-head .title-cluster {
+      display: flex; align-items: center; gap: 8px;
+      min-width: 0; max-width: 60%;
+    }
+    .mid-head .title {
+      font-size: 13.5px; font-weight: 600;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .mid-head .breadcrumb {
+      font-size: 10.5px; color: var(--ink-500);
+      font-family: ui-monospace, monospace;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      max-width: 220px;
+    }
+    .mid-head .spacer { flex: 1; }
+    .mid-head .stat {
+      font-size: 11.5px; color: var(--ink-500);
+      font-family: ui-monospace, monospace;
+    }
+
+    /* chat content area */
+    .stream {
+      flex: 1; padding: 16px; overflow: auto;
+      background: #FCFAF8;
+    }
+    .stream .msg { margin-bottom: 14px; }
+    .stream .msg-role { font-size: 11px; color: var(--ink-500); margin-bottom: 4px; }
+    .stream .msg-body { font-size: 12.5px; line-height: 1.55; color: var(--ink-900); }
+
+    .composer {
+      padding: 12px 16px;
+      border-top: 1px solid var(--ink-100);
+      background: white;
+    }
+    .composer textarea {
+      width: 100%; height: 56px;
+      border: 1px solid var(--ink-100);
+      border-radius: 8px;
+      padding: 10px;
+      font-family: inherit; font-size: 12.5px;
+      outline: none; resize: none; color: var(--ink-900);
+    }
+    .composer-bar {
+      display: flex; align-items: center; gap: 8px; margin-top: 8px;
+    }
+    .composer-hint { font-size: 11px; color: var(--ink-500); margin-right: auto; }
+
+    /* Mail layout pieces */
+    .mail-grid { display: grid; grid-template-columns: 260px 1fr; height: 100%; }
+    .mail-list {
+      background: #FBF8F5;
+      border-right: 1px solid var(--ink-100);
+      overflow: auto;
+    }
+    .mail-list-head {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--ink-100);
+      background: white;
+    }
+    .mail-list-head .acct {
+      font-size: 11px; color: var(--ink-700);
+      flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .mail-item {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--ink-50);
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .mail-item.unread { background: var(--salmon-50); }
+    .mail-item.selected { background: var(--salmon-100); }
+    .mail-item .from { font-weight: 600; font-size: 11.5px; margin-bottom: 2px; color: var(--ink-900); }
+    .mail-item .subj { color: var(--ink-700); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .mail-item .time { color: var(--ink-500); font-size: 10px; }
+    .mail-detail { background: white; overflow: auto; padding: 0; }
+    .mail-detail-head {
+      display: flex; align-items: center; gap: 8px;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--ink-100);
+    }
+    .mail-detail-head h3 { margin: 0; font-size: 14px; flex: 1; }
+    .mail-detail-meta {
+      padding: 10px 18px;
+      border-bottom: 1px solid var(--ink-50);
+      font-size: 11.5px; color: var(--ink-500);
+    }
+    .mail-detail-body { padding: 16px 18px; font-size: 12.5px; line-height: 1.65; color: var(--ink-900); }
+
+    /* Mail top action row */
+    .mail-action-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--ink-100);
+      background: white;
+    }
+
+    /* Briefing card */
+    .home-grid {
+      padding: 16px;
+      display: grid;
+      grid-template-columns: 1fr 280px;
+      gap: 16px;
+      overflow: auto;
+      background: #FCFAF8;
+    }
+    .home-overview {
+      background: white;
+      border: 1px solid var(--ink-100);
+      border-radius: 10px;
+      padding: 16px;
+      grid-column: 1 / -1;
+    }
+    .home-overview .h-title { font-size: 14px; font-weight: 600; }
+    .home-overview .h-sub { font-size: 12px; color: var(--ink-500); margin-top: 4px; }
+    .brief-card {
+      background: white;
+      border: 1px solid var(--ink-100);
+      border-radius: 8px;
+      padding: 14px;
+    }
+    .brief-card .b-icon { font-size: 14px; }
+    .brief-title { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+    .brief-why { font-size: 11.5px; color: var(--ink-700); line-height: 1.5; margin-bottom: 12px; background: #FFF8F2; border-left: 2px solid var(--salmon-300); padding: 6px 8px; }
+    .brief-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+    .home-right { background: white; border: 1px solid var(--ink-100); border-radius: 8px; padding: 14px; font-size: 11.5px; color: var(--ink-500); }
+
+    /* Permission card */
+    .perm-card { background: white; border: 1px solid var(--salmon-200); border-radius: 8px; padding: 14px; margin: 16px; max-width: 480px; }
+    .perm-card .label { font-size: 11px; color: var(--ink-500); margin-bottom: 4px; }
+    .perm-card .cmd { font-family: ui-monospace, monospace; font-size: 12px; background: var(--ink-50); padding: 6px 8px; border-radius: 4px; margin-bottom: 12px; }
+
+    /* Settings modal */
+    .modal-bg {
+      position: relative; height: 100%; background: rgba(44,39,35,0.4);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .modal {
+      width: 540px; background: white;
+      border-radius: 12px;
+      box-shadow: 0 18px 50px rgba(0,0,0,0.18);
+      overflow: hidden;
+      display: flex; flex-direction: column;
+      max-height: 460px;
+    }
+    .modal-head {
+      display: flex; align-items: center; gap: 10px;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--ink-100);
+    }
+    .modal-title { flex: 1; font-size: 14px; font-weight: 600; }
+    .modal-body { padding: 16px 18px; font-size: 12.5px; color: var(--ink-700); line-height: 1.65; flex: 1; overflow: auto; }
+    .modal-foot {
+      display: flex; gap: 8px; justify-content: flex-end;
+      padding: 12px 16px;
+      background: var(--ink-50);
+      border-top: 1px solid var(--ink-100);
+    }
+
+    /* action card inside chat stream */
+    .action-card { background: white; border: 1px solid var(--salmon-200); border-radius: 8px; padding: 12px 14px; max-width: 460px; margin-top: 8px; }
+    .action-head { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+    .action-kicker { font-size: 10.5px; color: var(--ink-500); }
+    .action-kind { font-size: 10.5px; background: var(--ink-50); padding: 1px 6px; border-radius: 3px; font-family: ui-monospace, monospace; }
+    .action-summary { font-size: 12px; margin-bottom: 8px; color: var(--ink-700); }
+    .action-row { font-size: 11.5px; padding: 4px 0; color: var(--ink-900); }
+    .action-foot { display: flex; gap: 6px; justify-content: flex-end; margin-top: 8px; }
+
+    /* tokens panel */
+    .tokens { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; }
+    .token { border: 1px solid var(--ink-100); border-radius: 6px; padding: 10px; font-size: 11px; color: var(--ink-700); }
+    .token .swatch { width: 100%; height: 36px; border-radius: 4px; margin-bottom: 6px; border: 1px solid var(--ink-100); }
+
+    /* matrix from v1 */
+    .matrix { display: grid; grid-template-columns: 80px repeat(5, 1fr); gap: 12px; align-items: center; }
+    .matrix > .head { font-size: 11px; color: var(--ink-500); text-transform: uppercase; letter-spacing: 0.5px; text-align: center; }
+    .matrix > .row-head { font-size: 11px; color: var(--ink-500); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+    .matrix > .cell { display: flex; flex-direction: column; gap: 6px; align-items: center; }
+
+    .side-by-side {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    .compare-label {
+      font-size: 11px; color: var(--ink-500); font-weight: 600;
+      margin-bottom: 6px; letter-spacing: 0.5px;
+    }
+    .compare-bad .compare-label::before { content: "✗ "; color: #B7493D; }
+    .compare-good .compare-label::before { content: "✓ "; color: #2E7D32; }
+
+    /* For the "before" of mid-head zoo */
+    .midhead-old {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 14px;
+      background: white;
+      border: 1px solid var(--ink-100);
+      border-radius: 8px;
+      flex-wrap: wrap; /* causes the path to wrap awkwardly */
+    }
+    .midhead-old .ot { font-weight: 600; font-size: 14px; }
+    .midhead-old .op {
+      font-size: 10px; color: var(--ink-500);
+      font-family: ui-monospace, monospace;
+      line-height: 1.4;
+    }
+    .midhead-old .oep { background: #FFE4DA; color: #B7493D; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+    .midhead-old .obyp { background: #FFE4DA; color: #B7493D; padding: 6px 12px; border-radius: 6px; font-size: 11.5px; border: 1px solid #FFD2C0; }
+    .midhead-old .osch { padding: 4px 10px; border-radius: 6px; background: white; border: 1px solid var(--ink-100); font-size: 11px; display: inline-flex; align-items: center; gap: 4px; }
+    .midhead-old .ostat { font-size: 11px; color: var(--ink-500); margin-left: auto; }
+  </style>
+</head>
+<body>
+
+  <h1>SalmonApp 按钮系统 v2 <small>全页效果 + mid-head 单独修整 · 等你拍板</small></h1>
+  <p class="intro">
+    比 v1 多两个东西：① 把"Bypass / 默认权限"那种**切换器**从按钮系统里抽出来，单独做 toggle；
+    ② 你截图里红框那块 mid-head 头栏单独重做，并给出**全页效果**而不是孤立按钮卡片。
+  </p>
+
+  <!-- ============================================================== -->
+  <!-- 0. mid-head 红框那块的拆解                                    -->
+  <!-- ============================================================== -->
+  <h2>0 · 红框区域（mid-head）单独修整</h2>
+
+  <div class="panel">
+    <div class="side-by-side">
+      <div class="compare-bad">
+        <div class="compare-label">现状 — 5 个东西高度全不齐</div>
+        <div class="midhead-old">
+          <span class="ot">停用GitHub工作流</span>
+          <span class="op">/Users/bytedance/Library/Application Support/<br>app.salmonapp.desktop/topics/6b0b9226-...</span>
+          <span class="oep">Claude Code</span>
+          <span class="obyp">⚠ Bypass</span>
+          <span class="osch">⌕ 在此 Topic 搜索 ⌘F</span>
+          <span class="ostat">4 messages · 187k tokens</span>
+        </div>
+        <p class="muted" style="margin-top: 8px;">
+          问题点：① 暂存 Topic 把丑路径硬塞出来 ② 路径换两行让整行变高
+          ③ "Bypass" 是开关却长得像按钮 ④ engine pill 圆角不一样大
+          ⑤ 搜索按钮 padding / border 跟左边不一致
+        </p>
+      </div>
+
+      <div class="compare-good">
+        <div class="compare-label">改后 — 一行齐平 + 暂存路径不再显示</div>
+        <div class="mid-head" style="border-radius: 8px; border: 1px solid var(--ink-100);">
+          <div class="title-cluster">
+            <span class="pill pill-engine cc">CC</span>
+            <span class="title">停用GitHub工作流</span>
+            <span class="pill pill-scratch">暂存</span>
+          </div>
+          <span class="spacer"></span>
+          <button class="toggle on" title="Bypass 模式开启 · 工具调用不再弹授权框">
+            <span class="track"></span>
+            <span>Bypass</span>
+          </button>
+          <button class="btn btn-sm btn-ghost">
+            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.3-4.3"/></svg>
+            搜索
+            <kbd>⌘F</kbd>
+          </button>
+          <span class="stat">4 msg · 187k</span>
+        </div>
+        <p class="muted" style="margin-top: 8px;">
+          ① engine pill / 暂存 pill 一致大小 ② 标题不会被推到换行 ③ <strong>Bypass 是 toggle 不是按钮</strong>（左小圆点滑动），开关状态一眼分得清 ④ 搜索按钮统一为 btn-sm btn-ghost ⑤ stat 缩成简短形式 ⑥ <strong>暂存 Topic 不再显示丑路径</strong>，只显"暂存"标签；非暂存 Topic 用 breadcrumb 短路径（见下面）
+        </p>
+      </div>
+    </div>
+
+    <h3>非暂存（真实工作目录）Topic 的 mid-head 长什么样</h3>
+    <div class="mid-head" style="border-radius: 8px; border: 1px solid var(--ink-100);">
+      <div class="title-cluster">
+        <span class="pill pill-engine cx">CX</span>
+        <span class="title">渣打中午营业</span>
+        <span class="breadcrumb" title="/Users/bytedance/Desktop/Salmon Main">~/Desktop/Salmon Main</span>
+      </div>
+      <span class="spacer"></span>
+      <button class="toggle" title="默认权限模式 · 每次工具调用都弹授权框">
+        <span class="track"></span>
+        <span>Bypass</span>
+      </button>
+      <button class="btn btn-sm btn-ghost">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.3-4.3"/></svg>
+        搜索
+        <kbd>⌘F</kbd>
+      </button>
+      <span class="stat">13 msg · 1.0M</span>
+    </div>
+    <p class="muted" style="margin-top: 8px;">
+      非暂存 Topic 在标题旁显短路径（~/Desktop/Salmon Main），hover tooltip 看完整。Bypass 关闭态。
+    </p>
+  </div>
+
+  <!-- ============================================================== -->
+  <!-- 1. 完整 Topic 对话页面（核心 mockup — 你最关心的）             -->
+  <!-- ============================================================== -->
+  <h2>1 · 完整 Topic 对话页（红框那一屏 1:1）</h2>
+  <div class="panel">
+    <div class="ctx-label">A. 暂存 Topic — bypass on / 已选中此 topic</div>
+    <div class="page">
+      <div class="rail">
+        <div class="rail-icon">🏠</div>
+        <div class="rail-icon">👤</div>
+        <div class="rail-icon">📧</div>
+        <div class="rail-icon">📅</div>
+        <div class="rail-icon">✓</div>
+        <div class="rail-icon active">💬</div>
+        <div class="rail-spacer"></div>
+        <div class="rail-icon" title="全局搜索（⌘⇧F）">
+          <svg style="width:18px;height:18px;" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+            <circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.3-4.3"/>
+          </svg>
+        </div>
+        <div class="rail-icon">⚙</div>
+      </div>
+      <div class="sidebar">
+        <h3>Topic</h3>
+        <button class="btn btn-primary btn-block" style="justify-content:flex-start;margin-bottom:4px;">
+          <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+          新建
+          <kbd>⌘N</kbd>
+        </button>
+        <button class="btn btn-ghost btn-block" style="justify-content:flex-start;margin-bottom:10px;">
+          在目录新建…
+          <kbd>⌘⇧N</kbd>
+        </button>
+        <div style="font-size:11px;color:var(--ink-500);margin:8px 0 4px;">今天</div>
+        <div class="topic-item">
+          <span class="pill pill-engine cc">CC</span>
+          <span class="title-text">同步可能力评估</span>
+          <small>11m</small>
+        </div>
+        <div class="topic-item active">
+          <span class="pill pill-engine cc">CC</span>
+          <span class="title-text">停用GitHub工作流</span>
+          <small>5m</small>
+        </div>
+        <div class="topic-item">
+          <span class="pill pill-engine cc">CC</span>
+          <span class="title-text">渣打中午营业</span>
+          <small>30m</small>
+        </div>
+      </div>
+      <div class="main">
+        <div class="mid-head">
+          <div class="title-cluster">
+            <span class="pill pill-engine cc">CC</span>
+            <span class="title">停用GitHub工作流</span>
+            <span class="pill pill-scratch">暂存</span>
+          </div>
+          <span class="spacer"></span>
+          <button class="toggle on" title="Bypass 模式开启 · 工具调用不再弹授权框">
+            <span class="track"></span>
+            <span>Bypass</span>
+          </button>
+          <button class="btn btn-sm btn-ghost">
+            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.3-4.3"/></svg>
+            搜索
+            <kbd>⌘F</kbd>
+          </button>
+          <span class="stat">4 msg · 187k</span>
+        </div>
+        <div class="stream">
+          <div class="msg">
+            <div class="msg-role">你 · 08:26</div>
+            <div class="msg-body">把这个项目里所有的自动化 workflow 全部删除或者停用。</div>
+          </div>
+          <div class="msg">
+            <div class="msg-role">SalmonApp · Claude Code · 08:27</div>
+            <div class="msg-body">
+              我准备好这个动作：禁用全部 GitHub Actions workflows。请确认。
+              <div class="action-card">
+                <div class="action-head">
+                  <span class="action-kicker">SalmonApp 本地动作</span>
+                  <span class="action-kind">workflow</span>
+                </div>
+                <div class="action-summary">3 步工作流，按顺序执行；任一步失败立即停下。</div>
+                <div class="action-row"><b>1. tasks.update</b> · 标 11 个 task 为已完成</div>
+                <div class="action-row"><b>2. tasks.create</b> · 创建"Audit GitHub workflows" 待办</div>
+                <div class="action-row"><b>3. mail.draft</b> · 起草通知邮件给团队</div>
+                <div class="action-foot">
+                  <button class="btn btn-sm btn-ghost">取消</button>
+                  <button class="btn btn-sm btn-primary">确认执行</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="composer">
+          <textarea placeholder="问点什么…  ⌘+Enter 发送 · Enter 换行"></textarea>
+          <div class="composer-bar">
+            <span class="composer-hint">⌘+Enter 发送 · Enter 换行 · ↑ 复上一条 · 可拖拽文件</span>
+            <button class="btn btn-sm btn-ghost">停止</button>
+            <button class="btn btn-sm btn-primary">
+              发送 <kbd>⌘↵</kbd>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================== -->
+  <!-- 2. 完整邮件视图（你第一次截图的那个）                          -->
+  <!-- ============================================================== -->
+  <h2>2 · 完整邮件视图</h2>
+  <div class="panel">
+    <div class="ctx-label">B. + 新邮件 / 同步 / 添加账号 / 移除当前 全部对齐</div>
+    <div class="page full">
+      <div class="rail">
+        <div class="rail-icon">🏠</div>
+        <div class="rail-icon">👤</div>
+        <div class="rail-icon active">📧</div>
+        <div class="rail-icon">📅</div>
+        <div class="rail-icon">✓</div>
+        <div class="rail-icon">💬</div>
+        <div class="rail-spacer"></div>
+        <div class="rail-icon">⌕</div>
+        <div class="rail-icon">⚙</div>
+      </div>
+      <div class="main">
+        <div class="mail-action-row">
+          <button class="btn btn-primary">
+            <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+            新邮件
+          </button>
+          <button class="btn">
+            <svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 1 3 6.7"/><path d="M3 19v-4h4"/></svg>
+            同步
+          </button>
+          <button class="btn btn-ghost">
+            <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+            添加账号
+            <svg viewBox="0 0 24 24" style="width:10px;height:10px;"><path d="m6 9 6 6 6-6"/></svg>
+          </button>
+          <button class="btn btn-ghost">移除当前</button>
+          <span style="flex:1;"></span>
+          <span style="font-size:11.5px;color:var(--ink-500);font-family:ui-monospace,monospace;">pekinlcc@gmail.com</span>
+        </div>
+        <div class="mail-grid">
+          <div class="mail-list">
+            <div class="mail-list-head">
+              <span class="acct">pekinlcc@gmail.com</span>
+              <button class="btn btn-sm btn-ghost btn-icon" aria-label="刷新">
+                <svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 1 3 6.7"/><path d="M3 19v-4h4"/></svg>
+              </button>
+            </div>
+            <div class="mail-item unread selected">
+              <div class="from">Olivia Mo · 05-12</div>
+              <div class="subj">渣打银行办流水</div>
+            </div>
+            <div class="mail-item unread">
+              <div class="from">ICIS · 05-10</div>
+              <div class="subj">学校事件通知 · 5/17 入住</div>
+            </div>
+            <div class="mail-item">
+              <div class="from">res-am · 05-09</div>
+              <div class="subj">5/17 入住 AC Hotel 确认</div>
+            </div>
+          </div>
+          <div class="mail-detail">
+            <div class="mail-detail-head">
+              <h3>渣打银行办流水</h3>
+              <button class="btn btn-sm btn-ghost btn-icon" aria-label="星标">
+                <svg viewBox="0 0 24 24"><path d="m12 17.3-6.2 3.3 1.2-6.9L2 8.8l6.9-1 3.1-6.3 3.1 6.3 6.9 1-5 4.9 1.2 6.9z"/></svg>
+              </button>
+              <button class="btn btn-sm btn-ghost">回复</button>
+              <button class="btn btn-sm btn-ghost">转发</button>
+              <button class="btn btn-sm btn-ghost">归档</button>
+              <button class="btn btn-sm btn-danger">删除</button>
+            </div>
+            <div class="mail-detail-meta">
+              Olivia Mo &lt;olivia.mo-biz@…&gt; · 2026-05-12 14:30
+            </div>
+            <div class="mail-detail-body">
+              客户 Eric，您好。<br><br>
+              近期需到访银行办理流水打印，截止 05-15 当周。请凭身份证件到我行任一网点办理…
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================== -->
+  <!-- 3. 完整首页 / Briefing                                        -->
+  <!-- ============================================================== -->
+  <h2>3 · 完整首页（今日聚焦 / Briefing）</h2>
+  <div class="panel">
+    <div class="ctx-label">C. 推荐卡按钮 sm 尺寸 + 跨域分布</div>
+    <div class="page full">
+      <div class="rail">
+        <div class="rail-icon active">🏠</div>
+        <div class="rail-icon">👤</div>
+        <div class="rail-icon">📧</div>
+        <div class="rail-icon">📅</div>
+        <div class="rail-icon">✓</div>
+        <div class="rail-icon">💬</div>
+        <div class="rail-spacer"></div>
+        <div class="rail-icon">⌕</div>
+        <div class="rail-icon">⚙</div>
+      </div>
+      <div class="main home-grid">
+        <div class="home-overview">
+          <div class="h-title">智能需要现在处理的事项</div>
+          <div class="h-sub">3 待处理 · 0 已归档 · 615 未读邮件 · 24 活跃 Topic</div>
+          <div style="margin-top:10px;display:flex;gap:8px;">
+            <button class="btn">
+              <svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 1 3 6.7"/><path d="M3 19v-4h4"/></svg>
+              刷新
+            </button>
+            <button class="btn btn-ghost">显示已归档</button>
+          </div>
+        </div>
+        <div class="brief-card">
+          <span class="b-icon">⚠</span>
+          <div class="brief-title">渣打打印流水待办与日程冲突</div>
+          <div class="brief-why">⚠ AI 解读：待办截止 05-15，但日历事件 05-17 12:00 才安排"渣打打印银行办流水"，已逾期 2 天。</div>
+          <div class="brief-actions">
+            <button class="btn btn-sm btn-primary">更新待办截止日</button>
+            <button class="btn btn-sm">我已线下完成</button>
+            <button class="btn btn-sm btn-ghost">我已知晓</button>
+          </div>
+        </div>
+        <div class="home-right">
+          <div style="color:var(--ink-700);font-weight:600;margin-bottom:8px;">AI 活动</div>
+          时间窗外 · 暂无活动
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================== -->
+  <!-- 4. 完整设置弹窗（账号管理）                                   -->
+  <!-- ============================================================== -->
+  <h2>4 · 完整设置弹窗 — 账号管理</h2>
+  <div class="panel">
+    <div class="ctx-label">D. 主操作 + 次操作 + danger 都在一个框里</div>
+    <div class="page full" style="height: 420px;">
+      <div class="rail"><div class="rail-icon active">⚙</div></div>
+      <div class="main modal-bg">
+        <div class="modal">
+          <div class="modal-head">
+            <div class="modal-title">设置 · 账号</div>
+            <button class="btn btn-sm btn-icon btn-ghost" aria-label="close">
+              <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            </button>
+          </div>
+          <div class="modal-body">
+            <p style="margin:0 0 14px;">管理 Gmail / Outlook 账号。邮件、日历、联系人和待办均依赖账号授权。</p>
+            <div style="display:flex;gap:8px;margin-bottom:14px;">
+              <button class="btn btn-primary">
+                <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+                添加 Gmail
+              </button>
+              <button class="btn">
+                <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+                添加 Outlook
+              </button>
+            </div>
+            <div style="background:var(--ink-50);border-radius:6px;padding:10px 12px;font-size:11.5px;color:var(--ink-700);margin-bottom:10px;">
+              <strong>pekinlcc@gmail.com</strong> · Gmail · 上次同步 5 分钟前
+            </div>
+            <div style="text-align:right;">
+              <button class="btn btn-sm btn-danger">移除此账号</button>
+            </div>
+          </div>
+          <div class="modal-foot">
+            <button class="btn btn-ghost">关闭</button>
+            <button class="btn btn-primary">保存修改</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================== -->
+  <!-- 5. 完整 Permission 流程                                       -->
+  <!-- ============================================================== -->
+  <h2>5 · Topic 内权限请求（嵌入对话流）</h2>
+  <div class="panel">
+    <div class="ctx-label">E. 红色 = danger danger / 主 = primary</div>
+    <div class="page">
+      <div class="rail"><div class="rail-icon active">💬</div></div>
+      <div class="sidebar">
+        <h3>Topic</h3>
+        <div class="topic-item active">
+          <span class="pill pill-engine cc">CC</span>
+          <span class="title-text">设置仓库 hooks</span>
+          <small>now</small>
+        </div>
+      </div>
+      <div class="main">
+        <div class="mid-head">
+          <div class="title-cluster">
+            <span class="pill pill-engine cc">CC</span>
+            <span class="title">设置仓库 hooks</span>
+            <span class="breadcrumb">~/Code/aibird</span>
+          </div>
+          <span class="spacer"></span>
+          <button class="toggle"><span class="track"></span><span>Bypass</span></button>
+          <button class="btn btn-sm btn-ghost">
+            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.3-4.3"/></svg>
+            搜索 <kbd>⌘F</kbd>
+          </button>
+          <span class="stat">2 msg</span>
+        </div>
+        <div class="stream">
+          <div class="msg">
+            <div class="msg-role">CLI · 权限请求</div>
+            <div class="perm-card" style="margin: 8px 0;">
+              <div class="label">CLI 想要运行：</div>
+              <div class="cmd">git push origin main --force</div>
+              <p style="font-size:11.5px;color:var(--ink-700);margin:0 0 12px;">这是不可逆操作。批准前请确认你真的想强推。</p>
+              <div style="display:flex;gap:8px;">
+                <button class="btn btn-sm btn-primary">允许一次</button>
+                <button class="btn btn-sm">总是允许 git push</button>
+                <button class="btn btn-sm btn-danger">拒绝</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="composer">
+          <textarea placeholder="问点什么…"></textarea>
+          <div class="composer-bar">
+            <span class="composer-hint">⌘+Enter 发送</span>
+            <button class="btn btn-sm btn-primary">发送 <kbd>⌘↵</kbd></button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================== -->
+  <!-- 6. 变体矩阵（参考用）                                         -->
+  <!-- ============================================================== -->
+  <h2>6 · 变体矩阵 · 参考用</h2>
+  <div class="panel">
+    <div class="matrix">
+      <div></div>
+      <div class="head">primary</div>
+      <div class="head">secondary</div>
+      <div class="head">ghost</div>
+      <div class="head">danger</div>
+      <div class="head">icon</div>
+
+      <div class="row-head">sm 24px</div>
+      <div class="cell"><button class="btn btn-sm btn-primary">保存</button></div>
+      <div class="cell"><button class="btn btn-sm">取消</button></div>
+      <div class="cell"><button class="btn btn-sm btn-ghost">忽略</button></div>
+      <div class="cell"><button class="btn btn-sm btn-danger">删除</button></div>
+      <div class="cell"><button class="btn btn-sm btn-icon btn-ghost"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+
+      <div class="row-head">md 30px</div>
+      <div class="cell"><button class="btn btn-primary">+ 新邮件</button></div>
+      <div class="cell"><button class="btn">同步</button></div>
+      <div class="cell"><button class="btn btn-ghost">移除当前</button></div>
+      <div class="cell"><button class="btn btn-danger">删除账号</button></div>
+      <div class="cell"><button class="btn btn-icon btn-ghost"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/></svg></button></div>
+
+      <div class="row-head">lg 36px</div>
+      <div class="cell"><button class="btn btn-lg btn-primary">立即开始</button></div>
+      <div class="cell"><button class="btn btn-lg">稍后</button></div>
+      <div class="cell"><button class="btn btn-lg btn-ghost">跳过</button></div>
+      <div class="cell"><button class="btn btn-lg btn-danger btn-primary">永久删除</button></div>
+      <div class="cell"><button class="btn btn-lg btn-icon btn-ghost"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="19" cy="12" r="1.5" fill="currentColor"/></svg></button></div>
+    </div>
+    <h3>Toggle 单独示例</h3>
+    <div style="display:flex;gap:12px;">
+      <button class="toggle"><span class="track"></span><span>Bypass</span></button>
+      <button class="toggle on"><span class="track"></span><span>Bypass</span></button>
+      <span class="muted" style="margin-left:8px;align-self:center;">左 = off (默认权限) · 右 = on (Bypass)</span>
+    </div>
+  </div>
+
+  <!-- ============================================================== -->
+  <!-- 7. 色板（参考用）                                             -->
+  <!-- ============================================================== -->
+  <h2>7 · 色板 · 参考用</h2>
+  <div class="panel">
+    <div class="tokens">
+      <div class="token"><div class="swatch" style="background:#B7493D;"></div>salmon-700 / primary</div>
+      <div class="token"><div class="swatch" style="background:#C25B38;"></div>salmon-600 / hover</div>
+      <div class="token"><div class="swatch" style="background:#D86F4A;"></div>salmon-500 / accent</div>
+      <div class="token"><div class="swatch" style="background:#E8A082;"></div>salmon-300 / focus</div>
+      <div class="token"><div class="swatch" style="background:#FFE0CF;"></div>salmon-100</div>
+      <div class="token"><div class="swatch" style="background:#FFF1EA;"></div>salmon-50</div>
+      <div class="token"><div class="swatch" style="background:#2C2723;"></div>ink-900 / 文字</div>
+      <div class="token"><div class="swatch" style="background:#5A4F47;"></div>ink-700 / ghost</div>
+      <div class="token"><div class="swatch" style="background:#8C7E73;"></div>ink-500 / 占位</div>
+      <div class="token"><div class="swatch" style="background:#D2C9C0;"></div>ink-200 / 边框</div>
+      <div class="token"><div class="swatch" style="background:#E8E2DC;"></div>ink-100 / 浅边框</div>
+      <div class="token"><div class="swatch" style="background:#F7F4F1;"></div>ink-50 / hover bg</div>
+      <div class="token"><div class="swatch" style="background:#B7493D;"></div>rust-700 / danger</div>
+    </div>
+  </div>
+
+  <p class="muted" style="margin-top: 28px;">
+    确认这一版后，落地动作：① 改 <code>styles.css</code>（统一 <code>.btn</code> + <code>.toggle</code>）；
+    ② 改 mid-head：暂存 Topic 不显示路径、非暂存显短路径、Bypass 改 toggle、搜索按钮 sm-ghost、stat 缩短；
+    ③ 改全部 17 处 className；④ y bump v1.19.0。
+  </p>
+</body>
+</html>
