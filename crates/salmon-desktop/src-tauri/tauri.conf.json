@@ -12,13 +12,15 @@
   "app": {
     "windows": [
       {
+        "label": "shell",
         "title": "SalmonApp Desktop",
         "width": 1280,
         "height": 820,
         "minWidth": 960,
         "minHeight": 600,
-        "decorations": true,
-        "resizable": true
+        "decorations": false,
+        "resizable": true,
+        "fullscreen": true
       }
     ],
     "security": {

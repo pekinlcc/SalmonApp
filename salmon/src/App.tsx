@@ -22,9 +22,10 @@ import { TasksView } from "./components/TasksView";
 import { Toasts } from "./components/Toasts";
 import { SearchDialog } from "./components/SearchDialog";
 import { GlobalAIButton, type GlobalAIContext } from "./components/GlobalAIButton";
-// v1.20: Ubuntu Desktop shell — Phase 1 (in-app desktop metaphor).
-import { DesktopView } from "./components/desktop/DesktopView";
+// v1.20: Ubuntu Desktop shell — high-fidelity port from Anthropic Claude Design.
+import { DesktopView } from "./components/desktop-shell/DesktopView";
 import { IS_LINUX } from "./lib/platform";
+import { viewFromHash } from "./lib/openAppWindow";
 
 interface PendingPerm {
   id: string;
@@ -408,7 +409,15 @@ export default function App() {
   // actual decision is finalised after refresh() loads the persisted
   // setting — but pre-seeding here avoids a flash of WelcomeBack before
   // the async load settles on Linux. macOS / Windows always start in "home".
-  const [topView, setTopView] = useState<TopView>(IS_LINUX ? "desktop" : "home");
+  //
+  // Phase 3 multi-window: when this window was spawned by the Desktop shell
+  // (URL hash like #view=mail), boot straight into that view and skip the
+  // desktop chrome entirely. Each per-app window is independent.
+  const initialHashView = viewFromHash();
+  const [topView, setTopView] = useState<TopView>(
+    initialHashView ? (initialHashView as TopView) : IS_LINUX ? "desktop" : "home",
+  );
+  const isAppWindow = initialHashView !== null;
   // True iff the desktop shell is permitted on this platform (user toggle
   // in Settings). null while we haven't loaded the persisted value yet.
   const [desktopModeEnabled, setDesktopModeEnabledState] = useState<boolean>(IS_LINUX);
@@ -1564,16 +1573,21 @@ export default function App() {
   // `desktop_mode = 1` in their DB (from earlier versions where the toggle
   // was visible everywhere) should still land on WelcomeBack. The setting
   // can stay in DB; we just don't honour it off Linux.
-  const desktopActive = IS_LINUX && topView === "desktop" && !selectedTopic && desktopModeEnabled;
+  const desktopActive =
+    !isAppWindow && IS_LINUX && topView === "desktop" && !selectedTopic && desktopModeEnabled;
 
   // v0.11: layout columns are IconRail(56) + [LeftSidebar(260)] + middle(1fr) + [RightPane(380)].
   // LeftSidebar only renders for topic view; RightPane only when a topic is selected.
   // Modifier classes drive grid-template-columns in styles.css.
-  const hasLeftSidebar = topView === "topic" || !!selectedTopic;
+  // Phase 3 multi-window: per-app windows (isAppWindow) hide the IconRail —
+  // they're focused single-purpose windows; users switch apps via the dock
+  // on the desktop shell.
+  const hasLeftSidebar = !isAppWindow && (topView === "topic" || !!selectedTopic);
   const layoutClasses = ["app", "v11"];
   if (!hasLeftSidebar) layoutClasses.push("no-left");
   if (!selectedTopic) layoutClasses.push("no-right");
   else if (rightCollapsed) layoutClasses.push("right-collapsed");
+  if (isAppWindow) layoutClasses.push("app-window");
   return (
     <div className={desktopActive ? "app desktop-mode" : layoutClasses.join(" ")}>
       {desktopActive ? (
@@ -1589,7 +1603,7 @@ export default function App() {
           onOpenSettings={() => { setShowSettings(true); refreshUsageSummary(); }}
         />
       ) : (<>
-      <IconRail
+      {!isAppWindow && <IconRail
         view={(selectedTopic ? "topic" : topView) as any}
         unreadMail={unreadMailBadge}
         pendingTasks={pendingTasksBadge}
@@ -1617,7 +1631,7 @@ export default function App() {
         }}
         onOpenSearch={() => openSearch()}
         onOpenSettings={() => { setShowSettings(true); refreshUsageSummary(); }}
-      />
+      />}
 
       {/* Topic view: show LeftSidebar (topic list) + chat + RightPane. */}
       {topView === "topic" || selectedTopic ? (
