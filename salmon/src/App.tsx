@@ -1766,8 +1766,16 @@ export default function App() {
       />
       {/* v1.17.0: global ⌘K AI button. FAB lives in the app root so it
           sits above every view's content. The button itself decides when
-          to render the popover based on its own open state. */}
-      <GlobalAIButton context={currentAIContext} onSubmit={onAISubmit} />
+          to render the popover based on its own open state.
+          v1.18.2: skipped entirely inside Topic view — the FAB collided
+          with the Composer's send button at the bottom-right, and inside
+          a Topic the user already has the composer for AI conversation,
+          so a separate "new Topic from here" entry is redundant. ⌘K
+          also won't fire (the listener lives inside the component) which
+          matches the FAB-gone intent. */}
+      {!selectedTopic && (
+        <GlobalAIButton context={currentAIContext} onSubmit={onAISubmit} />
+      )}
     </div>
   );
 }

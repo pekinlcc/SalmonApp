@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>左下全局搜索图标候选 · SalmonApp</title>
+  <style>
+    :root {
+      --salmon-50: #FFE4DA;
+      --salmon-700: #B7493D;
+      --ink-100: #E8E2DC;
+      --ink-50: #F5F2EF;
+      --ink-700: #5A4F47;
+      --ink-500: #8C7E73;
+      --bg: #F8F5F2;
+    }
+    body {
+      font-family: -apple-system, "PingFang SC", sans-serif;
+      margin: 0; padding: 30px;
+      background: var(--bg); color: var(--ink-700);
+    }
+    h1 { font-size: 18px; margin: 0 0 4px; }
+    p.intro { color: var(--ink-500); font-size: 13px; margin-bottom: 28px; max-width: 700px; line-height: 1.6; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
+      max-width: 1000px;
+    }
+    .card {
+      background: white;
+      border-radius: 10px;
+      padding: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+    .card h3 { margin: 0 0 4px; font-size: 14px; color: var(--ink-700); }
+    .card .desc { font-size: 11.5px; color: var(--ink-500); margin-bottom: 16px; line-height: 1.5; }
+
+    /* Rail look-alike */
+    .rail-strip {
+      background: var(--ink-50);
+      border-radius: 8px;
+      padding: 14px 10px;
+      display: flex; flex-direction: column; align-items: center; gap: 10px;
+      width: 52px; margin: 0 auto;
+    }
+    .rail-icon {
+      width: 36px; height: 36px;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 8px;
+      cursor: pointer;
+      color: var(--ink-700);
+    }
+    .rail-icon:hover { background: var(--salmon-50); color: var(--salmon-700); }
+    .rail-icon svg { width: 22px; height: 22px; }
+    .rail-icon svg.stroke {
+      stroke: currentColor; stroke-width: 2; fill: none;
+      stroke-linecap: round; stroke-linejoin: round;
+    }
+    .rail-icon .glyph { font-size: 18px; line-height: 1; }
+    .rail-icon .kbd-badge {
+      font-family: ui-monospace, monospace;
+      font-size: 9px;
+      color: var(--ink-500);
+      letter-spacing: -0.3px;
+    }
+    .rail-strip .label {
+      font-size: 9px;
+      color: var(--ink-500);
+      text-align: center;
+      margin-top: 2px;
+    }
+
+    /* Current (for comparison) */
+    .current {
+      background: rgba(232,67,67,0.06);
+      border: 1px dashed rgba(232,67,67,0.3);
+    }
+
+    .info { margin-top: 30px; font-size: 12px; color: var(--ink-500); max-width: 900px; }
+    .info code {
+      background: var(--ink-50);
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-family: ui-monospace, monospace;
+    }
+  </style>
+</head>
+<body>
+  <h1>左下角全局搜索图标 — 7 个候选 · 当前那个用红色虚线框</h1>
+  <p class="intro">
+    点击每一个 hover 看 active 态。挑一个告诉我编号（A–G）。所有候选都设计成跟现有 24×24
+    stroke SVG 规格一致（除 G 外），整体风格匹配 IconRail 其他图标（home / users / mail
+    / cal / tasks / chat / gear）。
+  </p>
+
+  <div class="grid">
+
+    <!-- Current — 红色虚线 -->
+    <div class="card current">
+      <h3>当前（不喜欢）</h3>
+      <div class="desc">放大镜 + 内嵌经纬线网格。线条多、小尺寸下挤成一团。</div>
+      <div class="rail-strip">
+        <div class="rail-icon">
+          <svg class="stroke" viewBox="0 0 24 24">
+            <circle cx="11" cy="11" r="6.5" />
+            <path d="m20 20-4.3-4.3" />
+            <path d="M11 4.5v13M4.5 11h13M7 6.5a8 8 0 0 0 0 9M15 6.5a8 8 0 0 1 0 9" />
+          </svg>
+        </div>
+        <div class="label">现状</div>
+      </div>
+    </div>
+
+    <!-- A: 纯放大镜 -->
+    <div class="card">
+      <h3>A · 纯放大镜</h3>
+      <div class="desc">最干净。跟 Topic 内搜索按钮一样的 glyph，靠位置（左下角 rail vs 头栏）+ tooltip 区分。</div>
+      <div class="rail-strip">
+        <div class="rail-icon">
+          <svg class="stroke" viewBox="0 0 24 24">
+            <circle cx="11" cy="11" r="6.5" />
+            <path d="m20 20-4.3-4.3" />
+          </svg>
+        </div>
+        <div class="label">A</div>
+      </div>
+    </div>
+
+    <!-- B: 放大镜 + 下方三点 -->
+    <div class="card">
+      <h3>B · 放大镜 + 多源点</h3>
+      <div class="desc">下方三个点暗示"跨多个数据源搜"。比 A 多一个细节区分，没有现在那个那么吵。</div>
+      <div class="rail-strip">
+        <div class="rail-icon">
+          <svg class="stroke" viewBox="0 0 24 24">
+            <circle cx="10" cy="10" r="5.5" />
+            <path d="m18 18-3.5-3.5" />
+            <circle cx="6" cy="20" r="0.8" fill="currentColor" stroke="none" />
+            <circle cx="10" cy="20" r="0.8" fill="currentColor" stroke="none" />
+            <circle cx="14" cy="20" r="0.8" fill="currentColor" stroke="none" />
+          </svg>
+        </div>
+        <div class="label">B</div>
+      </div>
+    </div>
+
+    <!-- C: 放大镜 + 平行短横线 -->
+    <div class="card">
+      <h3>C · Linear / Cursor 风</h3>
+      <div class="desc">放大镜下面三条等长横线，暗示"列表式结果"。最常见的"全局搜索 / command palette"图标。</div>
+      <div class="rail-strip">
+        <div class="rail-icon">
+          <svg class="stroke" viewBox="0 0 24 24">
+            <circle cx="10" cy="9" r="5" />
+            <path d="m17 16-3-3" />
+            <path d="M5 18h10M5 21h7" />
+          </svg>
+        </div>
+        <div class="label">C</div>
+      </div>
+    </div>
+
+    <!-- D: 大圆放大镜 + 内含✦ -->
+    <div class="card">
+      <h3>D · 放大镜 + 内 sparkle</h3>
+      <div class="desc">放大镜中间一个小四角星，传达 "AI / smart search"。SalmonApp 已经用 ✨ 做 AI 入口，跟 brand 顺。</div>
+      <div class="rail-strip">
+        <div class="rail-icon">
+          <svg class="stroke" viewBox="0 0 24 24">
+            <circle cx="11" cy="11" r="6.5" />
+            <path d="m20 20-4.3-4.3" />
+            <path d="M11 8v6M8 11h6" stroke-width="1.5" />
+          </svg>
+        </div>
+        <div class="label">D</div>
+      </div>
+    </div>
+
+    <!-- E: 卡片堆 + 放大镜 -->
+    <div class="card">
+      <h3>E · 卡片堆 + 放大镜</h3>
+      <div class="desc">两张错位卡片（多个数据源）+ 右下放大镜。视觉信息密集但意义最准确。</div>
+      <div class="rail-strip">
+        <div class="rail-icon">
+          <svg class="stroke" viewBox="0 0 24 24">
+            <rect x="3" y="4" width="11" height="13" rx="1.5" />
+            <rect x="6" y="7" width="11" height="13" rx="1.5" fill="white" />
+            <circle cx="15.5" cy="15" r="3" />
+            <path d="m20 19.5-2-2" />
+          </svg>
+        </div>
+        <div class="label">E</div>
+      </div>
+    </div>
+
+    <!-- F: 放大镜 + 4 个角的扫描线 -->
+    <div class="card">
+      <h3>F · 放大镜 + 扫描角</h3>
+      <div class="desc">四角短线像取景框扫描，给 "scan everywhere" 的感觉。比 A 多一点叙事，不像 D 那么 AI 味。</div>
+      <div class="rail-strip">
+        <div class="rail-icon">
+          <svg class="stroke" viewBox="0 0 24 24">
+            <circle cx="11" cy="11" r="5.5" />
+            <path d="m18 18-3-3" />
+            <path d="M3 5v2M3 5h2M21 5v2M21 5h-2M3 19v-2M3 19h2M21 19v-2M21 19h-2" />
+          </svg>
+        </div>
+        <div class="label">F</div>
+      </div>
+    </div>
+
+    <!-- G: ⌘K 文字按钮 -->
+    <div class="card">
+      <h3>G · 没图标，只放 ⌘K 字</h3>
+      <div class="desc">完全不画图，直接显示快捷键。Linear / Notion / Vercel 都这么用。最简、最不丑。</div>
+      <div class="rail-strip">
+        <div class="rail-icon">
+          <span class="kbd-badge">⌘ K</span>
+        </div>
+        <div class="label">G</div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="info">
+    <strong>选完告诉我编号 A–G</strong>。不喜欢全部的话，也可以描述你想要的感觉，我再做一轮。<br>
+    位置不动（左下 IconRail 底部）；行为不变（点开 SearchDialog）；只换 glyph。Tooltip 已经是
+    "全局搜索：邮件 · 日历 · 待办 · Topic（⌘⇧F）"。
+  </div>
+</body>
+</html>
