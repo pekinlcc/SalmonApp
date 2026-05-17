@@ -1,28 +1,55 @@
-// Skeleton main entrypoint for salmon-shell. This compiles in isolation
-// (with Cargo.toml in the same directory) but it does NOT yet support
-// xdg-shell, layer-shell, input, or rendering — those are the implementation
-// work of Phase 3.
+// salmon-shell — entry point.
 //
-// The structure follows Smithay's anvil example (https://github.com/Smithay/smithay/tree/master/anvil)
-// which is the canonical reference for new compositors. Read anvil/src/main.rs
-// alongside this file when starting.
+// Dispatches to one of two backends:
+//   --nested (default, when compiled with feature `nested`):
+//       Runs as a Wayland client of your existing GNOME / KDE / Sway
+//       session via Smithay's `winit` backend. Crashes don't take down
+//       your real session. Iterate here until stable.
+//
+//   --tty (when compiled with feature `tty`):
+//       Takes over a virtual terminal via udev + DRM/KMS + libinput.
+//       Plug into GDM's session list via the .desktop file in
+//       ../session/. Don't switch to this as your default session
+//       until nested mode runs Chrome + VSCode without crashing.
 
 use anyhow::Result;
 use clap::Parser;
+
+mod state;
+mod handlers;
+mod input;
+mod render;
+mod ui_layer;
+
+#[cfg(feature = "nested")]
+mod nested;
+#[cfg(feature = "tty")]
+mod tty;
 
 #[derive(Parser, Debug)]
 #[command(name = "salmon-shell")]
 #[command(about = "SalmonApp's Wayland compositor and desktop shell")]
 struct Args {
-    /// Run nested inside the host Wayland session (dev mode). When false,
-    /// takes over the TTY via DRM/KMS (production session mode).
-    #[arg(long, default_value_t = true)]
-    nested: bool,
+    /// Force backend even when both features are compiled in.
+    /// Default: nested if available, else tty.
+    #[arg(long, value_enum)]
+    backend: Option<Backend>,
 
-    /// Path to the salmon-app binary spawned as the desktop UI layer.
-    /// In the production install this resolves to /usr/bin/salmon-app.
+    /// Path to the salmon-app binary to spawn as the desktop UI layer.
+    /// On a packaged install this is /usr/bin/salmon-app.
     #[arg(long, default_value = "salmon-app")]
     ui_binary: String,
+
+    /// Skip spawning the UI binary (useful when bringing up the
+    /// compositor in isolation; you'll see a black screen with a cursor).
+    #[arg(long)]
+    no_ui: bool,
+}
+
+#[derive(clap::ValueEnum, Debug, Clone, Copy)]
+enum Backend {
+    Nested,
+    Tty,
 }
 
 fn main() -> Result<()> {
@@ -36,74 +63,36 @@ fn main() -> Result<()> {
     let args = Args::parse();
     tracing::info!(?args, "salmon-shell starting");
 
-    if args.nested {
-        run_nested(&args)
-    } else {
-        run_tty(&args)
+    let backend = args.backend.unwrap_or(default_backend());
+    match backend {
+        Backend::Nested => {
+            #[cfg(feature = "nested")]
+            return nested::run(&args);
+            #[cfg(not(feature = "nested"))]
+            anyhow::bail!("built without `nested` feature; rebuild with --features nested");
+        }
+        Backend::Tty => {
+            #[cfg(feature = "tty")]
+            return tty::run(&args);
+            #[cfg(not(feature = "tty"))]
+            anyhow::bail!("built without `tty` feature; rebuild with --features tty");
+        }
     }
 }
 
-#[cfg(feature = "nested")]
-fn run_nested(args: &Args) -> Result<()> {
-    // Smithay's `winit` backend opens a window in the host compositor and
-    // makes salmon-shell composite into it. Crashes don't take down your
-    // real session — safe to iterate on.
-    //
-    // Implementation outline:
-    //   1. Init calloop event loop.
-    //   2. Init smithay backend::winit::init() → returns a winit-backed
-    //      OutputDevice and event source.
-    //   3. Init compositor state: CompositorHandler, XdgShellHandler,
-    //      SeatHandler, ShmHandler, DataDeviceHandler (Tier 1 traits).
-    //   4. Insert event sources into calloop:
-    //      - Wayland clients
-    //      - Winit input + repaint
-    //      - Optional: spawn the UI binary as a client (see below).
-    //   5. Run loop, dispatching events. Each xdg_toplevel created by a
-    //      client becomes a window the shell positions.
-    //
-    // The minimal working version (just enough to display weston-terminal):
-    // ~1500 lines of Rust ported from anvil. Plan 1-2 weeks for the port +
-    // initial test.
-    //
-    // For the UI integration: at startup, spawn `args.ui_binary` with an
-    // env var SALMON_LAYER_SHELL=1 — the Tauri side reads this and uses
-    // layer-shell instead of xdg-toplevel for its window. The shell then
-    // pins it to the bottom layer (full-screen wallpaper-style).
-    tracing::info!(ui = %args.ui_binary, "would start nested compositor");
-    todo!("nested mode not implemented yet — port from smithay/anvil")
-}
-
-#[cfg(not(feature = "nested"))]
-fn run_nested(_args: &Args) -> Result<()> {
-    anyhow::bail!("built without `nested` feature; rebuild with --features nested")
-}
-
-#[cfg(feature = "tty")]
-fn run_tty(args: &Args) -> Result<()> {
-    // Production session mode: udev + DRM/KMS + libinput. Run via the
-    // .desktop session file at /usr/share/wayland-sessions/salmon-shell.desktop.
-    //
-    // Implementation outline:
-    //   1. Smithay backend::udev::init() — enumerates DRM devices.
-    //   2. For each device, backend::drm::init() per CRTC → outputs.
-    //   3. backend::libinput::init() for input devices, listen for hot-plug
-    //      via udev monitor.
-    //   4. Render via backend::renderer::glow (GL) or vulkan.
-    //   5. Same Wayland handlers as nested mode.
-    //
-    // Major extras beyond nested:
-    //   - VT switching (handle Ctrl+Alt+F1..F7 to swap virtual terminals)
-    //   - Cursor rendering (you draw the cursor; in nested mode the host does)
-    //   - Display power-management (DPMS off/on)
-    //   - logind integration (suspend, lock, session take/release)
-    //
-    // Plan 4-6 weeks beyond the nested milestone.
-    tracing::info!(ui = %args.ui_binary, "would start TTY compositor");
-    todo!("TTY mode not implemented yet — port from smithay/anvil")
-}
-
-#[cfg(not(feature = "tty"))]
-fn run_tty(_args: &Args) -> Result<()> {
-    anyhow::bail!("built without `tty` feature; rebuild with --features tty")
+const fn default_backend() -> Backend {
+    #[cfg(feature = "nested")]
+    {
+        Backend::Nested
+    }
+    #[cfg(all(not(feature = "nested"), feature = "tty"))]
+    {
+        Backend::Tty
+    }
+    #[cfg(all(not(feature = "nested"), not(feature = "tty")))]
+    {
+        // Compile fails earlier in this case; this branch only exists so
+        // the const fn typechecks.
+        Backend::Nested
+    }
 }
