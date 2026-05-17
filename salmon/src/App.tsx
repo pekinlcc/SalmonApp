@@ -161,10 +161,18 @@ export default function App() {
     // instantly instead of waiting up to 5 min on the fallback interval.
     const onTasksChanged = () => refreshBadges();
     window.addEventListener("salmon:tasks-changed", onTasksChanged);
+    // v1.19.2: same pattern for mail mutations from chat (CodeBlock
+    // mail.archive/star/mark_read/forward). The backend `salmon-mail-sync`
+    // event only fires after an actual sync — direct mutations from
+    // salmon-action don't trigger one — so the rail unread badge would
+    // otherwise lag until the next periodic refresh.
+    const onMailChanged = () => refreshBadges();
+    window.addEventListener("salmon:mail-changed", onMailChanged);
     const t = setInterval(refreshBadges, 5 * 60 * 1000);
     return () => {
       un1?.(); un2?.();
       window.removeEventListener("salmon:tasks-changed", onTasksChanged);
+      window.removeEventListener("salmon:mail-changed", onMailChanged);
       clearInterval(t);
     };
   }, [refreshBadges]);

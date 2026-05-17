@@ -2,11 +2,12 @@ import { useEffect, useRef, useState } from "react";
 
 /**
  * v1.17.0 — Global "✨ AI" button. Lives in the bottom-right of every
- * top-level view; ⌘K toggles it open. Click → popover with a context
- * chip describing what the user is currently looking at + a freeform
- * textarea. Submit → App creates a scratch Topic, drops a context-seed
- * system message in, sends the user's text as the first user message,
- * and navigates into the new Topic.
+ * top-level view; ⌘K (Mac) / Ctrl+K (Linux/Windows) toggles it open.
+ * Click → popover with a context chip describing what the user is
+ * currently looking at + a freeform textarea. Submit → App creates a
+ * scratch Topic, drops a context-seed system message in, sends the
+ * user's text as the first user message, and navigates into the new
+ * Topic.
  *
  * The actual "create topic + seed + send + navigate" plumbing lives in
  * App.tsx — this component just collects input and fires a callback.
@@ -15,6 +16,15 @@ import { useEffect, useRef, useState } from "react";
  * `GlobalAIContext` below and the `useViewContext` setters threaded
  * through each top-level view.
  */
+
+// v1.19.2: the keydown handler accepts both metaKey and ctrlKey, but the
+// tooltip / kbd hint used to hardcode "⌘K" — confusing for Linux/Windows
+// users who'd see the Mac glyph but actually need Ctrl+K. Switch the
+// shown label per platform; the handler behaviour is unchanged.
+const IS_MAC =
+  typeof navigator !== "undefined" && /mac|iphone|ipad|ipod/i.test(navigator.platform);
+const OPEN_LABEL = IS_MAC ? "⌘K" : "Ctrl+K";
+const SUBMIT_HINT = IS_MAC ? "⌘↵ 发送" : "Ctrl+Enter 发送";
 export type GlobalAIContext =
   | { kind: "home" }
   | { kind: "mail"; view: "list" | "detail"; accountId?: string | null; messageId?: string | null; threadId?: string | null; subject?: string | null; fromEmail?: string | null; fromName?: string | null }
@@ -106,7 +116,7 @@ export function GlobalAIButton({ context, onSubmit }: Props) {
             disabled={busy}
           />
           <div className="ai-popover-actions">
-            <span className="ai-popover-hint">⌘↵ 发送 · 自动新建 Topic</span>
+            <span className="ai-popover-hint">{SUBMIT_HINT} · 自动新建 Topic</span>
             <button className="btn btn-sm btn-primary" onClick={submit} disabled={busy || !text.trim()}>
               {busy ? "新建中..." : "发送 →"}
             </button>
@@ -117,12 +127,12 @@ export function GlobalAIButton({ context, onSubmit }: Props) {
       <button
         className={`ai-fab ${open ? "open" : ""}`}
         onClick={() => setOpen((cur) => !cur)}
-        title="问 AI（⌘K）— 用当前页面的上下文新建 Topic"
+        title={`问 AI（${OPEN_LABEL}）— 用当前页面的上下文新建 Topic`}
         aria-label="Ask AI"
       >
         <span className="ai-fab-icon">✨</span>
         <span>AI</span>
-        <kbd>⌘K</kbd>
+        <kbd>{OPEN_LABEL}</kbd>
       </button>
     </>
   );

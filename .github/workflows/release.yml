@@ -44,7 +44,10 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # Node 20 hits EOL April 2026; setup-node@v4 forces Node 24 default
+          # after 2026-06-02. Move to the current active LTS (22) — it's
+          # still supported by setup-node and matches what local dev runs.
+          node-version: 22
 
       - name: Install Linux build deps
         if: matrix.platform == 'ubuntu-22.04'

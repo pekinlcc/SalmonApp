@@ -1105,6 +1105,13 @@ async function executeSalmonAction(action: SalmonAction, accountId: string): Pro
           primary: actions.length === 0,
           target: { view: "calendar", eventId: created.id, accountId, startMs },
         });
+        // v1.19.2: tell any mounted CalendarView to reload its window.
+        // Without this, an event created from chat is invisible until the
+        // user navigates away and back. Matches the `salmon:tasks-changed`
+        // pattern from v1.19.1.
+        window.dispatchEvent(new CustomEvent("salmon:calendar-events-changed", {
+          detail: { startMs, eventId: created.id },
+        }));
       }
       return { message: `已创建 ${events.length} 个日历事件`, actions };
     }
@@ -1129,6 +1136,9 @@ async function executeSalmonAction(action: SalmonAction, accountId: string): Pro
         allDay,
         location: patch.location ?? null,
       });
+      window.dispatchEvent(new CustomEvent("salmon:calendar-events-changed", {
+        detail: { startMs: updated.startMs, eventId: updated.id },
+      }));
       return {
         message: "已更新日历事件",
         actions: [{
@@ -1143,6 +1153,7 @@ async function executeSalmonAction(action: SalmonAction, accountId: string): Pro
       const account = action.accountId || accountId;
       if (!account) throw new Error("calendar.delete 缺少 accountId（请在选择器里选）。");
       await api.deleteCalendarEvent(account, action.eventId);
+      window.dispatchEvent(new CustomEvent("salmon:calendar-events-changed"));
       return { message: "已删除日历事件" };
     }
     case "mail.draft": {
@@ -1183,6 +1194,9 @@ async function executeSalmonAction(action: SalmonAction, accountId: string): Pro
         cc: action.cc ?? null,
         bodyPrefix: action.bodyPrefix ?? null,
       });
+      window.dispatchEvent(new CustomEvent("salmon:mail-changed", {
+        detail: { kind: "forward", messageId: action.messageId },
+      }));
       return {
         message: "已转发邮件",
         actions: [{ label: "查看邮件", primary: true, target: { view: "mail", accountId } }],
@@ -1190,17 +1204,31 @@ async function executeSalmonAction(action: SalmonAction, accountId: string): Pro
     }
     case "mail.mark_read": {
       if (!action.messageId) throw new Error("mail.mark_read 缺少 messageId。");
-      await api.markMailRead(action.messageId, action.read !== false);
-      return { message: action.read === false ? "已标为未读" : "已标为已读" };
+      const read = action.read !== false;
+      await api.markMailRead(action.messageId, read);
+      window.dispatchEvent(new CustomEvent("salmon:mail-changed", {
+        detail: { kind: "mark_read", messageId: action.messageId, read },
+      }));
+      return { message: read ? "已标为已读" : "已标为未读" };
     }
     case "mail.star": {
       if (!action.messageId) throw new Error("mail.star 缺少 messageId。");
-      await api.setMailStar(action.messageId, action.starred !== false);
-      return { message: action.starred === false ? "已取消星标" : "已添加星标" };
+      const starred = action.starred !== false;
+      await api.setMailStar(action.messageId, starred);
+      window.dispatchEvent(new CustomEvent("salmon:mail-changed", {
+        detail: { kind: "star", messageId: action.messageId, starred },
+      }));
+      return { message: starred ? "已添加星标" : "已取消星标" };
     }
     case "mail.archive": {
       if (!action.messageId) throw new Error("mail.archive 缺少 messageId。");
       await api.archiveMail(action.messageId);
+      // v1.19.2: archive removes the message from the local inbox cache
+      // backend-side. Fire a FE event so the rail unread badge + an open
+      // MailView list both refresh without waiting for the next sync.
+      window.dispatchEvent(new CustomEvent("salmon:mail-changed", {
+        detail: { kind: "archive", messageId: action.messageId },
+      }));
       return { message: "已归档邮件" };
     }
     case "contacts.vip": {
