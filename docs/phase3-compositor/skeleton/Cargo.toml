@@ -1,0 +1,47 @@
+# Starter Cargo manifest for `salmon-shell`. Copy into crates/salmon-shell/
+# when starting Phase 3 for real. Versions pinned to known-good as of the
+# Phase 1 ship date — bump deliberately and re-test each.
+[package]
+name = "salmon-shell"
+version = "0.0.0"
+edition = "2021"
+description = "SalmonApp's Wayland compositor + desktop shell"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+# Wayland + DRM/KMS plumbing. The features chosen here cover Tier 1 of
+# wayland-protocols.md — enable more (xwayland, dmabuf, etc.) as you
+# implement each tier.
+smithay = { version = "0.7", features = [
+    "backend_drm",
+    "backend_libinput",
+    "backend_udev",
+    "backend_winit",   # nested-mode dev backend
+    "renderer_gl",
+    "renderer_glow",
+    "wayland_frontend",
+    "xwayland",
+] }
+calloop = "0.14"        # smithay's preferred event loop
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+
+# Embedding the Phase 1 React UI: spawn a privileged Wayland client that
+# we anchor as a layer surface. The simplest path is to keep using Tauri
+# and have the shell launch `salmon-app` with a special flag that makes
+# it request layer-shell instead of xdg-toplevel.
+# See README.md "step 3" for alternatives (iced, slint, native Rust GUI).
+
+[features]
+default = ["nested"]
+# "nested" runs inside an existing Wayland session via winit — safe to
+# iterate without bricking your login. Disable for TTY-mode shipping.
+nested = []
+# "tty" uses udev + DRM — the real session backend.
+tty = []
+
+[[bin]]
+name = "salmon-shell"
+path = "src/main.rs"

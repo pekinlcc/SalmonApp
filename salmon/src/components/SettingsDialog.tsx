@@ -12,10 +12,13 @@ interface Props {
   cliStatus: CliInfo[];
   usageSummary: UsageSummary | null;
   notifySoundEnabled: boolean;
+  /** v1.20: Ubuntu Desktop shell — Phase 1 in-app desktop view. */
+  desktopModeEnabled: boolean;
   onChangeChatLayout: (layout: ChatLayout) => void;
   onChangeComposerSendMode: (mode: ComposerSendMode) => void;
   onChangeDefaultEngine: (engine: string) => void;
   onChangeNotifySound: (enabled: boolean) => void;
+  onChangeDesktopMode: (enabled: boolean) => void;
   /** When set, settings opens on this tab instead of the default 用量. */
   initialTab?: string;
   onClose: () => void;
@@ -37,10 +40,12 @@ export function SettingsDialog({
   cliStatus,
   usageSummary,
   notifySoundEnabled,
+  desktopModeEnabled,
   onChangeChatLayout,
   onChangeComposerSendMode,
   onChangeDefaultEngine,
   onChangeNotifySound,
+  onChangeDesktopMode,
   initialTab,
   onClose,
 }: Props) {
@@ -78,10 +83,12 @@ export function SettingsDialog({
               defaultEngine={defaultEngine}
               cliStatus={cliStatus}
               notifySoundEnabled={notifySoundEnabled}
+              desktopModeEnabled={desktopModeEnabled}
               onChangeChatLayout={onChangeChatLayout}
               onChangeComposerSendMode={onChangeComposerSendMode}
               onChangeDefaultEngine={onChangeDefaultEngine}
               onChangeNotifySound={onChangeNotifySound}
+              onChangeDesktopMode={onChangeDesktopMode}
             />
           )}
           {tab === "accounts" && <AccountsTab />}
@@ -183,20 +190,24 @@ function PreferencesTab({
   defaultEngine,
   cliStatus,
   notifySoundEnabled,
+  desktopModeEnabled,
   onChangeChatLayout,
   onChangeComposerSendMode,
   onChangeDefaultEngine,
   onChangeNotifySound,
+  onChangeDesktopMode,
 }: {
   chatLayout: ChatLayout;
   composerSendMode: ComposerSendMode;
   defaultEngine: string;
   cliStatus: CliInfo[];
   notifySoundEnabled: boolean;
+  desktopModeEnabled: boolean;
   onChangeChatLayout: (layout: ChatLayout) => void;
   onChangeComposerSendMode: (mode: ComposerSendMode) => void;
   onChangeDefaultEngine: (engine: string) => void;
   onChangeNotifySound: (enabled: boolean) => void;
+  onChangeDesktopMode: (enabled: boolean) => void;
 }) {
   return (
     <>
@@ -347,6 +358,23 @@ function PreferencesTab({
           >
             试听
           </button>
+        </label>
+      </section>
+
+      <section className="settings-section">
+        <div className="settings-section-title">Ubuntu 桌面模式 (Phase 1)</div>
+        <div className="settings-section-desc">
+          把 Salmon 主页换成一个 GNOME 风格的桌面壳：壁纸 + AI Brief widget + 底部 Dock。
+          Linux 用户默认开启；Mac / Windows 上属于实验性视觉。Dock 上点 Mail/Calendar/Tasks
+          会切到对应视图（Phase 2 起会拆成独立窗口，Phase 3 是真 Wayland session）。
+        </div>
+        <label className="toggle-row">
+          <input
+            type="checkbox"
+            checked={desktopModeEnabled}
+            onChange={(e) => onChangeDesktopMode(e.target.checked)}
+          />
+          <span className="toggle-label">启用桌面视图</span>
         </label>
       </section>
     </>
