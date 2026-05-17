@@ -1,19 +1,27 @@
 // xdg_shell: how clients say "I am a window" / "I am a popup".
 //
-// move_request / resize_request need to install pointer grabs to drag
-// the window; v0 leaves them as TODO (anvil has clean MoveSurfaceGrab
-// + ResizeSurfaceGrab examples to port).
+// Phase 3 deeper: move/resize requests now install pointer grabs so
+// the user can drag and resize windows. Popup grabs route the next
+// outside-click to dismiss the popup.
 
 use smithay::{
     delegate_xdg_shell,
-    desktop::Window,
+    desktop::{Space, Window},
+    input::{
+        pointer::{
+            AxisFrame, ButtonEvent, GrabStartData as PointerGrabStartData, MotionEvent,
+            PointerGrab, PointerInnerHandle, RelativeMotionEvent,
+        },
+        Seat,
+    },
     reexports::{
         wayland_protocols::xdg::shell::server::xdg_toplevel,
-        wayland_server::protocol::wl_seat,
+        wayland_server::protocol::{wl_seat, wl_surface::WlSurface},
     },
-    utils::Serial,
+    utils::{IsAlive, Logical, Point, Rectangle, Serial, Size},
     wayland::shell::xdg::{
-        PopupSurface, PositionerState, ToplevelSurface, XdgShellHandler, XdgShellState,
+        PopupSurface, PositionerState, SurfaceCachedState, ToplevelSurface, XdgShellHandler,
+        XdgShellState,
     },
 };
 
@@ -26,8 +34,6 @@ impl XdgShellHandler for SalmonState {
 
     fn new_toplevel(&mut self, surface: ToplevelSurface) {
         let window = Window::new_wayland_window(surface);
-        // v0 placement: origin of the active output. A real WM picks
-        // based on focus / pointer position / workspace state.
         self.space.map_element(window, (0, 0), true);
     }
 
@@ -37,24 +43,86 @@ impl XdgShellHandler for SalmonState {
         }
     }
 
-    fn move_request(&mut self, _surface: ToplevelSurface, _seat: wl_seat::WlSeat, _serial: Serial) {
-        // TODO: install MoveSurfaceGrab on the seat's pointer.
-        // Reference: smithay/anvil/src/input.rs::move_request
+    fn move_request(&mut self, surface: ToplevelSurface, seat: wl_seat::WlSeat, serial: Serial) {
+        let Some(seat) = Seat::<Self>::from_resource(&seat) else {
+            return;
+        };
+        let Some(start_data) = check_grab(&seat, surface.wl_surface(), serial) else {
+            return;
+        };
+        let pointer = match seat.get_pointer() {
+            Some(p) => p,
+            None => return,
+        };
+        let window = self
+            .space
+            .elements()
+            .find(|w| w.toplevel().map(|t| t == &surface).unwrap_or(false))
+            .cloned();
+        let Some(window) = window else { return };
+        let initial_window_location = self
+            .space
+            .element_location(&window)
+            .unwrap_or((0, 0).into());
+        let grab = MoveSurfaceGrab {
+            start_data,
+            window,
+            initial_window_location,
+        };
+        pointer.set_grab(self, grab, serial, smithay::input::pointer::Focus::Clear);
     }
 
     fn resize_request(
         &mut self,
-        _surface: ToplevelSurface,
-        _seat: wl_seat::WlSeat,
-        _serial: Serial,
-        _edges: xdg_toplevel::ResizeEdge,
+        surface: ToplevelSurface,
+        seat: wl_seat::WlSeat,
+        serial: Serial,
+        edges: xdg_toplevel::ResizeEdge,
     ) {
-        // TODO: install ResizeSurfaceGrab. Same anvil reference.
+        let Some(seat) = Seat::<Self>::from_resource(&seat) else {
+            return;
+        };
+        let Some(start_data) = check_grab(&seat, surface.wl_surface(), serial) else {
+            return;
+        };
+        let pointer = match seat.get_pointer() {
+            Some(p) => p,
+            None => return,
+        };
+        let window = self
+            .space
+            .elements()
+            .find(|w| w.toplevel().map(|t| t == &surface).unwrap_or(false))
+            .cloned();
+        let Some(window) = window else { return };
+        let initial_window_location = self
+            .space
+            .element_location(&window)
+            .unwrap_or((0, 0).into());
+        let initial_window_size = window.geometry().size;
+        surface.with_pending_state(|state| {
+            state.states.set(xdg_toplevel::State::Resizing);
+        });
+        surface.send_pending_configure();
+        let grab = ResizeSurfaceGrab {
+            start_data,
+            window,
+            edges: ResizeEdge::from(edges),
+            initial_window_location,
+            initial_window_size,
+            last_window_size: initial_window_size,
+        };
+        pointer.set_grab(self, grab, serial, smithay::input::pointer::Focus::Clear);
     }
 
-    fn grab(&mut self, _surface: PopupSurface, _seat: wl_seat::WlSeat, _serial: Serial) {
-        // TODO: PopupGrab so the popup gets exclusive pointer focus
-        // until dismissed (outside-click → unmap).
+    fn grab(&mut self, surface: PopupSurface, seat: wl_seat::WlSeat, serial: Serial) {
+        let Some(seat) = Seat::<Self>::from_resource(&seat) else {
+            return;
+        };
+        let kind = smithay::desktop::PopupKind::Xdg(surface);
+        if let Err(err) = self.popups.grab_popup(self, kind, &seat, serial) {
+            tracing::warn!(?err, "popup grab failed");
+        }
     }
 
     fn reposition_request(
@@ -71,3 +139,249 @@ impl XdgShellHandler for SalmonState {
     }
 }
 delegate_xdg_shell!(SalmonState);
+
+// ─── Grab-start sanity check ─────────────────────────────────────────
+// The client gave us a serial — verify the pointer is actually pressed
+// and the focused surface matches the surface the client claimed.
+// Without this check, a malicious client could grab the pointer at any
+// time and steal input.
+
+fn check_grab(
+    seat: &Seat<SalmonState>,
+    surface: &WlSurface,
+    serial: Serial,
+) -> Option<PointerGrabStartData<SalmonState>> {
+    let pointer = seat.get_pointer()?;
+    if !pointer.has_grab(serial) {
+        return None;
+    }
+    let start_data = pointer.grab_start_data()?;
+    let (focus_surface, _) = start_data.focus.as_ref()?;
+    if !focus_surface.id().same_client_as(&surface.id()) {
+        return None;
+    }
+    Some(start_data)
+}
+
+// ─── MoveSurfaceGrab ─────────────────────────────────────────────────
+
+pub struct MoveSurfaceGrab {
+    pub start_data: PointerGrabStartData<SalmonState>,
+    pub window: Window,
+    pub initial_window_location: Point<i32, Logical>,
+}
+
+impl PointerGrab<SalmonState> for MoveSurfaceGrab {
+    fn motion(
+        &mut self,
+        data: &mut SalmonState,
+        handle: &mut PointerInnerHandle<'_, SalmonState>,
+        _focus: Option<(WlSurface, Point<i32, Logical>)>,
+        event: &MotionEvent,
+    ) {
+        // While dragging, focus stays on the dragged surface; no enter/leave.
+        handle.motion(data, None, event);
+        let delta = event.location - self.start_data.location;
+        let new_location = self.initial_window_location.to_f64() + delta;
+        data.space
+            .map_element(self.window.clone(), new_location.to_i32_round(), true);
+    }
+
+    fn relative_motion(
+        &mut self,
+        data: &mut SalmonState,
+        handle: &mut PointerInnerHandle<'_, SalmonState>,
+        focus: Option<(WlSurface, Point<i32, Logical>)>,
+        event: &RelativeMotionEvent,
+    ) {
+        handle.relative_motion(data, focus, event);
+    }
+
+    fn button(
+        &mut self,
+        data: &mut SalmonState,
+        handle: &mut PointerInnerHandle<'_, SalmonState>,
+        event: &ButtonEvent,
+    ) {
+        handle.button(data, event);
+        if handle.current_pressed().is_empty() {
+            handle.unset_grab(self, data, event.serial, event.time, true);
+        }
+    }
+
+    fn axis(
+        &mut self,
+        data: &mut SalmonState,
+        handle: &mut PointerInnerHandle<'_, SalmonState>,
+        details: AxisFrame,
+    ) {
+        handle.axis(data, details);
+    }
+
+    fn frame(&mut self, data: &mut SalmonState, handle: &mut PointerInnerHandle<'_, SalmonState>) {
+        handle.frame(data);
+    }
+
+    fn start_data(&self) -> &PointerGrabStartData<SalmonState> {
+        &self.start_data
+    }
+
+    fn unset(&mut self, _data: &mut SalmonState) {}
+}
+
+// ─── ResizeSurfaceGrab ───────────────────────────────────────────────
+
+bitflags::bitflags! {
+    #[derive(Debug, Clone, Copy)]
+    pub struct ResizeEdge: u32 {
+        const TOP    = 0b0001;
+        const BOTTOM = 0b0010;
+        const LEFT   = 0b0100;
+        const RIGHT  = 0b1000;
+    }
+}
+
+impl From<xdg_toplevel::ResizeEdge> for ResizeEdge {
+    fn from(value: xdg_toplevel::ResizeEdge) -> Self {
+        match value {
+            xdg_toplevel::ResizeEdge::Top         => ResizeEdge::TOP,
+            xdg_toplevel::ResizeEdge::Bottom      => ResizeEdge::BOTTOM,
+            xdg_toplevel::ResizeEdge::Left        => ResizeEdge::LEFT,
+            xdg_toplevel::ResizeEdge::Right       => ResizeEdge::RIGHT,
+            xdg_toplevel::ResizeEdge::TopLeft     => ResizeEdge::TOP | ResizeEdge::LEFT,
+            xdg_toplevel::ResizeEdge::TopRight    => ResizeEdge::TOP | ResizeEdge::RIGHT,
+            xdg_toplevel::ResizeEdge::BottomLeft  => ResizeEdge::BOTTOM | ResizeEdge::LEFT,
+            xdg_toplevel::ResizeEdge::BottomRight => ResizeEdge::BOTTOM | ResizeEdge::RIGHT,
+            _ => ResizeEdge::empty(),
+        }
+    }
+}
+
+pub struct ResizeSurfaceGrab {
+    pub start_data: PointerGrabStartData<SalmonState>,
+    pub window: Window,
+    pub edges: ResizeEdge,
+    pub initial_window_location: Point<i32, Logical>,
+    pub initial_window_size: Size<i32, Logical>,
+    pub last_window_size: Size<i32, Logical>,
+}
+
+impl PointerGrab<SalmonState> for ResizeSurfaceGrab {
+    fn motion(
+        &mut self,
+        data: &mut SalmonState,
+        handle: &mut PointerInnerHandle<'_, SalmonState>,
+        _focus: Option<(WlSurface, Point<i32, Logical>)>,
+        event: &MotionEvent,
+    ) {
+        handle.motion(data, None, event);
+        if !self.window.toplevel().map(|t| t.alive()).unwrap_or(false) {
+            handle.unset_grab(self, data, event.serial, event.time, true);
+            return;
+        }
+        let delta = event.location - self.start_data.location;
+        let mut new_window_size = self.initial_window_size;
+        if self.edges.intersects(ResizeEdge::LEFT | ResizeEdge::RIGHT) {
+            let dw = if self.edges.contains(ResizeEdge::LEFT) {
+                -delta.x
+            } else {
+                delta.x
+            };
+            new_window_size.w = (self.initial_window_size.w as f64 + dw).max(1.0) as i32;
+        }
+        if self.edges.intersects(ResizeEdge::TOP | ResizeEdge::BOTTOM) {
+            let dh = if self.edges.contains(ResizeEdge::TOP) {
+                -delta.y
+            } else {
+                delta.y
+            };
+            new_window_size.h = (self.initial_window_size.h as f64 + dh).max(1.0) as i32;
+        }
+        if let Some(toplevel) = self.window.toplevel() {
+            let (min, max) = smithay::wayland::compositor::with_states(
+                toplevel.wl_surface(),
+                |states| {
+                    let cached = states.cached_state.get::<SurfaceCachedState>();
+                    let current = cached.current();
+                    (current.min_size, current.max_size)
+                },
+            );
+            if min.w > 0 {
+                new_window_size.w = new_window_size.w.max(min.w);
+            }
+            if min.h > 0 {
+                new_window_size.h = new_window_size.h.max(min.h);
+            }
+            if max.w > 0 {
+                new_window_size.w = new_window_size.w.min(max.w);
+            }
+            if max.h > 0 {
+                new_window_size.h = new_window_size.h.min(max.h);
+            }
+            self.last_window_size = new_window_size;
+            toplevel.with_pending_state(|state| {
+                state.states.set(xdg_toplevel::State::Resizing);
+                state.size = Some(new_window_size);
+            });
+            toplevel.send_pending_configure();
+        }
+    }
+
+    fn relative_motion(
+        &mut self,
+        data: &mut SalmonState,
+        handle: &mut PointerInnerHandle<'_, SalmonState>,
+        focus: Option<(WlSurface, Point<i32, Logical>)>,
+        event: &RelativeMotionEvent,
+    ) {
+        handle.relative_motion(data, focus, event);
+    }
+
+    fn button(
+        &mut self,
+        data: &mut SalmonState,
+        handle: &mut PointerInnerHandle<'_, SalmonState>,
+        event: &ButtonEvent,
+    ) {
+        handle.button(data, event);
+        if handle.current_pressed().is_empty() {
+            if let Some(toplevel) = self.window.toplevel() {
+                toplevel.with_pending_state(|state| {
+                    state.states.unset(xdg_toplevel::State::Resizing);
+                    state.size = Some(self.last_window_size);
+                });
+                toplevel.send_pending_configure();
+            }
+            handle.unset_grab(self, data, event.serial, event.time, true);
+        }
+    }
+
+    fn axis(
+        &mut self,
+        data: &mut SalmonState,
+        handle: &mut PointerInnerHandle<'_, SalmonState>,
+        details: AxisFrame,
+    ) {
+        handle.axis(data, details);
+    }
+
+    fn frame(&mut self, data: &mut SalmonState, handle: &mut PointerInnerHandle<'_, SalmonState>) {
+        handle.frame(data);
+    }
+
+    fn start_data(&self) -> &PointerGrabStartData<SalmonState> {
+        &self.start_data
+    }
+
+    fn unset(&mut self, _data: &mut SalmonState) {}
+}
+
+#[allow(dead_code)]
+pub fn window_under_pointer(
+    space: &Space<Window>,
+    pos: Point<f64, Logical>,
+) -> Option<(Window, Rectangle<i32, Logical>)> {
+    space
+        .element_under(pos)
+        .map(|(w, loc)| (w.clone(), Rectangle::from_loc_and_size(loc, w.geometry().size)))
+}

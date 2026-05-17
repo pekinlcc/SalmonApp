@@ -26,7 +26,7 @@ description = "SalmonApp's Wayland compositor + desktop shell"
 license = "MIT OR Apache-2.0"
 
 [features]
-default = ["nested"]
+default = ["nested", "xwayland"]
 # nested: winit backend → compositor runs inside an existing Wayland
 # session (your normal GNOME). Safe to iterate on; crashes don't take
 # down your real session. Start here.
@@ -35,6 +35,10 @@ nested = ["smithay/backend_winit"]
 # Plug into a GDM session file (see ../session/salmon-shell.desktop)
 # only AFTER the nested mode is stable on your machine.
 tty = ["smithay/backend_drm", "smithay/backend_libinput", "smithay/backend_udev", "smithay/backend_session_libseat"]
+# xwayland: bridge X11 apps. Adds Xwayland as a runtime dep. Without
+# this, X11-only apps (Steam, older Electron, JetBrains IDEs) won't
+# launch. Disable for strict Wayland-only builds.
+xwayland = ["smithay/xwayland"]
 
 [dependencies]
 smithay = { version = "0.7", default-features = false, features = [
@@ -42,9 +46,9 @@ smithay = { version = "0.7", default-features = false, features = [
     "renderer_gl",
     "renderer_glow",
     "desktop",
-    "xwayland",
 ] }
 calloop = "0.14"
+bitflags = "2"
 
 # Logging
 tracing = "0.1"

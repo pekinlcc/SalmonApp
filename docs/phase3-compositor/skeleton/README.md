@@ -1,13 +1,19 @@
 # Phase 3 Compositor Skeleton
 
 A starting point for `salmon-shell`, the Wayland compositor that
-SalmonApp Desktop will eventually become. ~2000 lines of Rust across
-~17 files, modeled after [Smithay's anvil reference
+SalmonApp Desktop will eventually become. ~2700 lines of Rust across
+~20 files, modeled after [Smithay's anvil reference
 compositor](https://github.com/Smithay/smithay/tree/master/anvil).
 
-Coverage now includes **all Tier 1 + key Tier 2 protocols** — enough
-that fcitx5 (IME), waybar / mako (layer-shell), and GTK apps (decoration
-negotiation) should all be able to come up.
+Coverage now includes **all Tier 1 + most key Tier 2 protocols**:
+- fcitx5 (IME) can connect via text-input-v3 / input-method-v2
+- waybar / mako / swaybg work via wlr-layer-shell-v1
+- GTK / Qt apps work via xdg-decoration-v1
+- Dock can enumerate windows via foreign-toplevel-list
+- X11 apps work via XWayland (feature-gated, on by default)
+- Windows are draggable and resizable (real PointerGrab impls)
+- Super-key shortcuts (Super alone → launcher, Super+L → lock,
+  Ctrl+Alt+T → terminal, Super+1..9 → workspace)
 
 **Honest status**: this code was written without ability to
 compile-test. Treat the first `cargo build` as the start of an API
@@ -42,6 +48,10 @@ not found". When that happens:
 | `src/handlers/layer_shell.rs` | `wlr-layer-shell-v1` panel surfaces | **Real impl** — needed for salmon-app UI anchor |
 | `src/handlers/decoration.rs` | `xdg-decoration-v1` titlebar negotiation | Real (forces ClientSide v0) |
 | `src/handlers/text_input.rs` | `text-input-v3` + `input-method-v2` for IME | Scaffold (fcitx5 can connect) |
+| `src/handlers/foreign_toplevel.rs` | `wlr-foreign-toplevel-list` for the dock | Real handler + sync-point comments |
+| `src/handlers/keyboard_shortcuts.rs` | Super-key tap detection + shortcut classification | Real impl: tap-tracker + classifier |
+| `src/handlers/xwayland.rs` | XWayland bring-up + XwmHandler | Scaffold — bootstrap works, window-mgmt stubs |
+| `src/handlers/shell.rs` (move/resize) | MoveSurfaceGrab + ResizeSurfaceGrab | **Real impls** — windows are draggable + resizable |
 | `src/input.rs` | Routes backend InputEvent → seat methods | Keyboard + pointer working; touch/tablet TODO |
 | `src/nested.rs` | winit-backend bootstrap | **Most likely to actually run.** Build with `--features nested` |
 | `src/tty.rs` | udev/DRM bootstrap | **Stub only.** Anvil's `udev.rs` is ~2000 lines; port that |
