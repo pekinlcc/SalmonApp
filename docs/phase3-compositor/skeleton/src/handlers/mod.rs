@@ -25,6 +25,9 @@ pub mod decoration;
 pub mod text_input;
 pub mod foreign_toplevel;
 pub mod keyboard_shortcuts;
+pub mod dmabuf;
+pub mod scaling;
+pub mod screencopy;
 
 // XWayland — bridge for legacy X11 apps. Gated behind feature flag
 // because Smithay's xwayland integration pulls in extra deps and

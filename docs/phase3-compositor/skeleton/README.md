@@ -14,6 +14,12 @@ Coverage now includes **all Tier 1 + most key Tier 2 protocols**:
 - Windows are draggable and resizable (real PointerGrab impls)
 - Super-key shortcuts (Super alone → launcher, Super+L → lock,
   Ctrl+Alt+T → terminal, Super+1..9 → workspace)
+- Chrome / Firefox can ingest dmabuf for GPU-direct rendering
+  (handler scaffold; renderer accessor still needs wiring)
+- HiDPI laptops get fractional scaling (`fractional-scale-v1` +
+  `viewporter`)
+- Screenshots / Zoom screen share via `wlr-screencopy-v1`
+  (constraints set; frame-copy body still TODO)
 
 **Honest status**: this code was written without ability to
 compile-test. Treat the first `cargo build` as the start of an API
