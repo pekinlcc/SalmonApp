@@ -280,7 +280,7 @@ pub async fn start_outlook_oauth(
 }
 
 fn fetch_accounts(
-    db: &std::sync::Arc<parking_lot::Mutex<crate::db::Db>>,
+    db: &std::sync::Arc<parking_lot::Mutex<salmon_core::db::Db>>,
 ) -> Result<Vec<MailAccountRow>, String> {
     let db_guard = db.lock();
     let mut stmt = db_guard
@@ -1110,7 +1110,7 @@ pub async fn forward_mail(
 }
 
 fn load_account(
-    db: &std::sync::Arc<parking_lot::Mutex<crate::db::Db>>,
+    db: &std::sync::Arc<parking_lot::Mutex<salmon_core::db::Db>>,
     account_id: &str,
 ) -> anyhow::Result<(String, String, Option<String>, oauth::OauthTokens)> {
     let guard = db.lock();
@@ -1142,7 +1142,7 @@ fn load_account(
 }
 
 fn existing_account_id(
-    db: &std::sync::Arc<parking_lot::Mutex<crate::db::Db>>,
+    db: &std::sync::Arc<parking_lot::Mutex<salmon_core::db::Db>>,
     provider: &str,
     email: &str,
 ) -> Option<String> {
@@ -1178,7 +1178,7 @@ async fn maybe_refresh(
 }
 
 fn persist(
-    db: &std::sync::Arc<parking_lot::Mutex<crate::db::Db>>,
+    db: &std::sync::Arc<parking_lot::Mutex<salmon_core::db::Db>>,
     account_id: &str,
     tokens: &oauth::OauthTokens,
 ) -> anyhow::Result<()> {
@@ -1478,7 +1478,7 @@ pub fn build_home_feed(state: State<'_, AppState>) -> Result<crate::briefing::Br
 }
 
 fn reply_headers(
-    db: &std::sync::Arc<parking_lot::Mutex<crate::db::Db>>,
+    db: &std::sync::Arc<parking_lot::Mutex<salmon_core::db::Db>>,
     parent_id: &str,
 ) -> Option<(Option<String>, Option<String>, Option<String>)> {
     let guard = db.lock();

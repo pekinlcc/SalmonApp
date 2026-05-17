@@ -1148,7 +1148,7 @@ pub async fn decide_recommendation(
 }
 
 async fn guess_decision_reason(
-    db_handle: Arc<parking_lot::Mutex<crate::db::Db>>,
+    db_handle: Arc<parking_lot::Mutex<salmon_core::db::Db>>,
     rec_id: String,
     decision: String,
 ) -> Result<(), String> {

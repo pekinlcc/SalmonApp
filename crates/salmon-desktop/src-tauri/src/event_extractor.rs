@@ -5,7 +5,7 @@
 //! Caller does the DB read up-front under a brief lock and passes the
 //! optional `context_text` here — the LLM call itself holds no DB lock.
 
-use crate::db::Db;
+use salmon_core::db::Db;
 use crate::llm::{call_llm, extract_json_object, truncate_chars};
 use anyhow::{anyhow, Context, Result};
 use rusqlite::params;

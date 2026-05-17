@@ -8,7 +8,7 @@
 //! in brief_items.
 
 use crate::calendar::{list_events_window, CalEvent};
-use crate::db::Db;
+use salmon_core::db::Db;
 use crate::pulse::{ActionStep, PulseItem, SuggestedAction};
 use anyhow::Result;
 

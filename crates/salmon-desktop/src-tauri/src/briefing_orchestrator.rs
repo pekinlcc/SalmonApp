@@ -18,7 +18,7 @@ use crate::briefing_llm;
 use crate::calendar_pulse;
 use crate::cross_link;
 use crate::cross_pulse;
-use crate::db::Db;
+use salmon_core::db::Db;
 use crate::llm;
 use crate::pulse::{self, PulseItem, SuggestedAction, ActionStep};
 use crate::roost;

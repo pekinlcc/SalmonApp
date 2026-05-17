@@ -5,7 +5,7 @@
 //! awaits `draft_reply` with the owned snapshot. This avoids holding the
 //! DB MutexGuard across await (rusqlite's connection is !Sync).
 
-use crate::db::Db;
+use salmon_core::db::Db;
 use crate::llm::{call_llm, truncate_chars};
 use anyhow::{Context, Result};
 use rusqlite::params;

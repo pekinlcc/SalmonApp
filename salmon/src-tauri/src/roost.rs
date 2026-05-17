@@ -22,7 +22,7 @@
 //! - Bundle size cap: 12 most recent messages per contact (Pulse prompt
 //!   budget). Older messages summarised as "and N earlier from this address".
 
-use crate::db::Db;
+use salmon_core::db::Db;
 use anyhow::Result;
 use rusqlite::params;
 use serde::{Deserialize, Serialize};

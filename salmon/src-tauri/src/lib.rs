@@ -1,10 +1,10 @@
-mod db;
 mod engine;
 mod commands;
 mod permission_bridge;
 // v2.0 Phase 2c: shared modules now live in salmon_core. Removed locally:
 //   stage 1: types
 //   stage 2: path_dirs, platform
+//   stage 3: db
 mod oauth;
 mod oauth_config;
 mod gmail;
@@ -39,7 +39,7 @@ use parking_lot::Mutex;
 use tauri::Manager;
 
 pub struct AppState {
-    pub db: Arc<Mutex<db::Db>>,
+    pub db: Arc<Mutex<salmon_core::db::Db>>,
     pub engine: Arc<engine::EngineRegistry>,
     pub bridge: permission_bridge::PermissionBridge,
     pub oauth_cfg: oauth_config::OauthConfig,
@@ -79,7 +79,7 @@ pub fn run() {
             std::fs::create_dir_all(&data_dir).ok();
             migrate_legacy_data_dir(&data_dir);
             let db_path = data_dir.join("salmon.db");
-            let db = db::Db::open(&db_path).expect("open salmon.db");
+            let db = salmon_core::db::Db::open(&db_path).expect("open salmon.db");
 
             // v1.1.4: one-time cleanup. Pre-v1.1.3 builds could leave pending
             // brief_items from prior Briefing runs lingering forever — the

@@ -5,7 +5,7 @@
 //! (`@default` for Google; the first list returned by `/me/todo/lists`
 //! for Graph). Multi-list selection is a future polish.
 
-use crate::db::Db;
+use salmon_core::db::Db;
 use crate::microsoft::refresh_microsoft_access;
 use crate::oauth::{refresh_google_access, OauthTokens};
 use crate::oauth_config::OauthConfig;
