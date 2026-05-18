@@ -9,6 +9,7 @@
 //!
 //! Matches the contract documented in ThunderClaw PRD §1.2 / §1.5.
 
+use crate::date_context::{format_local_datetime, relative_date_hint, RELATIVE_DATE_POLICY};
 use crate::llm::{call_llm, extract_json_object, truncate_chars};
 use crate::roost::ContactBundle;
 use anyhow::{anyhow, Context, Result};
@@ -22,8 +23,8 @@ const MSG_BODY_PER_EMAIL_CHARS: usize = 800;
 pub struct PulseItem {
     pub title: String,
     pub summary: String,
-    pub priority: String,           // high | medium | low
-    pub why: String,                // AI's reason
+    pub priority: String, // high | medium | low
+    pub why: String,      // AI's reason
     pub related_mail_ids: Vec<String>,
     pub related_event_ids: Vec<String>,
     pub deadline_ms: Option<i64>,
@@ -33,15 +34,15 @@ pub struct PulseItem {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SuggestedAction {
-    pub label: String,              // user-perspective decision
+    pub label: String, // user-perspective decision
     pub steps: Vec<ActionStep>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ActionStep {
-    pub kind: String,               // reply | calendar | acknowledge
-    pub detail: String,             // input to the executing agent
+    pub kind: String,   // reply | calendar | acknowledge
+    pub detail: String, // input to the executing agent
 }
 
 /// Run Pulse for one bundle. Returns the items the LLM thought were
@@ -69,6 +70,7 @@ fn build_system(rubric: &str) -> String {
          - **同一件事的多封提醒邮件（同一截止日 / 同一请求 / 同一会议）只产 1 张卡**：\
          把所有相关邮件 id 都塞进 relatedMailIds，标题写最清晰的那一封。\
          **不要为每封提醒邮件单独产卡**。\n\
+         - 日期解析: {} \n\
          - 每张卡 2-4 个 suggestedActions，**最后一个必须是兜底\"我已知晓\"**\
          （单步 acknowledge）。\n\
          - 邮件含具体日期+时间 → 至少一个\"参加\"类决定的 steps 里必须有 calendar step。\n\
@@ -108,6 +110,7 @@ fn build_system(rubric: &str) -> String {
          \"suggestedActions\": [\n        {{\"label\": \"≤14 汉字的决定\", \"steps\": [{{\"kind\": \"reply|calendar|task|archive|star|unstar|mark_read|mark_unread|contact_vip|contact_unvip|contact_note|acknowledge\", \"detail\": \"≤60 字\"}}]}}\n      \
          ]\n    }}\n  ]\n}}\n\n\
          【用户的判定 Rubric】\n{}\n",
+        RELATIVE_DATE_POLICY,
         rubric
     )
 }
@@ -115,9 +118,18 @@ fn build_system(rubric: &str) -> String {
 fn build_prompt(bundle: &ContactBundle) -> String {
     let mut s = String::new();
     s.push_str(&format!(
+        "【当前时间】{}\n\n",
+        format_local_datetime(chrono::Utc::now().timestamp_millis())
+    ));
+    s.push_str(&format!("【日期解析约束】{}\n\n", RELATIVE_DATE_POLICY));
+    s.push_str(&format!(
         "【联系人】{}{} {}\n",
         bundle.display_name.as_deref().unwrap_or(""),
-        if bundle.display_name.is_some() { " " } else { "" },
+        if bundle.display_name.is_some() {
+            " "
+        } else {
+            ""
+        },
         bundle.email,
     ));
     s.push_str(&format!(
@@ -148,19 +160,27 @@ fn build_prompt(bundle: &ContactBundle) -> String {
 
     s.push_str("【最近邮件】<email>\n");
     for m in &bundle.messages {
-        let dir = if m.from_me { "→ 发出" } else { "← 收到" };
+        let dir = if m.from_me {
+            "→ 发出"
+        } else {
+            "← 收到"
+        };
         let body = m
             .body_text
             .as_deref()
             .or(m.snippet.as_deref())
             .unwrap_or("(无内容)");
         let body = truncate_chars(body, MSG_BODY_PER_EMAIL_CHARS);
+        let subject = m.subject.as_deref().unwrap_or("(无主题)");
         s.push_str(&format!(
-            "[id={}] {} {} · 主题: {}\n{}\n---\n",
+            "[id={}] {} {} · 主题: {}\n{}{}\n---\n",
             m.id,
             dir,
             format_ts(m.date_ms),
-            m.subject.as_deref().unwrap_or("(无主题)"),
+            subject,
+            relative_date_hint(m.date_ms, &format!("{} {}", subject, body))
+                .map(|h| format!("相对日期提示: {}\n", h))
+                .unwrap_or_default(),
             body,
         ));
         if s.len() > PROMPT_BUDGET_CHARS {
@@ -181,8 +201,8 @@ fn build_prompt(bundle: &ContactBundle) -> String {
 fn parse_items(raw: &str) -> Result<Vec<PulseItem>> {
     let body = extract_json_object(raw)
         .ok_or_else(|| anyhow!("Pulse: 无 JSON 对象 (raw head: {})", head(raw, 200)))?;
-    let v: serde_json::Value =
-        serde_json::from_str(&body).with_context(|| format!("Pulse parse: {}", head(&body, 200)))?;
+    let v: serde_json::Value = serde_json::from_str(&body)
+        .with_context(|| format!("Pulse parse: {}", head(&body, 200)))?;
     let arr = v
         .get("items")
         .and_then(|x| x.as_array())
@@ -199,10 +219,22 @@ fn parse_items(raw: &str) -> Result<Vec<PulseItem>> {
             _ => "medium".to_string(),
         };
         let mut item = PulseItem {
-            title: it.get("title").and_then(|x| x.as_str()).unwrap_or("").to_string(),
-            summary: it.get("summary").and_then(|x| x.as_str()).unwrap_or("").to_string(),
+            title: it
+                .get("title")
+                .and_then(|x| x.as_str())
+                .unwrap_or("")
+                .to_string(),
+            summary: it
+                .get("summary")
+                .and_then(|x| x.as_str())
+                .unwrap_or("")
+                .to_string(),
             priority,
-            why: it.get("why").and_then(|x| x.as_str()).unwrap_or("").to_string(),
+            why: it
+                .get("why")
+                .and_then(|x| x.as_str())
+                .unwrap_or("")
+                .to_string(),
             related_mail_ids: read_string_array(it.get("relatedMailIds")),
             related_event_ids: read_string_array(it.get("relatedEventIds")),
             deadline_ms: it.get("deadlineMs").and_then(|x| x.as_i64()),
@@ -243,7 +275,11 @@ fn parse_items(raw: &str) -> Result<Vec<PulseItem>> {
     // a `[low, low, low, high]` output (rare but possible) keeps the
     // high-priority card instead of dropping it on the truncate.
     let pri_rank = |p: &str| -> u8 {
-        match p { "high" => 3, "medium" => 2, _ => 1 }
+        match p {
+            "high" => 3,
+            "medium" => 2,
+            _ => 1,
+        }
     };
     out.sort_by(|a, b| pri_rank(&b.priority).cmp(&pri_rank(&a.priority)));
     out.truncate(3);
@@ -261,25 +297,46 @@ fn read_string_array(v: Option<&serde_json::Value>) -> Vec<String> {
 }
 
 fn read_actions(v: Option<&serde_json::Value>) -> Vec<SuggestedAction> {
-    let Some(arr) = v.and_then(|x| x.as_array()) else { return Vec::new() };
+    let Some(arr) = v.and_then(|x| x.as_array()) else {
+        return Vec::new();
+    };
     let mut out = Vec::new();
     for a in arr {
-        let label = a.get("label").and_then(|x| x.as_str()).unwrap_or("").to_string();
+        let label = a
+            .get("label")
+            .and_then(|x| x.as_str())
+            .unwrap_or("")
+            .to_string();
         if label.is_empty() {
             continue;
         }
-        let steps_v = a.get("steps").and_then(|x| x.as_array()).cloned().unwrap_or_default();
+        let steps_v = a
+            .get("steps")
+            .and_then(|x| x.as_array())
+            .cloned()
+            .unwrap_or_default();
         let mut steps = Vec::new();
         for st in steps_v {
-            let kind = st.get("kind").and_then(|x| x.as_str()).unwrap_or("").to_string();
+            let kind = st
+                .get("kind")
+                .and_then(|x| x.as_str())
+                .unwrap_or("")
+                .to_string();
             if !matches!(kind.as_str(), "reply" | "calendar" | "task" | "acknowledge") {
                 continue;
             }
-            let detail = st.get("detail").and_then(|x| x.as_str()).unwrap_or("").to_string();
+            let detail = st
+                .get("detail")
+                .and_then(|x| x.as_str())
+                .unwrap_or("")
+                .to_string();
             steps.push(ActionStep { kind, detail });
         }
         if steps.is_empty() {
-            steps.push(ActionStep { kind: "acknowledge".into(), detail: String::new() });
+            steps.push(ActionStep {
+                kind: "acknowledge".into(),
+                detail: String::new(),
+            });
         }
         out.push(SuggestedAction { label, steps });
     }
@@ -288,7 +345,11 @@ fn read_actions(v: Option<&serde_json::Value>) -> Vec<SuggestedAction> {
 
 fn format_ts(ms: i64) -> String {
     chrono::DateTime::<chrono::Utc>::from_timestamp_millis(ms)
-        .map(|t| t.with_timezone(&chrono::Local).format("%Y-%m-%d %H:%M").to_string())
+        .map(|t| {
+            t.with_timezone(&chrono::Local)
+                .format("%Y-%m-%d %H:%M")
+                .to_string()
+        })
         .unwrap_or_else(|| "?".into())
 }
 

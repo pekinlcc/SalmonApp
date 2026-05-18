@@ -1,6 +1,7 @@
 mod db;
 mod engine;
 mod commands;
+mod date_context;
 mod permission_bridge;
 mod platform;
 mod path_dirs;

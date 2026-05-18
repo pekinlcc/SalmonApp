@@ -5,6 +5,7 @@
 //! Caller does the DB read up-front under a brief lock and passes the
 //! optional `context_text` here — the LLM call itself holds no DB lock.
 
+use crate::date_context::{format_local_datetime, relative_date_hint};
 use crate::db::Db;
 use crate::llm::{call_llm, extract_json_object, truncate_chars};
 use anyhow::{anyhow, Context, Result};
@@ -25,17 +26,24 @@ pub struct ExtractedEvent {
 /// DB lock just for this, then drops it before calling `extract()`.
 pub fn load_mail_context(db: &Db, mail_id: &str) -> Result<String> {
     let row = db.conn().query_row(
-        "SELECT subject, body_text, snippet FROM mail_messages WHERE id = ?",
+        "SELECT subject, body_text, snippet, date_ms FROM mail_messages WHERE id = ?",
         params![mail_id],
         |r| {
             Ok((
                 r.get::<_, Option<String>>(0)?,
                 r.get::<_, Option<String>>(1)?,
                 r.get::<_, Option<String>>(2)?,
+                r.get::<_, i64>(3)?,
             ))
         },
     )?;
     let mut s = String::new();
+    s.push_str(&format!("邮件日期: {}\n", format_local_datetime(row.3)));
+    let subj_for_hint = row.0.clone().unwrap_or_default();
+    let body_for_hint = row.1.clone().or(row.2.clone()).unwrap_or_default();
+    if let Some(hint) = relative_date_hint(row.3, &format!("{} {}", subj_for_hint, body_for_hint)) {
+        s.push_str(&format!("相对日期提示: {}\n", hint));
+    }
     if let Some(subj) = row.0 {
         s.push_str(&format!("主题: {}\n", subj));
     }
@@ -59,6 +67,7 @@ const SYSTEM: &str = r#"你是 SalmonApp 的日历事件提取助手。任务是
 
 【硬规则】
 - 时间解析必须精确：相对时间（"明天 3 点"）→ 用当前时间为基准；缺年份默认今年；缺时区默认本地时区。
+- 如果相对时间出现在【原邮件上下文】里，必须以邮件日期为基准，不得以当前时间为基准；例如邮件日期是 2026-05-14，正文说"明天/明早"就是 2026-05-15。解析出的时间早于当前时间时，视为已过期，不要创建新的未来日历事件。
 - 找不到明确开始时间 → 用"今天的下一个整点"作为兜底。
 - 找不到明确结束时间 → start + 1 小时。
 - 全天事件（只有日期没有时间）→ allDay=true，start = 当天 00:00 本地。
@@ -89,9 +98,19 @@ fn build_prompt(intent: &str, context: &str) -> String {
 fn parse(raw: &str) -> Result<ExtractedEvent> {
     let body = extract_json_object(raw).ok_or_else(|| anyhow!("Extractor: 无 JSON"))?;
     let v: serde_json::Value = serde_json::from_str(&body).context("Extractor parse")?;
-    let title = v.get("title").and_then(|x| x.as_str()).unwrap_or("").to_string();
-    let start_ms = v.get("startMs").and_then(|x| x.as_i64()).ok_or_else(|| anyhow!("缺 startMs"))?;
-    let end_ms = v.get("endMs").and_then(|x| x.as_i64()).unwrap_or(start_ms + 3600_000);
+    let title = v
+        .get("title")
+        .and_then(|x| x.as_str())
+        .unwrap_or("")
+        .to_string();
+    let start_ms = v
+        .get("startMs")
+        .and_then(|x| x.as_i64())
+        .ok_or_else(|| anyhow!("缺 startMs"))?;
+    let end_ms = v
+        .get("endMs")
+        .and_then(|x| x.as_i64())
+        .unwrap_or(start_ms + 3600_000);
     let all_day = v.get("allDay").and_then(|x| x.as_bool()).unwrap_or(false);
     let location = v.get("location").and_then(|x| x.as_str()).map(String::from);
     if title.is_empty() {
