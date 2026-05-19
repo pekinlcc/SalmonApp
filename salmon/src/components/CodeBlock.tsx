@@ -298,7 +298,7 @@ function SalmonActionCard({ raw, topicId }: { raw: string; topicId?: string }) {
       {parsed.ok && accounts.length > 0 && (
         <label className="salmon-action-account">
           <span>执行账号</span>
-          <select value={accountId} onChange={(e) => setAccountId(e.target.value)} disabled={busy || !!done}>
+          <select className="select select-sm" value={accountId} onChange={(e) => setAccountId(e.target.value)} disabled={busy || !!done}>
             {accounts.map((a) => (
               <option key={a.id} value={a.id}>{a.email} ({a.provider})</option>
             ))}
@@ -419,7 +419,7 @@ function MailActionCard({
       {accounts.length > 0 && (
         <label className="mail-action-account">
           <span>From</span>
-          <select value={accountId} onChange={(e) => setAccountId(e.target.value)} disabled={busy || !!done}>
+          <select className="select select-sm" value={accountId} onChange={(e) => setAccountId(e.target.value)} disabled={busy || !!done}>
             {accounts.map((a) => (
               <option key={a.id} value={a.id}>{a.email} ({a.provider})</option>
             ))}

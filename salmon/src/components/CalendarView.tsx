@@ -458,7 +458,7 @@ function EventDetailModal({
       <div className="compose-modal" style={{ width: 480 }}>
         <div className="compose-head">
           <div className="compose-title">📅 {ev.title || "(无标题)"}</div>
-          <button className="btn btn-ghost" onClick={onClose}>×</button>
+          <button className="btn btn-sm btn-quiet btn-icon" onClick={onClose} title="关闭">×</button>
         </div>
         <div style={{ padding: "14px 18px", fontSize: 13, lineHeight: 1.7 }}>
           <div>
@@ -589,7 +589,7 @@ function NewEventModal({
       <div className="compose-modal" style={{ width: 560 }}>
         <div className="compose-head">
           <div className="compose-title">新建日历事件</div>
-          <button className="btn btn-ghost" onClick={onClose}>×</button>
+          <button className="btn btn-sm btn-quiet btn-icon" onClick={onClose} title="关闭">×</button>
         </div>
         <div className="compose-from">
           <span className="compose-label">账号:</span>

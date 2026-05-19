@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>SalmonApp 全局组件规范 v1.19.2 — 按钮 + 表单控件</title>
+<style>
+:root {
+  --salmon-50:  #FFF1ED;
+  --salmon-100: #FFD9CD;
+  --salmon-200: #F8C5A6;
+  --salmon-300: #FFA68A;
+  --salmon-500: #FA8072;
+  --salmon-600: #E5685A;
+  --salmon-700: #B7493D;
+  --ink-900: #1B1F23;
+  --ink-700: #3A4047;
+  --ink-500: #6B7280;
+  --ink-300: #B7BDC4;
+  --ink-200: #D2C9C0;
+  --ink-100: #E6E8EB;
+  --ink-50:  #F5F6F7;
+  --rust-50: #FCEDEA;
+  --rust-700: #B7493D;
+  --bg:      #FAFAF9;
+  --panel:   #FFFFFF;
+  --side:    #F7F5F3;
+  --shadow:  0 1px 0 rgba(16,18,20,0.04), 0 4px 18px rgba(16,18,20,0.04);
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; padding: 40px;
+  font-family: -apple-system, BlinkMacSystemFont, "Inter", "PingFang SC", sans-serif;
+  color: var(--ink-900);
+  background: var(--bg);
+  font-size: 13px;
+  line-height: 1.55;
+}
+.wrap { max-width: 1180px; margin: 0 auto; }
+h1 { font-size: 24px; margin: 0 0 6px; }
+h2 { font-size: 16px; margin: 32px 0 12px; padding-top: 24px; border-top: 1px solid var(--ink-100); }
+h2:first-of-type { border-top: 0; padding-top: 0; }
+h3 { font-size: 13px; font-weight: 600; color: var(--ink-700); margin: 18px 0 8px; }
+p { color: var(--ink-700); margin: 6px 0; }
+.muted { color: var(--ink-500); font-size: 12px; }
+.note { background: #FFFBF3; border: 1px solid #F2E2C9; border-radius: 8px; padding: 12px 14px; margin: 14px 0; }
+.note strong { color: #8A5A1F; }
+code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 11.5px; background: var(--ink-50); padding: 1px 5px; border-radius: 3px; }
+
+/* ============ Real-page surfaces ============ */
+.surface {
+  background: var(--panel);
+  border: 1px solid var(--ink-100);
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin: 8px 0 18px;
+  box-shadow: var(--shadow);
+}
+.surface .label {
+  font-size: 11px; color: var(--ink-500);
+  text-transform: uppercase; letter-spacing: 0.5px;
+  margin-bottom: 10px;
+}
+.surface.sidebar { background: var(--side); }
+.row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.row.between { justify-content: space-between; }
+.col { display: flex; flex-direction: column; gap: 4px; align-items: stretch; }
+.spacer { flex: 1; }
+
+/* ============ Spec matrix table ============ */
+table.matrix {
+  width: 100%; border-collapse: collapse; margin-top: 10px;
+  background: white; border-radius: 8px; overflow: hidden;
+  border: 1px solid var(--ink-100);
+}
+table.matrix th, table.matrix td {
+  padding: 12px 14px; text-align: left;
+  border-bottom: 1px solid var(--ink-100);
+  vertical-align: middle;
+}
+table.matrix th { background: var(--ink-50); font-weight: 600; font-size: 12px; }
+table.matrix tr:last-child td { border-bottom: 0; }
+table.matrix .cell { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+table.matrix .desc { color: var(--ink-500); font-size: 11.5px; }
+
+/* ============================================================== */
+/*  SPEC v1.19.2 — Unified button system                          */
+/*  Default border on every variant except .btn-quiet              */
+/* ============================================================== */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 14px;
+  font-size: 12.5px;
+  font-weight: 500;
+  font-family: inherit;
+  border: 1px solid var(--ink-200);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--ink-900);
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease, box-shadow 120ms ease;
+  user-select: none;
+  white-space: nowrap;
+  line-height: 1;
+}
+.btn:hover { background: var(--ink-50); border-color: var(--ink-300); }
+.btn:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(255,166,138,0.40); }
+.btn:active { transform: translateY(0.5px); }
+.btn:disabled, .btn[aria-disabled="true"] {
+  opacity: 0.45; cursor: not-allowed; pointer-events: none;
+}
+
+/* Sizes */
+.btn-sm { height: 24px; padding: 0 10px; font-size: 11.5px; gap: 4px; border-radius: 5px; }
+.btn-lg { height: 36px; padding: 0 18px; font-size: 13.5px; gap: 8px; border-radius: 7px; }
+
+/* Variants ----- */
+/* Primary CTA */
+.btn-primary {
+  background: var(--salmon-700);
+  border-color: var(--salmon-700);
+  color: #fff;
+  font-weight: 600;
+}
+.btn-primary:hover { background: var(--salmon-600); border-color: var(--salmon-600); }
+.btn-primary:disabled { background: var(--ink-300); border-color: var(--ink-300); }
+
+/* Ghost — REVISED: now the salmon-themed accent secondary (visible border). */
+.btn-ghost {
+  background: #fff;
+  border-color: var(--salmon-300);
+  color: var(--salmon-700);
+  font-weight: 600;
+}
+.btn-ghost:hover { background: var(--salmon-50); border-color: var(--salmon-500); color: var(--salmon-700); }
+
+/* Danger */
+.btn-danger {
+  color: var(--rust-700);
+  border-color: var(--ink-200);
+  background: #fff;
+}
+.btn-danger:hover { background: var(--rust-50); border-color: var(--rust-700); color: var(--rust-700); }
+.btn-danger.btn-primary {
+  background: var(--rust-700);
+  color: #fff;
+  border-color: var(--rust-700);
+}
+.btn-danger.btn-primary:hover { background: #9A3D33; border-color: #9A3D33; }
+
+/* Quiet — NEW: borderless utility (modal ×, rail toggle, icon-only chevrons) */
+.btn-quiet {
+  background: transparent;
+  border-color: transparent;
+  color: var(--ink-500);
+  font-weight: 500;
+}
+.btn-quiet:hover { background: var(--ink-50); border-color: transparent; color: var(--ink-900); }
+
+/* Modifiers */
+.btn-icon { padding: 0; width: 30px; }
+.btn-icon.btn-sm { width: 24px; }
+.btn-icon.btn-lg { width: 36px; }
+.btn-block { display: flex; width: 100%; }
+
+.btn svg { width: 14px; height: 14px; stroke: currentColor; stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+.btn-sm svg { width: 12px; height: 12px; }
+.btn-lg svg { width: 16px; height: 16px; }
+.btn kbd {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 10px;
+  background: rgba(0,0,0,0.06);
+  color: inherit;
+  padding: 1px 5px;
+  border-radius: 3px;
+  opacity: 0.7;
+  margin-left: 2px;
+  font-weight: 500;
+}
+.btn-primary kbd { background: rgba(255,255,255,0.22); opacity: 0.95; }
+
+/* Spinner glyph for refresh/sync busy state */
+.spin {
+  width: 12px; height: 12px;
+  border: 2px solid var(--salmon-100); border-top-color: var(--salmon-700);
+  border-radius: 50%; display: inline-block;
+  animation: spin .8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ============ Stub UI elements for mockup surfaces ============ */
+.mid-head {
+  display: flex; align-items: center; gap: 12px;
+  padding: 8px 14px; background: white;
+  border-bottom: 1px solid var(--ink-100); border-radius: 10px 10px 0 0;
+}
+.title-cluster { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.engine-pill {
+  background: var(--salmon-50); color: var(--salmon-700);
+  padding: 2px 7px; border-radius: 4px; font-size: 10.5px; font-weight: 600;
+}
+.scratch-pill {
+  font-size: 9px; background: var(--ink-50); color: var(--ink-500);
+  padding: 1px 5px; border-radius: 3px; letter-spacing: 0.2px;
+}
+.crumb { color: var(--ink-500); font-size: 11px; font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+.title-txt { font-weight: 600; font-size: 14px; }
+
+.toggle {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 4px 10px 4px 6px;
+  background: var(--ink-50); border: 1px solid var(--ink-200);
+  border-radius: 20px; font-size: 11.5px; color: var(--ink-700);
+  cursor: pointer; user-select: none;
+}
+.toggle .swatch { width: 14px; height: 14px; border-radius: 50%; background: var(--ink-300); }
+.toggle.on { background: var(--salmon-50); border-color: var(--salmon-300); color: var(--salmon-700); }
+.toggle.on .swatch { background: var(--salmon-500); box-shadow: 0 0 0 2px rgba(250,128,114,.25); }
+
+.list-row {
+  display: flex; align-items: center; padding: 8px 10px;
+  border-radius: 6px; margin: 2px 0;
+}
+.list-row.active { background: var(--salmon-50); }
+.list-row .ti { flex: 1; font-size: 12.5px; }
+.list-row .meta { font-size: 10.5px; color: var(--ink-500); }
+
+.modal {
+  background: white; border-radius: 12px;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.18), 0 0 0 1px var(--ink-100);
+  width: 480px;
+}
+.modal-head { display: flex; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--ink-100); }
+.modal-head h4 { margin: 0; font-size: 14px; font-weight: 600; }
+.modal-body { padding: 16px; font-size: 12.5px; color: var(--ink-700); }
+.modal-foot { display: flex; gap: 8px; justify-content: flex-end; padding: 12px 16px; border-top: 1px solid var(--ink-100); }
+
+.perm-card {
+  background: #FFF9F5; border: 1px solid var(--salmon-200);
+  border-radius: 10px; padding: 12px 14px;
+}
+.perm-card .hd { font-size: 12px; color: var(--salmon-700); font-weight: 600; margin-bottom: 6px; }
+.perm-card .cmd { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 11.5px; background: white; border: 1px solid var(--ink-100); padding: 6px 8px; border-radius: 4px; margin-bottom: 10px; word-break: break-all; }
+
+.composer {
+  display: flex; align-items: flex-end; gap: 8px;
+  background: white; border: 1px solid var(--ink-100);
+  border-radius: 10px; padding: 10px;
+}
+.composer textarea {
+  flex: 1; border: 0; resize: none; outline: none;
+  font-family: inherit; font-size: 13px; line-height: 1.5;
+  min-height: 36px; padding: 6px;
+}
+
+.brief-card {
+  background: white; border: 1px solid var(--ink-100); border-radius: 10px; padding: 14px;
+}
+.brief-card .hd { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
+.brief-card .body { color: var(--ink-700); margin-bottom: 12px; font-size: 12.5px; }
+.brief-card .actions { display: flex; gap: 6px; flex-wrap: wrap; }
+
+/* ============================================================== */
+/*  Form controls — NEW v1.19.2                                   */
+/*  .input / .select / .textarea — same DNA as .btn               */
+/* ============================================================== */
+.input, .select, .textarea {
+  display: inline-flex;
+  align-items: center;
+  height: 30px;
+  padding: 0 12px;
+  font-size: 12.5px;
+  font-family: inherit;
+  border: 1px solid var(--ink-200);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--ink-900);
+  outline: none;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+  line-height: 1;
+  width: 100%;
+  min-width: 0;
+}
+.input:hover, .select:hover, .textarea:hover { border-color: var(--ink-300); }
+.input:focus, .select:focus, .textarea:focus {
+  border-color: var(--salmon-500);
+  box-shadow: 0 0 0 3px rgba(255,166,138,0.30);
+}
+.input:disabled, .select:disabled, .textarea:disabled {
+  background: var(--ink-50); color: var(--ink-500);
+  cursor: not-allowed;
+}
+.input::placeholder { color: var(--ink-500); }
+
+/* Custom-chevron select. The native arrow on every OS / browser combo looks
+   different and crammed; replace with a tidy SVG that lives 10px from the right. */
+.select {
+  appearance: none; -webkit-appearance: none;
+  padding-right: 30px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 9px center;
+  background-size: 14px 14px;
+  cursor: pointer;
+}
+.select:focus { background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23B7493D' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>"); }
+
+/* Sizes — mirror .btn-sm / .btn-lg */
+.input-sm, .select-sm { height: 24px; padding: 0 8px; font-size: 11.5px; border-radius: 5px; }
+.select-sm { padding-right: 26px; background-position: right 7px center; background-size: 12px 12px; }
+.input-lg, .select-lg { height: 36px; padding: 0 14px; font-size: 13.5px; border-radius: 7px; }
+.select-lg { padding-right: 34px; background-position: right 11px center; background-size: 16px 16px; }
+
+/* Multiline */
+.textarea { min-height: 80px; padding: 8px 12px; height: auto; line-height: 1.5; resize: vertical; align-items: flex-start; }
+
+/* Error state — semantic, used by validation */
+.input.is-error, .select.is-error, .textarea.is-error {
+  border-color: var(--rust-700);
+}
+.input.is-error:focus { box-shadow: 0 0 0 3px rgba(183,73,61,0.20); }
+
+/* Inline form row — for compose-style "Label: control" rows */
+.field-row {
+  display: flex; align-items: center; gap: 8px;
+  margin: 8px 0;
+}
+.field-row .field-label {
+  flex-shrink: 0; width: 64px;
+  font-size: 12px; color: var(--ink-500);
+}
+
+/* Checkbox / radio — accent-only retheme, native shape kept */
+.check {
+  appearance: auto; accent-color: var(--salmon-500);
+  width: 14px; height: 14px; margin: 0; flex-shrink: 0;
+}
+.check-row { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--ink-700); cursor: pointer; user-select: none; }
+
+/* Search input — input + leading icon (used in LeftSidebar / SearchDialog) */
+.search-input {
+  position: relative;
+  display: flex; align-items: center; width: 100%;
+}
+.search-input .sicon {
+  position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+  pointer-events: none; color: var(--ink-500); font-size: 13px;
+}
+.search-input input { padding-left: 30px; }
+
+.right-pane {
+  background: white; border: 1px solid var(--ink-100); border-radius: 10px; padding: 12px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.rp-row { display: flex; gap: 6px; align-items: center; }
+.rp-tabs { display: flex; gap: 4px; padding: 4px; background: var(--ink-50); border-radius: 6px; }
+.rp-tab { padding: 4px 10px; font-size: 11.5px; color: var(--ink-700); border-radius: 4px; cursor: pointer; }
+.rp-tab.active { background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+
+/* Color swatches for quick reference */
+.swatches { display: flex; gap: 10px; margin: 12px 0; flex-wrap: wrap; }
+.sw { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--ink-700); }
+.sw .chip { width: 22px; height: 22px; border-radius: 5px; border: 1px solid rgba(0,0,0,0.06); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>SalmonApp 全局组件规范 v1.19.2 — 按钮 + 表单控件</h1>
+<p class="muted">v1.19.0 把按钮统一了，但 <code>&lt;select&gt;</code> 和 <code>&lt;input&gt;</code> 还在裸用浏览器默认样式 — Tasks 页那个"全部账号 ⇕"下拉、SettingsDialog 的输入框、Compose 的发件人 select……夹在精心调过的按钮中间看起来像 2005 年的 Windows 应用。这一版同时收口两件事：</p>
+<ol style="color: var(--ink-700);">
+  <li><b>按钮系统</b>：<code>.btn-ghost</code> 加可见边框；新增 <code>.btn-quiet</code> 承接"真要无边框"的场景。</li>
+  <li><b>表单控件系统</b>：新增 <code>.input</code> / <code>.select</code> / <code>.textarea</code>，跟 <code>.btn</code> 同 DNA（同高度、同圆角、同主题色 focus），原生 <code>&lt;select&gt;</code> 的丑陋 ⇕ 替换成自绘 SVG chevron。</li>
+</ol>
+
+<div class="note">
+<strong>核心改动：</strong>
+<ol style="margin: 6px 0 0; padding-left: 22px;">
+  <li><b><code>.btn-ghost</code> 改造</b>：从「透明边框 + 灰文本」改为「白底 + salmon-300 边框 + salmon-700 文字 + 600 字重」——和 Briefing 刷新按钮完全一致。</li>
+  <li><b>新增 <code>.btn-quiet</code></b>：把"真的不想要边框"的场景（模态框 × 关闭、RightPane 折叠箭头、单纯的图标 toolbar 等）单独承接。</li>
+  <li><b>合并冗余</b>：删除 <code>.brief-refresh-btn</code> 和 <code>.welcome-refresh-btn</code> 两个一次性样式，统一用 <code>.btn .btn-ghost</code> + 旋转 spinner 子元素。</li>
+</ol>
+</div>
+
+<h2>1. 5 个变体 × 3 个尺寸</h2>
+
+<div class="swatches">
+  <div class="sw"><div class="chip" style="background:var(--salmon-700)"></div>primary CTA</div>
+  <div class="sw"><div class="chip" style="background:#fff;border-color:var(--salmon-300)"></div>ghost — 二级强调</div>
+  <div class="sw"><div class="chip" style="background:#fff;border-color:var(--ink-200)"></div>default — 中性二级</div>
+  <div class="sw"><div class="chip" style="background:#fff;border-color:var(--ink-200);color:var(--rust-700)">×</div>danger</div>
+  <div class="sw"><div class="chip" style="background:transparent;border:1px dashed var(--ink-200)"></div>quiet — 图标工具按钮</div>
+</div>
+
+<table class="matrix">
+  <thead>
+    <tr>
+      <th style="width:130px;">变体</th>
+      <th style="width:60px;">sm 24</th>
+      <th style="width:80px;">md 30 (默认)</th>
+      <th style="width:90px;">lg 36</th>
+      <th>用途说明</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>.btn-primary</code><div class="desc">主 CTA</div></td>
+      <td><div class="cell"><button class="btn btn-sm btn-primary">发送</button></div></td>
+      <td><div class="cell"><button class="btn btn-primary">+ 新建</button></div></td>
+      <td><div class="cell"><button class="btn btn-lg btn-primary">+ 新邮件</button></div></td>
+      <td>每个界面 ≤ 1 个；表达"主推荐动作"</td>
+    </tr>
+    <tr>
+      <td><code>.btn-ghost</code><div class="desc">主题色二级</div></td>
+      <td><div class="cell"><button class="btn btn-sm btn-ghost">↻ 刷新</button></div></td>
+      <td><div class="cell"><button class="btn btn-ghost">同步</button></div></td>
+      <td><div class="cell"><button class="btn btn-lg btn-ghost">立刻 Briefing</button></div></td>
+      <td>头部/侧栏的强调辅助动作（同步、刷新、在目录新建…）</td>
+    </tr>
+    <tr>
+      <td><code>.btn</code><div class="desc">中性二级</div></td>
+      <td><div class="cell"><button class="btn btn-sm">取消</button></div></td>
+      <td><div class="cell"><button class="btn">取消</button></div></td>
+      <td><div class="cell"><button class="btn btn-lg">取消</button></div></td>
+      <td>对话框 Cancel、低优先级动作；避免主题色喧宾夺主</td>
+    </tr>
+    <tr>
+      <td><code>.btn-danger</code><div class="desc">破坏性</div></td>
+      <td><div class="cell"><button class="btn btn-sm btn-danger">删除</button></div></td>
+      <td><div class="cell"><button class="btn btn-danger">移除账号</button></div></td>
+      <td><div class="cell"><button class="btn btn-lg btn-danger">永久删除</button></div></td>
+      <td>删除、不重要、拒绝授权；hover 时升级为铁锈红边框</td>
+    </tr>
+    <tr>
+      <td><code>.btn-quiet</code><div class="desc">无边框工具</div></td>
+      <td><div class="cell"><button class="btn btn-sm btn-quiet btn-icon">×</button> <button class="btn btn-sm btn-quiet">↑</button></div></td>
+      <td><div class="cell"><button class="btn btn-quiet btn-icon">⋯</button></div></td>
+      <td><div class="cell"><button class="btn btn-lg btn-quiet btn-icon">⟨</button></div></td>
+      <td>模态框 × 关闭、RightPane 折叠箭头、单纯图标 toolbar</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>2. 修饰器</h2>
+
+<div class="row">
+  <button class="btn btn-icon">★</button>
+  <span class="muted"><code>.btn-icon</code> 方形图标按钮（宽 = 高）</span>
+</div>
+<div class="row" style="margin-top:8px;">
+  <div style="width:240px;"><button class="btn btn-primary btn-block">+ 新建 <kbd>⌘N</kbd></button></div>
+  <span class="muted"><code>.btn-block</code> 撑满父容器</span>
+</div>
+<div class="row" style="margin-top:8px;">
+  <button class="btn btn-ghost"><span class="spin"></span> 同步中</button>
+  <span class="muted">忙状态：保留按钮形态，文字旁加 <code>.spin</code></span>
+</div>
+
+<h2>3. 表单控件 — <code>.input</code> / <code>.select</code> / <code>.textarea</code></h2>
+<p class="muted">和按钮一致的 24/30/36 三档高度、相同的 5/6/7 圆角、相同的 ink-200 默认描边、相同的 salmon-500 + 3px 半透光晕作 focus ring。原生 select 的 <code>⇕</code> 用 SVG chevron 替换；focus 时 chevron 变 salmon-700。</p>
+
+<table class="matrix">
+  <thead>
+    <tr>
+      <th style="width:130px;">类型</th>
+      <th style="width:140px;">sm 24</th>
+      <th style="width:170px;">md 30 (默认)</th>
+      <th style="width:190px;">lg 36</th>
+      <th>说明</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>.input</code></td>
+      <td><input class="input input-sm" placeholder="搜索…"></td>
+      <td><input class="input" placeholder="标题"></td>
+      <td><input class="input input-lg" placeholder="主题"></td>
+      <td>文本输入；focus 时 salmon-500 描边 + 半透光晕</td>
+    </tr>
+    <tr>
+      <td><code>.select</code></td>
+      <td>
+        <select class="select select-sm">
+          <option>全部账号</option>
+          <option>work@gmail.com</option>
+        </select>
+      </td>
+      <td>
+        <select class="select">
+          <option>全部账号</option>
+          <option>work@gmail.com</option>
+          <option>personal@gmail.com</option>
+        </select>
+      </td>
+      <td>
+        <select class="select select-lg">
+          <option>Claude (CC)</option>
+          <option>Codex (CX)</option>
+        </select>
+      </td>
+      <td>自绘 SVG chevron；focus 时 chevron 变 salmon-700</td>
+    </tr>
+    <tr>
+      <td><code>.textarea</code></td>
+      <td colspan="3">
+        <textarea class="textarea" placeholder="本地备注 / 多行内容…" style="min-height:60px;"></textarea>
+      </td>
+      <td>同 input 风格，可纵向 resize</td>
+    </tr>
+    <tr>
+      <td><code>.input.is-error</code></td>
+      <td><input class="input input-sm is-error" value="无效"></td>
+      <td><input class="input is-error" value="user@@bad"></td>
+      <td><input class="input input-lg is-error" value="缺少 @"></td>
+      <td>校验错误态；rust-700 描边 + 半透红光晕</td>
+    </tr>
+    <tr>
+      <td><code>.input:disabled</code></td>
+      <td><input class="input input-sm" value="未启用" disabled></td>
+      <td><input class="input" value="未启用" disabled></td>
+      <td><input class="input input-lg" value="未启用" disabled></td>
+      <td>ink-50 底色 + ink-500 字色</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>勾选框 / 复选 / 搜索框</h3>
+<div class="surface" style="display:flex; gap:16px; flex-wrap:wrap; align-items:center;">
+  <label class="check-row"><input type="checkbox" class="check" checked> 立刻同步</label>
+  <label class="check-row"><input type="checkbox" class="check"> 显示已完成</label>
+  <label class="check-row"><input type="radio" name="r" class="check" checked> Claude</label>
+  <label class="check-row"><input type="radio" name="r" class="check"> Codex</label>
+  <div class="search-input" style="width:280px;">
+    <span class="sicon">⌕</span>
+    <input class="input" placeholder="搜索 Topic 标题…">
+  </div>
+</div>
+
+<h2>4. 当前页面对照</h2>
+<p class="muted">下面 9 张图是 v1.19.2 应用到具体页面后的效果。可以直接和当前桌面端比较。</p>
+
+<h3>① Tasks 页 — header（用户原图的修复版本）</h3>
+<div class="surface" style="max-width:360px; background:var(--side);">
+  <div class="row between" style="margin-bottom:10px;">
+    <div class="row" style="gap:8px;">
+      <span style="display:inline-flex; width:24px; height:24px; border-radius:6px; background:var(--salmon-100); color:var(--salmon-700); align-items:center; justify-content:center; font-size:14px;">🐟</span>
+      <span style="font-weight:600; font-size:15px;">待办</span>
+    </div>
+    <span class="muted">0 未完</span>
+  </div>
+  <div class="row" style="gap:6px;">
+    <select class="select select-sm" style="flex:1;">
+      <option>全部账号</option>
+      <option>pekinlcc@gmail.com</option>
+    </select>
+    <button class="btn btn-sm btn-ghost btn-icon" title="刷新">↻</button>
+  </div>
+  <div style="display:flex; flex-direction:column; gap:6px; margin-top:10px;">
+    <button class="btn btn-primary btn-block">+ 新建待办</button>
+    <button class="btn btn-ghost btn-block">显示已完成 (1)</button>
+  </div>
+  <p class="muted" style="margin-top:10px;">关键差异：账号下拉从原生 <code>&lt;select&gt;</code>（chunky 边框、丑 ⇕）换成 <code>.select.select-sm</code>，跟旁边 <code>.btn-sm.btn-ghost</code> 刷新按钮高度 / 圆角 / 描边色完全对齐。两个按钮一行齐整。</p>
+</div>
+
+<h3>② Mail 页 — header（"同步"原来无边框，现在有了）</h3>
+<div class="surface">
+  <div class="row between">
+    <div style="font-weight:600; font-size:15px;">收件箱 <span class="muted" style="font-weight:400;">— pekinlcc@gmail.com</span></div>
+    <div class="row">
+      <button class="btn btn-primary">+ 新邮件</button>
+      <button class="btn btn-ghost">同步</button>
+      <button class="btn btn-ghost">添加账号</button>
+      <button class="btn btn-danger">移除当前</button>
+    </div>
+  </div>
+  <p class="muted" style="margin-top:10px;">"同步" 和 "添加账号" 现在带 salmon-300 边框，整排看起来都"长齐了"。</p>
+</div>
+
+<h3>③ LeftSidebar — 新建 Topic 双按钮 + 搜索框</h3>
+<div class="surface sidebar" style="max-width:320px;">
+  <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:10px;">
+    <button class="btn btn-primary btn-block">+ 新建 <kbd>⌘N</kbd></button>
+    <button class="btn btn-ghost btn-block">在目录新建… <kbd>⌘⇧N</kbd></button>
+  </div>
+  <div class="search-input" style="margin-bottom:10px;">
+    <span class="sicon">⌕</span>
+    <input class="input" placeholder="搜索 Topic 标题…">
+  </div>
+  <div style="font-size:11px; color:var(--ink-500); margin:6px 4px;">今天</div>
+  <div class="list-row active"><span style="display:inline-flex; align-items:center; gap:6px;"><span style="background:var(--salmon-50); color:var(--salmon-700); padding:1px 6px; border-radius:4px; font-size:10px; font-weight:600;">CC</span><span style="font-size:12.5px;">同步与能力评估</span></span></div>
+  <div class="list-row"><span style="display:inline-flex; align-items:center; gap:6px;"><span style="background:#E6EEFA; color:#3856A3; padding:1px 6px; border-radius:4px; font-size:10px; font-weight:600;">CX</span><span style="font-size:12.5px;">同步查错</span></span></div>
+  <p class="muted" style="margin-top:10px;">搜索框 + 输入控件统一 <code>.input</code>。Topic list 单行（v1.19.2 同步清理）。</p>
+</div>
+
+<h3>④ 中间 mid-head — 标题栏 + Bypass + 搜索</h3>
+<div class="surface" style="padding:0;">
+  <div class="mid-head" style="border-radius:10px;">
+    <div class="title-cluster">
+      <span class="engine-pill">Claude</span>
+      <span class="title-txt">营销邮件改稿</span>
+      <span class="scratch-pill">暂存</span>
+    </div>
+    <div class="spacer"></div>
+    <button class="toggle on"><span class="swatch"></span>Bypass</button>
+    <button class="btn btn-sm btn-ghost">搜索 <kbd>⌘F</kbd></button>
+    <span class="muted">3.2k / 1.8k · 12s</span>
+  </div>
+  <p class="muted" style="padding:0 14px 12px 14px;">"搜索 ⌘F" 现在有 salmon 边框，跟 Topic 列表里"在目录新建"是同一档视觉。Bypass 仍然是 <code>.toggle</code>（状态切换，不归 <code>.btn</code> 管）。</p>
+</div>
+
+<h3>⑤ Compose Modal — 收件人 / 主题 / 发件账号</h3>
+<div class="surface" style="background:transparent; border:0; padding:0; box-shadow:none;">
+  <div class="modal" style="width:520px;">
+    <div class="modal-head">
+      <h4>新邮件</h4>
+      <div class="spacer"></div>
+      <button class="btn btn-sm btn-quiet btn-icon">×</button>
+    </div>
+    <div style="padding:0 16px;">
+      <div class="field-row">
+        <div class="field-label">发件</div>
+        <select class="select" style="flex:1;">
+          <option>pekinlcc@gmail.com</option>
+        </select>
+      </div>
+      <div class="field-row">
+        <div class="field-label">收件人</div>
+        <input class="input" style="flex:1;" placeholder="aiden@example.com">
+      </div>
+      <div class="field-row">
+        <div class="field-label">主题</div>
+        <input class="input" style="flex:1;" placeholder="Q3 复盘 outline">
+      </div>
+      <div class="field-row" style="align-items:flex-start;">
+        <div class="field-label" style="padding-top:8px;">正文</div>
+        <textarea class="textarea" style="flex:1; min-height:120px;" placeholder="..."></textarea>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn">取消</button>
+      <button class="btn">保存草稿</button>
+      <button class="btn btn-primary">发送</button>
+    </div>
+  </div>
+  <p class="muted" style="margin-top:10px;">"发件" 现在用 <code>.select</code>，跟下面的 <code>.input</code> 视觉一致；底部三个按钮按权重分档（中性 / 中性 / 主 CTA）。</p>
+</div>
+
+<h3>⑥ Briefing 卡片 — 多个 action 按钮</h3>
+<div class="surface" style="background:transparent; border:0; padding:0; box-shadow:none;">
+  <div class="brief-card">
+    <div class="hd">
+      <div style="flex:1;">
+        <div style="font-size:13px; font-weight:600;">回复 Aiden — Q3 复盘材料</div>
+        <div class="muted">3 小时前 · 高优先级</div>
+      </div>
+    </div>
+    <div class="body">Aiden 提到周五前要拿到 Q3 复盘 outline，他想在你下次 1:1 之前先扫一遍重点。</div>
+    <div class="actions">
+      <button class="btn btn-sm btn-primary">起草回复</button>
+      <button class="btn btn-sm btn-ghost">加入待办</button>
+      <button class="btn btn-sm btn-ghost">加入日历</button>
+      <button class="btn btn-sm">已处理</button>
+      <button class="btn btn-sm btn-danger">不重要</button>
+    </div>
+  </div>
+</div>
+
+<h3>⑦ PermissionCard — 工具调用授权</h3>
+<div class="surface" style="background:transparent; border:0; padding:0; box-shadow:none;">
+  <div class="perm-card">
+    <div class="hd">⚙ Claude 想运行 Bash 命令</div>
+    <div class="cmd">git log --oneline -20</div>
+    <div class="row">
+      <button class="btn btn-sm btn-primary">允许一次</button>
+      <button class="btn btn-sm btn-danger">拒绝</button>
+    </div>
+  </div>
+</div>
+
+<h3>⑧ Composer — 输入框尾部</h3>
+<div class="surface" style="background:transparent; border:0; padding:0; box-shadow:none;">
+  <div class="composer">
+    <textarea placeholder="问问 Claude…"></textarea>
+    <button class="btn btn-sm btn-quiet btn-icon" title="附件">+</button>
+    <button class="btn btn-sm btn-primary">发送 <kbd>↵</kbd></button>
+  </div>
+  <p class="muted" style="margin-top:10px;">附件 + 还是 <code>.btn-quiet</code>（无边框，跟输入区融为一体），发送是主 CTA。</p>
+</div>
+
+<h3>⑨ 模态框 — 确认对话</h3>
+<div class="surface" style="background:transparent; border:0; padding:0; box-shadow:none;">
+  <div class="modal">
+    <div class="modal-head">
+      <h4>删除 Topic？</h4>
+      <div class="spacer"></div>
+      <button class="btn btn-sm btn-quiet btn-icon">×</button>
+    </div>
+    <div class="modal-body">这会同时删除 "营销邮件改稿" 暂存目录下的所有文件。此操作无法撤销。</div>
+    <div class="modal-foot">
+      <button class="btn">取消</button>
+      <button class="btn btn-danger btn-primary">永久删除</button>
+    </div>
+  </div>
+  <p class="muted" style="margin-top:10px;">右上角 × 是 <code>.btn-quiet</code>（典型的"无边框工具按钮"），底部"取消"用 <code>.btn</code> 中性档（不抢戏），"永久删除"是 <code>.btn-danger.btn-primary</code>（红实心）。</p>
+</div>
+
+<h3>⑩ RightPane — 折叠箭头 + tabs</h3>
+<div class="surface" style="background:transparent; border:0; padding:0; box-shadow:none;">
+  <div class="right-pane">
+    <div class="rp-row">
+      <div class="rp-tabs">
+        <div class="rp-tab active">工作目录</div>
+        <div class="rp-tab">参与人</div>
+        <div class="rp-tab">推荐</div>
+      </div>
+      <div class="spacer"></div>
+      <button class="btn btn-sm btn-quiet btn-icon" title="收起">⟩</button>
+    </div>
+    <div class="muted" style="padding:8px 4px;">~/Desktop/Salmon_Mac/SalmonApp/salmon — 12 个文件</div>
+    <div class="rp-row">
+      <button class="btn btn-sm btn-quiet">⟨ 上一级</button>
+      <div class="spacer"></div>
+      <button class="btn btn-sm btn-quiet btn-icon">⋯</button>
+    </div>
+  </div>
+  <p class="muted" style="margin-top:10px;">右侧栏几乎全是 <code>.btn-quiet</code> —— 这里要的是低调，不和主区争视线。</p>
+</div>
+
+<h2>5. 决策树（什么时候用哪个变体）</h2>
+
+<div class="surface" style="background:white;">
+  <h3 style="margin-top:0;">按钮</h3>
+  <table class="matrix" style="border:0; box-shadow:none; margin:0;">
+    <thead>
+      <tr><th style="width:200px;">问题</th><th>选择</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>当前界面的"主推荐动作"？</td><td>是 → <code>.btn-primary</code></td></tr>
+      <tr><td>破坏性（删除 / 拒绝 / 不重要）？</td><td>是 → <code>.btn-danger</code>（重要时叠加 <code>.btn-primary</code> 变实心红）</td></tr>
+      <tr><td>header / 侧栏 / 工具区的强调辅助？</td><td>是 → <code>.btn-ghost</code>（带 salmon 边框）</td></tr>
+      <tr><td>模态框 Cancel、低优先级附属？</td><td>是 → 默认 <code>.btn</code>（中性）</td></tr>
+      <tr><td>模态框 ×、折叠箭头、单纯图标？</td><td>是 → <code>.btn-quiet</code>（无边框）</td></tr>
+    </tbody>
+  </table>
+  <h3>表单控件</h3>
+  <table class="matrix" style="border:0; box-shadow:none; margin:0;">
+    <thead>
+      <tr><th style="width:200px;">输入类型</th><th>选择</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>单行文本</td><td><code>.input</code> + 可选 <code>.input-sm</code> / <code>.input-lg</code></td></tr>
+      <tr><td>下拉选择</td><td><code>.select</code>（自绘 chevron，禁用浏览器默认 ⇕）</td></tr>
+      <tr><td>多行 / 备注 / 邮件正文</td><td><code>.textarea</code></td></tr>
+      <tr><td>勾选框 / 单选框</td><td><code>.check</code> + <code>.check-row</code></td></tr>
+      <tr><td>搜索框（带图标）</td><td><code>.search-input</code> 容器 + <code>.input</code></td></tr>
+      <tr><td>验证错误</td><td>加 <code>.is-error</code> 修饰器</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h2>6. 实现侧改动清单</h2>
+<div class="surface" style="background:white;">
+  <h3 style="margin-top:0;">按钮（约 30 行 CSS + 10–15 处 className）</h3>
+  <ol style="margin:0; padding-left:22px; line-height:1.9;">
+    <li><code>styles.css</code> 主 <code>.btn-ghost</code> 块改 4 行：<code>background</code>、<code>border-color</code>、<code>color</code>、<code>font-weight</code> → 主题色。</li>
+    <li>新增 <code>.btn-quiet</code> 块（约 6 行）。</li>
+    <li>删除独立 <code>.brief-refresh-btn</code> + <code>.welcome-refresh-btn</code>，改用 <code>.btn .btn-ghost .btn-icon</code> + <code>.spin</code>。</li>
+    <li>className 替换：<code>RightPane.tsx</code> 5 处图标按钮、模态框 × 3 处（<code>SearchDialog / NewTopicDialog / PromptDialog</code>）改 quiet。</li>
+  </ol>
+  <h3>表单控件（约 50 行 CSS + 12 处控件替换）</h3>
+  <ol style="margin:0; padding-left:22px; line-height:1.9;">
+    <li>新增 <code>.input</code> / <code>.select</code> / <code>.textarea</code> / <code>.check</code> / <code>.search-input</code> 规则（约 50 行）。</li>
+    <li>合并 / 删除遗留：
+      <ul style="margin:4px 0; padding-left:22px;">
+        <li><code>.search input</code>（LeftSidebar 搜索）→ 改用 <code>.search-input</code> + <code>.input</code>。</li>
+        <li><code>.modal input[type=text], .modal select</code> → 移除（被新规则取代）。</li>
+        <li><code>.compose-from select, .compose-field input</code> 的 transparent / borderless 样式 → 这两处 compose-modal 内嵌行内场景特意"无边框"，保留作为内部例外，但让 modal 外的同类用 <code>.select</code> / <code>.input</code>。</li>
+      </ul>
+    </li>
+    <li>组件 className：
+      <ul style="margin:4px 0; padding-left:22px;">
+        <li><code>TasksView.tsx</code>：账号 select + 新建/筛选 buttons（3 处）</li>
+        <li><code>CodeBlock.tsx</code>：salmon-action 卡里的发件人 select（2 处）</li>
+        <li><code>CalendarView.tsx</code> / <code>ComposeModal.tsx</code>：账号 select（compose 行内的保留无边框）</li>
+        <li><code>SettingsDialog.tsx</code>：OAuth 路径等 input（6 处）</li>
+        <li><code>NewTopicDialog.tsx</code>：标题 + workdir 等 input（5 处）</li>
+        <li><code>SearchDialog.tsx</code>：搜索框（1 处）</li>
+        <li><code>PromptDialog.tsx</code>：text input（1 处）</li>
+      </ul>
+    </li>
+  </ol>
+  <p class="muted" style="margin-top:10px;">总改动量 ≈ 80 行 CSS + 25 处 className 替换，纯样式 / 表层调整，无后端 / 业务逻辑变动 → 版本号建议 <b><code>v1.19.2</code></b>（y 级 — 用户明显感知）。可以和刚才已完成的 Topic list 单行清理一起发同一版。</p>
+</div>
+
+</div>
+</body>
+</html>

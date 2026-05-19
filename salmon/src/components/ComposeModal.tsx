@@ -131,7 +131,7 @@ export function ComposeModal({ accounts, defaultAccountId, replyTo, onClose, onS
           <div className="compose-title">
             {replyTo ? (replyTo.mode === "forward" ? "转发邮件" : "回复邮件") : "新邮件"}
           </div>
-          <button className="btn btn-ghost" onClick={onClose}>×</button>
+          <button className="btn btn-sm btn-quiet btn-icon" onClick={onClose} title="关闭">×</button>
         </div>
 
         <div className="compose-from">

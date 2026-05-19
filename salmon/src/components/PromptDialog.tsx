@@ -58,7 +58,7 @@ export function PromptDialog({
           />
         </label>
         <div className="modal-actions">
-          <button className="btn btn-ghost" onClick={onCancel}>{cancelLabel}</button>
+          <button className="btn" onClick={onCancel}>{cancelLabel}</button>
           <button className="btn btn-primary" onClick={submit} disabled={!value.trim()}>
             {confirmLabel}
           </button>

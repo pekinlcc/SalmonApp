@@ -131,7 +131,7 @@ export function RightPane({ topic, selectedTool, logs, refreshKey, onCollapse }:
           </div>
         ))}
         <button
-          className="btn btn-sm btn-icon btn-ghost"
+          className="btn btn-sm btn-icon btn-quiet"
           title={`收起右栏 (${/mac|iphone|ipad|ipod/i.test(navigator.platform) ? "⌘" : "Ctrl"}+\\)`}
           onClick={onCollapse}
           style={{ marginLeft: "auto" }}
@@ -147,7 +147,7 @@ export function RightPane({ topic, selectedTool, logs, refreshKey, onCollapse }:
               {topic.workdir}
             </span>
             <span style={{ marginLeft: "auto" }}>{files.length} 项</span>
-            <button className="btn btn-sm btn-icon btn-ghost" title="打开工作目录" onClick={openWorkdir}>↗</button>
+            <button className="btn btn-sm btn-icon btn-quiet" title="打开工作目录" onClick={openWorkdir}>↗</button>
           </div>
           <div className="right-body">
             <div className="tree">
@@ -190,7 +190,7 @@ export function RightPane({ topic, selectedTool, logs, refreshKey, onCollapse }:
             )}
             {previewPath && (
               <button
-                className="btn btn-sm btn-icon btn-ghost"
+                className="btn btn-sm btn-icon btn-quiet"
                 title="在系统中打开"
                 onClick={openPreviewPath}
               >
@@ -199,7 +199,7 @@ export function RightPane({ topic, selectedTool, logs, refreshKey, onCollapse }:
             )}
             {previewPath && (
               <button
-                className="btn btn-sm btn-icon btn-ghost"
+                className="btn btn-sm btn-icon btn-quiet"
                 title="全屏预览 (Esc 退出)"
                 onClick={() => setPreviewFullscreen(true)}
               >
@@ -219,7 +219,7 @@ export function RightPane({ topic, selectedTool, logs, refreshKey, onCollapse }:
             <span className="preview-overlay-path">{previewPath}</span>
             {officeImages && <span className="preview-overlay-meta">{officeImages.length} 页</span>}
             <button
-              className="btn btn-sm btn-icon btn-ghost"
+              className="btn btn-sm btn-icon btn-quiet"
               title="退出全屏 (Esc)"
               onClick={() => setPreviewFullscreen(false)}
             >
@@ -249,7 +249,7 @@ export function RightPane({ topic, selectedTool, logs, refreshKey, onCollapse }:
             >
               Error
             </button>
-            <button className="btn btn-sm btn-icon btn-ghost" onClick={copyTailLogs} title="复制最后 200 行">⧉</button>
+            <button className="btn btn-sm btn-icon btn-quiet" onClick={copyTailLogs} title="复制最后 200 行">⧉</button>
           </div>
           <div className="right-body logs">
             {filteredLogs.slice(-500).map((l, i) => <div key={i} className={`l ${isErrorLog(l) ? "err" : ""}`}>{l}</div>)}

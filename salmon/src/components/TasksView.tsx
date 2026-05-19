@@ -169,30 +169,36 @@ export function TasksView({ pendingOpenTask, onConsumePendingOpenTask }: TasksVi
         </div>
         <div style={{ display: "flex", gap: 6, padding: "0 12px 8px" }}>
           <select
-            className="btn-sm"
+            className="select select-sm"
             value={accountId}
             onChange={(e) => setAccountId(e.target.value as any)}
-            style={{ flex: 1, fontSize: 11.5, padding: "4px 6px" }}
+            style={{ flex: 1 }}
           >
             <option value="all">全部账号</option>
             {accounts.map((a) => (
               <option key={a.id} value={a.id}>{a.email}</option>
             ))}
           </select>
-          <button className="btn-sm" onClick={onSync} disabled={syncing} style={{ fontSize: 11.5, padding: "4px 8px" }}>
+          <button
+            className="btn btn-sm btn-ghost btn-icon"
+            onClick={onSync}
+            disabled={syncing}
+            title="同步待办"
+          >
             {syncing ? "…" : "↻"}
           </button>
         </div>
-        <button className="btn" onClick={() => setComposeOpen(true)}>
-          <span className="plus">＋</span> 新建待办
-        </button>
-        <button
-          className="btn"
-          onClick={() => setShowCompleted((v) => !v)}
-          style={{ marginTop: 0 }}
-        >
-          {showCompleted ? "隐藏已完成" : `显示已完成 (${completed.length})`}
-        </button>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, padding: "0 12px 10px" }}>
+          <button className="btn btn-primary btn-block" onClick={() => setComposeOpen(true)}>
+            <span className="plus">＋</span> 新建待办
+          </button>
+          <button
+            className="btn btn-ghost btn-block"
+            onClick={() => setShowCompleted((v) => !v)}
+          >
+            {showCompleted ? "隐藏已完成" : `显示已完成 (${completed.length})`}
+          </button>
+        </div>
         {error && <div className="tasks-error" style={{ margin: "0 12px 8px" }}>⚠ {error}</div>}
         <div className="topic-list">
           {visible.length === 0 ? (
@@ -519,7 +525,7 @@ function NewTaskModal({
       <div className="compose-modal" style={{ width: 520 }}>
         <div className="compose-head">
           <div className="compose-title">新建待办</div>
-          <button className="btn btn-ghost" onClick={onClose}>×</button>
+          <button className="btn btn-sm btn-quiet btn-icon" onClick={onClose} title="关闭">×</button>
         </div>
         <div className="compose-from">
           <span className="compose-label">账号:</span>

@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ask } from "@tauri-apps/plugin-dialog";
 import type { CliInfo, Topic } from "../lib/types";
-import { relativeTime } from "../lib/format";
 import { SalmonLogo } from "./SalmonLogo";
 
 interface Props {
@@ -137,24 +136,17 @@ export function LeftSidebar(props: Props) {
                   >
                     {t.engine === "claude" ? "CC" : "CX"}
                   </span>
-                  <span className="t-title">{t.title || "(未命名)"}</span>
-                  {t.isScratch ? (
-                    <span className="scratch-pill" title="暂存 Topic — 工作目录由 SalmonApp 管理，删除时一并清掉">暂存</span>
-                  ) : t.workdir ? (
-                    <span
-                      className="workdir-pill"
-                      title={`绑定工作目录：${t.workdir}`}
-                      aria-label="绑定工作目录"
-                    >📁</span>
-                  ) : null}
+                  <span
+                    className="t-title"
+                    title={t.isScratch ? "暂存 Topic — 工作目录由 SalmonApp 管理" : t.workdir || undefined}
+                  >
+                    {t.title || "(未命名)"}
+                  </span>
                   {spawningId === t.id ? (
                     <span className="spinner-sm" title="启动中" />
                   ) : runningIds.has(t.id) ? (
                     <span className="t-dot" title="进行中" />
                   ) : null}
-                </div>
-                <div className="t-meta">
-                  <span>{relativeTime(t.updatedAt)}</span>
                 </div>
                 {menuFor === t.id && (
                   <div style={{ marginTop: 6, display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -233,15 +225,12 @@ export function LeftSidebar(props: Props) {
                   >
                     {t.engine === "claude" ? "CC" : "CX"}
                   </span>
-                  <span className="t-title">{t.title || "(未命名)"}</span>
-                  {t.isScratch ? (
-                    <span className="scratch-pill" title="暂存 Topic">暂存</span>
-                  ) : t.workdir ? (
-                    <span className="workdir-pill" title={`绑定工作目录：${t.workdir}`} aria-label="绑定工作目录">📁</span>
-                  ) : null}
-                </div>
-                <div className="t-meta">
-                  <span>{relativeTime(t.updatedAt)}</span>
+                  <span
+                    className="t-title"
+                    title={t.isScratch ? "暂存 Topic" : t.workdir || undefined}
+                  >
+                    {t.title || "(未命名)"}
+                  </span>
                 </div>
                 {menuFor === t.id && (
                   <div style={{ marginTop: 6, display: "flex", gap: 6, flexWrap: "wrap" }}>

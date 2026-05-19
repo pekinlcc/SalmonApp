@@ -627,7 +627,7 @@ function BriefOverviewBar({
       </div>
       <div className="brief-ov-right">
         <button
-          className={`brief-refresh-btn ${running ? "busy" : ""}`}
+          className="btn btn-sm btn-ghost"
           onClick={() => !running && onRefresh()}
           disabled={running}
           title={running ? "评估流水线运行中" : "重新跑 Briefing"}
