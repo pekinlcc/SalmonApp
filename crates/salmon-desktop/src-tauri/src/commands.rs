@@ -21,11 +21,9 @@ pub fn detect_clis() -> Result<DetectResult, String> {
     let mut out = Vec::new();
     for (name, bin) in [("Claude Code", "claude"), ("Codex", "codex")] {
         let path = which::which(bin).ok();
-        let installed = path.is_some();
         let mut version: Option<String> = None;
         let mut logged_in = false;
         if let Some(p) = &path {
-            // version probe
             if let Ok(o) = Command::new(p).arg("--version").output() {
                 if o.status.success() {
                     let v = String::from_utf8_lossy(&o.stdout).trim().to_string();
@@ -34,6 +32,17 @@ pub fn detect_clis() -> Result<DetectResult, String> {
             }
             logged_in = cli_logged_in(bin, p);
         }
+        // Fallback: when the binary isn't on PATH OR when its auth-status probe
+        // returned false (e.g. a labwc-session shell whose minimal PATH can't
+        // find a nvm-installed claude → version probe fails too → auth probe
+        // never even runs), trust the on-disk auth config dir as the real
+        // "logged in" signal. The user logged in via terminal under GNOME;
+        // those credentials live in $HOME/.claude or $HOME/.codex regardless
+        // of which session is now reading them.
+        if !logged_in && has_cli_auth_dir(bin) {
+            logged_in = true;
+        }
+        let installed = path.is_some() || logged_in;
         out.push(CliInfo {
             name: name.into(),
             binary: bin.into(),
@@ -44,6 +53,81 @@ pub fn detect_clis() -> Result<DetectResult, String> {
         });
     }
     Ok(DetectResult { clis: out })
+}
+
+/// Sign out of the current Wayland session (used by SalmonApp Desktop's
+/// labwc-backed session). Asks logind to terminate the user's session,
+/// which drops back to GDM.
+#[tauri::command]
+pub fn sign_out_session() -> Result<(), String> {
+    let session = std::env::var("XDG_SESSION_ID").ok();
+    let mut attempts: Vec<(Vec<&str>, Option<String>)> = Vec::new();
+    if let Some(sid) = session.as_deref() {
+        attempts.push((vec!["terminate-session", sid], None));
+    }
+    attempts.push((vec!["terminate-user", ""], std::env::var("USER").ok()));
+
+    let mut last_err = String::from("no signout strategy succeeded");
+    for (args, user_override) in attempts {
+        let mut cmd = Command::new("loginctl");
+        for a in &args {
+            if a.is_empty() {
+                if let Some(u) = user_override.as_deref() {
+                    cmd.arg(u);
+                }
+            } else {
+                cmd.arg(a);
+            }
+        }
+        match cmd.output() {
+            Ok(o) if o.status.success() => return Ok(()),
+            Ok(o) => {
+                last_err = format!(
+                    "loginctl {args:?} exit={} stderr={}",
+                    o.status,
+                    String::from_utf8_lossy(&o.stderr).trim()
+                );
+            }
+            Err(e) => last_err = format!("spawn loginctl failed: {e}"),
+        }
+    }
+    Err(last_err)
+}
+
+/// Claude / Codex store auth tokens in the OS keyring rather than in a flat
+/// file we can stat, so "is the user logged in" can't be answered by a
+/// presence check. The next-best proxy: the CLI has been used at least
+/// once on this machine, evidenced by a non-empty user data dir. Combined
+/// with the `auth status` probe in `cli_logged_in`, this catches the case
+/// where the binary isn't visible to our spawned shell (the labwc-session
+/// PATH bug — `claude` lives in `~/.nvm/...` which a GDM-launched compositor
+/// doesn't inherit) but the user clearly does have a working install.
+fn has_cli_auth_dir(bin: &str) -> bool {
+    let home = match std::env::var_os("HOME") {
+        Some(h) => PathBuf::from(h),
+        None => return false,
+    };
+    let (dir, markers): (&str, &[&str]) = match bin {
+        "claude" => (".claude", &["projects", "sessions", "settings.json"]),
+        "codex" => (".codex", &["auth.json", "sessions", "config.toml"]),
+        _ => return false,
+    };
+    let root = home.join(dir);
+    if !root.is_dir() {
+        return false;
+    }
+    markers.iter().any(|m| {
+        let p = root.join(m);
+        if !p.exists() {
+            return false;
+        }
+        if !p.is_dir() {
+            return true;
+        }
+        std::fs::read_dir(&p)
+            .map(|mut it| it.next().is_some())
+            .unwrap_or(false)
+    })
 }
 
 #[tauri::command]
@@ -248,11 +332,9 @@ pub fn create_quick_topic(
     title: Option<String>,
     engine: Option<String>,
 ) -> Result<Topic, String> {
-    use tauri::Manager;
-    let base = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| format!("解析 app_data_dir 失败: {}", e))?;
+    let _ = app;
+    let base = salmon_core::path_dirs::data_dir()
+        .ok_or_else(|| "解析 shared SalmonApp data dir 失败".to_string())?;
     let topics_root = base.join("topics");
     std::fs::create_dir_all(&topics_root)
         .map_err(|e| format!("创建 {} 失败: {}", topics_root.display(), e))?;
@@ -2141,17 +2223,14 @@ pub fn get_usage_summary(
     state.db.lock().usage_summary().map_err(map_err)
 }
 
-/// Surface the resolved app data directory for the Settings → 关于 tab
-/// (so users can find their salmon.db / paste cache / log file). Asks
-/// Tauri at call time instead of caching at setup so an unusual OS
-/// reconfiguration doesn't show a stale path.
+/// Surface the shared SalmonApp data directory for the Settings → 关于 tab
+/// (so users can find their salmon.db / paste cache / log file).
 #[tauri::command]
 pub fn get_app_data_dir(app: tauri::AppHandle) -> Result<String, String> {
-    use tauri::Manager;
-    app.path()
-        .app_data_dir()
+    let _ = app;
+    salmon_core::path_dirs::data_dir()
         .map(|p| p.to_string_lossy().into_owned())
-        .map_err(|e| format!("{e}"))
+        .ok_or_else(|| "解析 shared SalmonApp data dir 失败".to_string())
 }
 
 #[tauri::command]

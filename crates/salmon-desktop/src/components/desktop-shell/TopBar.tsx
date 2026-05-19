@@ -2,6 +2,7 @@
 // `briefCount` is the real number of pending Brief items from useDesktopBrief.
 import { useEffect, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { api } from "../../lib/api";
 import { Icons } from "./Icons";
 
 function useClock() {
@@ -23,14 +24,22 @@ interface Props {
   onExitDesktop?: () => void;
 }
 
-/** When SalmonApp Desktop is running fullscreen (label="shell"), the exit
- *  button drops out of fullscreen + closes the window. In the App binary
- *  (where the desktop view is just a togglable in-app screen), it falls
+/** When the desktop binary is running as the labwc session shell
+ *  (label="shell"), the exit button signs out of the Wayland session and
+ *  returns to GDM — closing the window alone is not enough because
+ *  labwc-config/autostart respawns salmonapp-desktop in a tight loop. In the
+ *  App binary the desktop view is just a togglable in-app screen, so we fall
  *  back to the in-app switch via `onExitDesktop`. */
 async function exitDesktopShell(fallback?: () => void) {
   try {
     const w = getCurrentWindow();
     if (w.label === "shell") {
+      try {
+        await api.signOutSession();
+        return;
+      } catch {
+        // logind refused — fall through to close so the user isn't trapped.
+      }
       try { await w.setFullscreen(false); } catch {}
       try { await w.close(); return; } catch {}
     }
@@ -74,7 +83,7 @@ export function TopBar({ briefCount, onActivities, onExitDesktop }: Props) {
         </button>
         <button
           className="tb-btn"
-          title="退出桌面 (Esc)"
+          title="退出会话 (Super+Shift+Q)"
           type="button"
           onClick={() => exitDesktopShell(onExitDesktop)}
         >

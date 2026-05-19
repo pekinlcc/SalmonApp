@@ -72,10 +72,8 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .setup(|app| {
-            let data_dir = app
-                .path()
-                .app_data_dir()
-                .expect("resolving app data dir");
+            let data_dir = salmon_core::path_dirs::data_dir()
+                .expect("resolving shared SalmonApp data dir");
             std::fs::create_dir_all(&data_dir).ok();
             migrate_legacy_data_dir(&data_dir);
             let db_path = data_dir.join("salmon.db");
@@ -127,6 +125,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::detect_clis,
+            commands::sign_out_session,
             commands::quit_app,
             commands::open_link,
             commands::create_topic,
@@ -254,9 +253,9 @@ fn redirect_stderr_to_log_file() {
 #[cfg(not(unix))]
 fn redirect_stderr_to_log_file() {}
 
-/// One-time copy of the legacy `app.salmon.desktop` data dir into the new
-/// `app.salmonapp.desktop` location. Renaming the bundle identifier moved
-/// `app_data_dir()` so existing Topics/messages would otherwise look gone.
+/// One-time copy of the legacy `app.salmon.desktop` data dir into the shared
+/// `app.salmonapp.desktop` location. Renaming the bundle identifier moved the
+/// data dir so existing Topics/messages would otherwise look gone.
 /// Idempotent: only runs when the new dir has no `salmon.db` yet.
 fn migrate_legacy_data_dir(new_dir: &std::path::Path) {
     if new_dir.join("salmon.db").exists() { return }

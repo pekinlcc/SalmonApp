@@ -1,0 +1,8 @@
+#!/bin/sh
+
+systemctl --user import-environment DISPLAY WAYLAND_DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP XDG_SESSION_TYPE DESKTOP_SESSION DBUS_SESSION_BUS_ADDRESS 2>/dev/null || true
+
+while true; do
+  /usr/bin/salmon-desktop
+  sleep 2
+done &

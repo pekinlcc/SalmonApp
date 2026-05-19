@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<labwc_config>
+  <core>
+    <decoration>server</decoration>
+    <gap>0</gap>
+  </core>
+
+  <theme>
+    <font place="ActiveWindow" name="sans" size="11" />
+    <font place="MenuItem" name="sans" size="11" />
+  </theme>
+
+  <keyboard>
+    <default />
+    <!-- Super+T / Super+Return: open a terminal. foot is in Depends; we also
+         fall back to whatever provides x-terminal-emulator so a user who
+         already has alacritty/gnome-terminal keeps that. -->
+    <keybind key="W-t">
+      <action name="Execute" command="sh -c 'command -v foot >/dev/null 2>&amp;1 &amp;&amp; exec foot; exec x-terminal-emulator'" />
+    </keybind>
+    <keybind key="W-Return">
+      <action name="Execute" command="sh -c 'command -v foot >/dev/null 2>&amp;1 &amp;&amp; exec foot; exec x-terminal-emulator'" />
+    </keybind>
+    <keybind key="W-q">
+      <action name="Close" />
+    </keybind>
+    <!-- Super+Shift+Q: sign out of the SalmonApp session (returns to GDM). -->
+    <keybind key="W-S-q">
+      <action name="Execute" command="sh -c 'loginctl terminate-session &quot;$XDG_SESSION_ID&quot; || loginctl terminate-user &quot;$USER&quot;'" />
+    </keybind>
+    <keybind key="W-Escape">
+      <action name="Exit" />
+    </keybind>
+  </keyboard>
+
+  <mouse>
+    <default />
+  </mouse>
+
+  <windowRules>
+    <windowRule title="SalmonApp Desktop" matchOnce="true">
+      <skipTaskbar>yes</skipTaskbar>
+      <skipWindowSwitcher>yes</skipWindowSwitcher>
+      <fixedPosition>yes</fixedPosition>
+      <action name="MoveTo" x="0" y="0" />
+      <action name="ToggleAlwaysOnBottom" />
+    </windowRule>
+  </windowRules>
+</labwc_config>

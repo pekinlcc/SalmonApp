@@ -16,8 +16,10 @@ use std::path::PathBuf;
 ///   1. Asking the user's login shell what PATH it sees (`$SHELL -ilc 'echo $PATH'`)
 ///   2. Falling back to a static list of common Homebrew / Node global paths
 ///
-/// On Linux/Windows this is a no-op — desktop launchers there inherit
-/// the user's PATH normally.
+/// On Linux this is a no-op for the regular Tauri-inside-GNOME case (GNOME
+/// inherits the user's PATH), but it is NOT a no-op when running as the
+/// SalmonApp Desktop labwc session: GDM-launched compositors get a stripped
+/// PATH and can't see `~/.nvm/...`, `~/.local/bin`, etc.
 pub fn fix_path_for_gui() {
     #[cfg(target_os = "macos")]
     {
@@ -34,9 +36,41 @@ pub fn fix_path_for_gui() {
             }
         }
     }
+    #[cfg(target_os = "linux")]
+    {
+        let in_salmon_session = std::env::var("XDG_CURRENT_DESKTOP")
+            .map(|v| v.contains("SalmonApp"))
+            .unwrap_or(false)
+            || std::env::var("DESKTOP_SESSION")
+                .map(|v| v == "salmon-shell")
+                .unwrap_or(false);
+        if !in_salmon_session {
+            return;
+        }
+        if let Some(shell_path) = ask_login_shell_for_path() {
+            prepend_paths(&shell_path);
+        }
+        if let Some(home) = std::env::var_os("HOME").map(PathBuf::from) {
+            for sub in [".local/bin", ".cargo/bin", ".bun/bin", ".npm-global/bin"] {
+                let p = home.join(sub);
+                if p.exists() {
+                    prepend_paths(&p.to_string_lossy());
+                }
+            }
+            let nvm_versions = home.join(".nvm/versions/node");
+            if let Ok(entries) = std::fs::read_dir(&nvm_versions) {
+                for e in entries.flatten() {
+                    let b = e.path().join("bin");
+                    if b.exists() {
+                        prepend_paths(&b.to_string_lossy());
+                    }
+                }
+            }
+        }
+    }
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 fn ask_login_shell_for_path() -> Option<String> {
     use std::process::Command;
     let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
@@ -67,7 +101,7 @@ fn ask_login_shell_for_path() -> Option<String> {
     }
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 fn prepend_paths(extra: &str) {
     let current = std::env::var("PATH").unwrap_or_default();
     let mut seen: Vec<String> = current.split(':').map(|s| s.to_string()).collect();

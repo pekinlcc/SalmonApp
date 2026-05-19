@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "SalmonApp Desktop",
-  "version": "1.20.2",
+  "version": "2.0.1",
   "identifier": "app.salmonapp.desktopshell",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -20,7 +20,8 @@
         "minHeight": 600,
         "decorations": false,
         "resizable": true,
-        "fullscreen": true
+        "fullscreen": false,
+        "maximized": true
       }
     ],
     "security": {
@@ -29,10 +30,10 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": "deb",
     "category": "DeveloperTool",
     "shortDescription": "SalmonApp Desktop — Ubuntu-style shell (Linux only)",
-    "longDescription": "SalmonApp Desktop is the Linux-only desktop-shell variant of SalmonApp. It renders the AI Brief widget + dock + launcher as a GNOME-style desktop view at launch, with the same Mail / Calendar / Tasks / Contacts data the regular SalmonApp uses. Phase 1: runs inside a normal Tauri window. Phase 3 (planned): replaces GNOME Shell as a Wayland session.",
+    "longDescription": "SalmonApp Desktop is the Linux-only desktop-shell variant of SalmonApp. It installs a labwc-backed Wayland session that renders the AI Brief widget + dock + launcher as the desktop shell, with the same Mail / Calendar / Tasks / Contacts data the regular SalmonApp uses.",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -43,7 +44,7 @@
     ],
     "linux": {
       "deb": {
-        "depends": ["libwebkit2gtk-4.1-0", "libgtk-3-0"]
+        "depends": ["labwc", "foot"]
       }
     },
     "macOS": {

@@ -3,6 +3,7 @@ import type { BriefingFeed, BriefingRunResult, BriefingStatus, BriefItem, CalEve
 
 export const api = {
   detectClis: () => invoke<{ clis: CliInfo[] }>("detect_clis"),
+  signOutSession: () => invoke<void>("sign_out_session"),
   quitApp: () => invoke<void>("quit_app"),
   openLink: (workdir: string, href: string) =>
     invoke<void>("open_link", { workdir, href }),
