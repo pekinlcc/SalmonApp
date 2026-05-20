@@ -1896,12 +1896,26 @@
       rgba(255,255,255,0.10) 32%);
   }
   .file-menu-title {
-    padding: 7px 10px 9px;
+    position: relative;
+    padding: 8px 10px 9px 18px;
     font: 600 12px/1.2 var(--font-pico);
-    color: rgba(255,255,255,0.92);
+    color: rgba(255,255,255,0.96);
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     border-bottom: 1px solid rgba(255,255,255,0.08);
     margin-bottom: 6px;
+    background: linear-gradient(90deg,
+      color-mix(in srgb, var(--dt-accent) 8%, transparent),
+      transparent 65%);
+  }
+  /* Accent rail before the filename — same gesture as the hover rail
+     on context-menu items (v2.0.22), but always-on here because this
+     row IS the header, not a hoverable action. */
+  .file-menu-title::before {
+    content: "";
+    position: absolute; left: 5px; top: 8px; bottom: 8px;
+    width: 3px; border-radius: 2px;
+    background: var(--dt-accent);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--dt-accent) 60%, transparent);
   }
   .context-sep { height: 1px; margin: 6px 4px; background: rgba(255,255,255,0.09); }
   .window-strip {
