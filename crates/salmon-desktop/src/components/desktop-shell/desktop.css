@@ -3039,7 +3039,12 @@
     border: 1px solid var(--dt-panel-border);
     color: var(--dt-text); cursor: pointer; text-align: left;
     transition: background 140ms ease, border-color 140ms ease, transform 140ms ease;
+    animation: dt-widget-in 280ms cubic-bezier(0.2,0.8,0.2,1) both 80ms;
   }
+  .ao-workspace:nth-child(2) { animation-delay: 130ms; }
+  .ao-workspace:nth-child(3) { animation-delay: 170ms; }
+  .ao-workspace:nth-child(4) { animation-delay: 200ms; }
+  .ao-workspace:nth-child(n+5) { animation-delay: 220ms; }
   .ao-workspace:hover {
     background: rgba(255,255,255,0.10);
     transform: translateY(-2px);
@@ -3113,8 +3118,18 @@
     border: 1px solid var(--dt-panel-border);
     overflow: hidden;
     transition: background 140ms ease, border-color 140ms ease, transform 200ms cubic-bezier(0.2,0.8,0.2,1), box-shadow 200ms;
-    animation: dt-widget-in 280ms cubic-bezier(0.2,0.8,0.2,1) both;
+    animation: dt-widget-in 320ms cubic-bezier(0.2,0.8,0.2,1) both 220ms;
   }
+  /* Workspaces land first (80-220ms), then window cards cascade in
+     after them so the overview reads as "your spaces, then what's
+     inside them". */
+  .ao-window-card:nth-child(1) { animation-delay: 240ms; }
+  .ao-window-card:nth-child(2) { animation-delay: 280ms; }
+  .ao-window-card:nth-child(3) { animation-delay: 315ms; }
+  .ao-window-card:nth-child(4) { animation-delay: 345ms; }
+  .ao-window-card:nth-child(5) { animation-delay: 370ms; }
+  .ao-window-card:nth-child(6) { animation-delay: 390ms; }
+  .ao-window-card:nth-child(n+7) { animation-delay: 410ms; }
   .ao-window-card:hover {
     background: rgba(255,255,255,0.10);
     border-color: rgba(255,255,255,0.18);
