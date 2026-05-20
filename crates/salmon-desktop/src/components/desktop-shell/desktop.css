@@ -3424,7 +3424,9 @@
   .tb-notification-head button:focus-visible,
   .tb-display-head button:focus-visible,
   .tb-display-row button:focus-visible,
-  .tb-display-advanced:focus-visible {
+  .tb-display-advanced:focus-visible,
+  .window-switch-card:focus-visible,
+  .tips-ticker-close:focus-visible {
     outline: 2px solid color-mix(in srgb, var(--dt-accent) 80%, white);
     outline-offset: 2px;
     box-shadow: 0 0 0 4px color-mix(in srgb, var(--dt-accent) 24%, transparent);
