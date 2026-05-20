@@ -966,9 +966,35 @@
   .widget-label .sub { font: 400 12px/1.4 var(--font-ola); color: rgba(255,255,255,0.55); margin-top: 3px; display: flex; align-items: center; gap: 6px; }
   .live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green-6); box-shadow: 0 0 8px rgba(0,199,67,0.7); animation: dt-live-pulse 2s ease-in-out infinite; flex-shrink: 0; }
   .widget-actions { display: flex; align-items: center; gap: 6px; }
-  .w-action { width: 28px; height: 28px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08); color: rgba(255,255,255,0.85); transition: background 120ms; cursor: pointer; }
-  .w-action:hover { background: rgba(255,255,255,0.14); }
-  .w-action svg { width: 14px; height: 14px; stroke-width: 2; }
+  .w-action {
+    width: 28px; height: 28px; border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.08);
+    color: rgba(255,255,255,0.85); cursor: pointer;
+    transition: background 160ms ease, border-color 160ms ease, color 160ms ease,
+                transform 200ms cubic-bezier(0.2,0.8,0.2,1),
+                box-shadow 220ms ease;
+  }
+  .w-action:hover {
+    background: linear-gradient(135deg,
+      color-mix(in srgb, var(--dt-accent) 22%, rgba(255,255,255,0.10)),
+      rgba(255,255,255,0.10));
+    border-color: color-mix(in srgb, var(--dt-accent) 35%, rgba(255,255,255,0.10));
+    color: rgba(255,255,255,0.98);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.22),
+                0 0 14px color-mix(in srgb, var(--dt-accent) 22%, transparent);
+  }
+  .w-action:active { transform: translateY(0) scale(0.92); }
+  .w-action svg {
+    width: 14px; height: 14px; stroke-width: 2;
+    transition: transform 240ms cubic-bezier(0.2,0.8,0.2,1);
+  }
+  /* The refresh button (Sparkle icon) gets a tiny rotate on hover —
+     hints at "refresh / regenerate" without being literal. */
+  .w-action[title="刷新"]:hover svg,
+  .w-action[title*="refresh" i]:hover svg { transform: rotate(60deg); }
 
   /* AI orb */
   .ai-orb {

@@ -1,6 +1,6 @@
 {
   "name": "salmonapp-desktop",
-  "version": "2.0.40",
+  "version": "2.0.41",
   "type": "module",
   "private": true,
   "scripts": {
