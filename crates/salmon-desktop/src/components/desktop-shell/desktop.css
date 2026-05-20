@@ -1249,11 +1249,26 @@
   .brief-title { font: 500 14px/1.35 var(--font-pico); color: rgba(255,255,255,0.95);
     display: flex; align-items: center; gap: 8px;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .brief-title .chip { font: 600 10px/1 var(--font-pico); padding: 3px 6px; border-radius: 4px;
-    background: rgba(255,89,89,0.18); color: #ffaaa0; letter-spacing: 0.04em; text-transform: uppercase; flex-shrink: 0; }
-  .brief-title .chip.--info { background: rgba(13,114,255,0.20); color: #8cb8ff; }
-  .brief-title .chip.--ok   { background: rgba(0,199,67,0.18); color: #82e29b; }
-  .brief-title .chip.--warn { background: rgba(255,191,0,0.18); color: #ffd566; }
+  .brief-title .chip {
+    font: 600 10px/1 var(--font-pico); padding: 3px 6px; border-radius: 4px;
+    background: rgba(255,89,89,0.18); color: #ffaaa0;
+    letter-spacing: 0.04em; text-transform: uppercase;
+    flex-shrink: 0;
+    border: 1px solid rgba(255,89,89,0.32);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.10);
+  }
+  .brief-title .chip.--info {
+    background: rgba(13,114,255,0.20); color: #8cb8ff;
+    border-color: rgba(13,114,255,0.36);
+  }
+  .brief-title .chip.--ok {
+    background: rgba(0,199,67,0.18); color: #82e29b;
+    border-color: rgba(0,199,67,0.34);
+  }
+  .brief-title .chip.--warn {
+    background: rgba(255,191,0,0.18); color: #ffd566;
+    border-color: rgba(255,191,0,0.36);
+  }
   .brief-sub { font: 400 12px/1.4 var(--font-ola); color: rgba(255,255,255,0.55); margin-top: 2px;
     display: flex; align-items: center; gap: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .brief-sub .who { color: rgba(255,255,255,0.72); }
@@ -1856,10 +1871,21 @@
     font: 600 9px/1 var(--font-pico); padding: 2.5px 5px; border-radius: 4px;
     background: rgba(255,89,89,0.18); color: #ffaaa0;
     letter-spacing: 0.04em; text-transform: uppercase; flex-shrink: 0;
+    border: 1px solid rgba(255,89,89,0.32);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.10);
   }
-  .ai-pop-item .tx .t .chip.--info { background: rgba(13,114,255,0.20); color: #8cb8ff; }
-  .ai-pop-item .tx .t .chip.--ok   { background: rgba(0,199,67,0.18); color: #82e29b; }
-  .ai-pop-item .tx .t .chip.--warn { background: rgba(255,191,0,0.18); color: #ffd566; }
+  .ai-pop-item .tx .t .chip.--info {
+    background: rgba(13,114,255,0.20); color: #8cb8ff;
+    border-color: rgba(13,114,255,0.36);
+  }
+  .ai-pop-item .tx .t .chip.--ok {
+    background: rgba(0,199,67,0.18); color: #82e29b;
+    border-color: rgba(0,199,67,0.34);
+  }
+  .ai-pop-item .tx .t .chip.--warn {
+    background: rgba(255,191,0,0.18); color: #ffd566;
+    border-color: rgba(255,191,0,0.36);
+  }
   .ai-pop-item .tx .s {
     font: 400 11px/1.3 var(--font-ola); color: rgba(255,255,255,0.55);
     margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
