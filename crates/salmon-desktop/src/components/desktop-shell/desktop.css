@@ -1880,7 +1880,9 @@
     color: rgba(255,255,255,0.95);
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     display: flex; align-items: center; gap: 6px;
+    transition: color 160ms ease;
   }
+  .ai-pop-item:hover .tx .t { color: rgba(255,255,255,1); }
   .ai-pop-item .tx .t .chip {
     font: 600 9px/1 var(--font-pico); padding: 2.5px 5px; border-radius: 4px;
     background: rgba(255,89,89,0.18); color: #ffaaa0;
@@ -1903,7 +1905,9 @@
   .ai-pop-item .tx .s {
     font: 400 11px/1.3 var(--font-ola); color: rgba(255,255,255,0.55);
     margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    transition: color 160ms ease;
   }
+  .ai-pop-item:hover .tx .s { color: rgba(255,255,255,0.74); }
   .ai-pop-item .cta {
     display: inline-flex; align-items: center; gap: 3px;
     padding: 5px 8px; border-radius: 7px;
