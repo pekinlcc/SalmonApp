@@ -1841,7 +1841,8 @@
   .dock-ai-tile .ai-anchor { left: 70px; transform-origin: bottom left; }
 
   .ai-peek {
-    width: 320px; padding: 12px 14px; border-radius: 16px;
+    width: 320px; max-width: calc(100vw - 40px);
+    padding: 12px 14px; border-radius: 16px;
     background: rgba(20,22,30,0.78);
     backdrop-filter: blur(28px) saturate(1.4);
     -webkit-backdrop-filter: blur(28px) saturate(1.4);
@@ -1889,7 +1890,8 @@
   .ai-peek-foot .open svg { width: 11px; height: 11px; }
 
   .ai-pop {
-    width: 420px; border-radius: 22px;
+    width: 420px; max-width: calc(100vw - 40px);
+    border-radius: 22px;
     background: rgba(18,16,28,0.78);
     backdrop-filter: blur(40px) saturate(180%);
     -webkit-backdrop-filter: blur(40px) saturate(180%);
