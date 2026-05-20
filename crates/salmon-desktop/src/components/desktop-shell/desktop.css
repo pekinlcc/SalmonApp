@@ -219,11 +219,21 @@
   .appearance-title { font: 700 17px/1.2 var(--font-pico); color: var(--dt-text); }
   .appearance-sub { margin-top: 5px; font: 500 12px/1 var(--font-pico); color: var(--dt-muted); }
   .appearance-head button {
-    width: 28px; height: 28px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+    width: 28px; height: 28px; border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
     background: var(--dt-control-bg); border: 1px solid var(--dt-panel-border); color: var(--dt-text);
     font: 700 18px/1 var(--font-pico); cursor: pointer;
+    transition: background 180ms ease, border-color 180ms ease, color 180ms ease,
+                transform 240ms cubic-bezier(0.2,0.8,0.2,1), box-shadow 220ms ease;
   }
-  .appearance-head button:hover { background: var(--dt-control-bg-hover); }
+  .appearance-head button:hover {
+    background: rgba(255,85,85,0.18);
+    border-color: rgba(255,85,85,0.40);
+    color: #ff6b6b;
+    transform: rotate(90deg) scale(1.05);
+    box-shadow: 0 0 18px rgba(255,85,85,0.30);
+  }
+  .appearance-head button:active { transform: rotate(90deg) scale(0.94); }
   .wallpaper-choices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
   .wallpaper-choice {
     min-width: 0; padding: 8px; border-radius: 10px;
@@ -2268,8 +2278,21 @@
     border: 1px solid var(--dt-panel-border);
     color: var(--dt-text);
     font: 700 19px/1 var(--font-pico);
+    transition: background 180ms ease, border-color 180ms ease, color 180ms ease,
+                transform 240ms cubic-bezier(0.2,0.8,0.2,1), box-shadow 220ms ease;
   }
-  .shortcuts-close:hover { background: var(--dt-control-bg-hover); }
+  /* Close-button hover language across the shell: rotate 90°, brighten
+     to a soft red, lift slightly. Same gesture for the shortcuts
+     overlay, appearance panel, and Activities window cards so any × in
+     the shell behaves the same way. */
+  .shortcuts-close:hover {
+    background: rgba(255,85,85,0.18);
+    border-color: rgba(255,85,85,0.40);
+    color: #ff6b6b;
+    transform: rotate(90deg) scale(1.05);
+    box-shadow: 0 0 18px rgba(255,85,85,0.30);
+  }
+  .shortcuts-close:active { transform: rotate(90deg) scale(0.94); }
   .shortcuts-grid {
     flex: 1; min-height: 0;
     padding: 16px 20px 18px;
@@ -2703,10 +2726,19 @@
     background: rgba(0,0,0,0.45); color: rgba(255,255,255,0.85);
     border: 1px solid rgba(255,255,255,0.10);
     font: 700 14px/1 var(--font-pico);
-    opacity: 0; transition: opacity 140ms ease, background 140ms ease;
+    opacity: 0;
+    transition: opacity 160ms ease, background 180ms ease, color 180ms ease,
+                transform 240ms cubic-bezier(0.2,0.8,0.2,1), box-shadow 220ms ease;
   }
   .ao-window-card:hover .ao-window-close { opacity: 1; }
-  .ao-window-close:hover { background: rgba(255,89,89,0.85); color: white; }
+  .ao-window-close:hover {
+    background: rgba(255,85,85,0.92);
+    border-color: rgba(255,85,85,0.65);
+    color: white;
+    transform: rotate(90deg) scale(1.08);
+    box-shadow: 0 0 16px rgba(255,85,85,0.55);
+  }
+  .ao-window-close:active { transform: rotate(90deg) scale(0.92); }
 
   .ao-empty {
     flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
