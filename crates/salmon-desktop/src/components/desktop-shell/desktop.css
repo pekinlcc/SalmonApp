@@ -2544,6 +2544,20 @@
     transform: translateY(-3px);
     box-shadow: var(--dt-shadow-md);
   }
+  /* Per-app hover halo — Activities cards inherit the same gesture
+     as the dock icons (v2.0.15) and brief icons (v2.0.18). Mail's
+     card glows blue, Terminal's glows graphite, etc. Wraps both
+     the base box-shadow and the colored halo so the lift stays
+     consistent. */
+  .ao-window-card.bg-mail:hover    { box-shadow: var(--dt-shadow-md), 0 0 32px rgba(28,115,232,0.40); border-color: color-mix(in srgb, #1c73e8 38%, rgba(255,255,255,0.18)); }
+  .ao-window-card.bg-cal:hover     { box-shadow: var(--dt-shadow-md), 0 0 32px rgba(216,73,104,0.40); border-color: color-mix(in srgb, #d84968 38%, rgba(255,255,255,0.18)); }
+  .ao-window-card.bg-todo:hover    { box-shadow: var(--dt-shadow-md), 0 0 32px rgba(15,156,86,0.40); border-color: color-mix(in srgb, #0f9c56 38%, rgba(255,255,255,0.18)); }
+  .ao-window-card.bg-salmon:hover  { box-shadow: var(--dt-shadow-md), 0 0 32px rgba(232,93,117,0.42); border-color: color-mix(in srgb, #e85d75 40%, rgba(255,255,255,0.18)); }
+  .ao-window-card.bg-files:hover   { box-shadow: var(--dt-shadow-md), 0 0 32px rgba(233,131,46,0.40); border-color: color-mix(in srgb, #e9832e 38%, rgba(255,255,255,0.18)); }
+  .ao-window-card.bg-chrome:hover  { box-shadow: var(--dt-shadow-md), 0 0 32px rgba(255,255,255,0.32); border-color: rgba(255,255,255,0.32); }
+  .ao-window-card.bg-term:hover    { box-shadow: var(--dt-shadow-md), 0 0 30px rgba(180,180,200,0.30); border-color: rgba(255,255,255,0.22); }
+  .ao-window-card.bg-set:hover     { box-shadow: var(--dt-shadow-md), 0 0 32px rgba(174,184,200,0.36); border-color: color-mix(in srgb, #aeb8c8 36%, rgba(255,255,255,0.18)); }
+  .ao-window-card.bg-launcher:hover{ box-shadow: var(--dt-shadow-md), 0 0 30px rgba(114,123,141,0.40); border-color: color-mix(in srgb, #727b8d 38%, rgba(255,255,255,0.18)); }
   .ao-window-body {
     width: 100%; min-width: 0; padding: 14px 16px; border-radius: 13px;
     display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 12px;
