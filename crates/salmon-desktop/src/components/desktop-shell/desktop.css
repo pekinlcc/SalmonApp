@@ -326,6 +326,10 @@
     background: var(--dt-control-bg-hover);
     transform: translateY(-1px);
   }
+  .appearance-segment button:active, .accent-swatch:active {
+    transform: translateY(0) scale(0.96);
+    transition-duration: 90ms;
+  }
   .appearance-segment button.is-active, .accent-swatch.is-active {
     border-color: var(--dt-accent);
     box-shadow: 0 0 0 1px color-mix(in srgb, var(--dt-accent) 38%, transparent) inset;
@@ -2470,6 +2474,7 @@
     border-left: 1px solid rgba(255,255,255,0.08);
   }
   .window-chip-main:hover, .window-chip-action:hover { background: rgba(255,255,255,0.10); }
+  .window-chip-main:active, .window-chip-action:active { transform: scale(0.95); transition-duration: 90ms; }
   .window-chip-action:disabled {
     color: rgba(255,255,255,0.28); cursor: not-allowed; background: transparent;
   }
