@@ -264,11 +264,50 @@
     color: var(--dt-text); font: 700 11px/1 var(--font-pico);
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-  .appearance-segment button:hover, .accent-swatch:hover { background: var(--dt-control-bg-hover); }
+  .appearance-segment button, .accent-swatch {
+    transition: background 160ms ease, border-color 160ms ease,
+                box-shadow 220ms ease, transform 200ms cubic-bezier(0.2,0.8,0.2,1);
+  }
+  .appearance-segment button:hover, .accent-swatch:hover {
+    background: var(--dt-control-bg-hover);
+    transform: translateY(-1px);
+  }
   .appearance-segment button.is-active, .accent-swatch.is-active {
     border-color: var(--dt-accent);
     box-shadow: 0 0 0 1px color-mix(in srgb, var(--dt-accent) 38%, transparent) inset;
   }
+  .accent-swatch span {
+    transition: transform 220ms cubic-bezier(0.2,0.8,0.2,1), box-shadow 220ms ease;
+  }
+  /* Each swatch's color halo on hover uses its own dot color so the
+     user sees the upcoming accent's hue blooming behind the chip. */
+  .accent-swatch.swatch-salmon:hover  { box-shadow: 0 0 0 0 transparent, 0 0 22px rgba(255,138,89,0.40); }
+  .accent-swatch.swatch-blue:hover    { box-shadow: 0 0 0 0 transparent, 0 0 22px rgba(88,166,255,0.40); }
+  .accent-swatch.swatch-green:hover   { box-shadow: 0 0 0 0 transparent, 0 0 22px rgba(74,222,128,0.40); }
+  .accent-swatch.swatch-purple:hover  { box-shadow: 0 0 0 0 transparent, 0 0 22px rgba(184,130,255,0.45); }
+  .accent-swatch:hover span {
+    transform: scale(1.18);
+    box-shadow: 0 0 0 2px rgba(255,255,255,0.20), 0 0 10px currentColor;
+  }
+  .accent-swatch.swatch-salmon:hover span { color: rgb(255,138,89); }
+  .accent-swatch.swatch-blue:hover   span { color: rgb(88,166,255); }
+  .accent-swatch.swatch-green:hover  span { color: rgb(74,222,128); }
+  .accent-swatch.swatch-purple:hover span { color: rgb(184,130,255); }
+  /* Active state — the chosen accent dot sits inside an accent-tinted
+     chip and the dot itself gets a stronger surrounding glow ring. */
+  .accent-swatch.is-active {
+    background: linear-gradient(135deg,
+      color-mix(in srgb, var(--dt-accent) 18%, var(--dt-control-bg)),
+      var(--dt-control-bg));
+  }
+  .accent-swatch.is-active span {
+    transform: scale(1.10);
+    box-shadow: 0 0 0 2px rgba(255,255,255,0.22), 0 0 12px currentColor;
+  }
+  .accent-swatch.swatch-salmon.is-active span { color: rgb(255,138,89); }
+  .accent-swatch.swatch-blue.is-active   span { color: rgb(88,166,255); }
+  .accent-swatch.swatch-green.is-active  span { color: rgb(74,222,128); }
+  .accent-swatch.swatch-purple.is-active span { color: rgb(184,130,255); }
   .appearance-scale { grid-template-columns: repeat(5, minmax(0, 1fr)); }
   .appearance-select-grid {
     display: grid; grid-template-columns: 1fr; gap: 8px;
