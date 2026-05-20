@@ -2084,7 +2084,18 @@
     background: var(--dt-accent);
     box-shadow: 0 0 8px color-mix(in srgb, var(--dt-accent) 60%, transparent);
   }
-  .context-sep { height: 1px; margin: 6px 4px; background: rgba(255,255,255,0.09); }
+  /* Gradient fade instead of a flat hairline — the line dissolves at
+     the menu edges so it feels less like a hard divider and more
+     like a soft section break. Same treatment as the existing
+     dock-sep but horizontal. */
+  .context-sep {
+    height: 1px; margin: 6px 4px;
+    background: linear-gradient(90deg,
+      transparent,
+      rgba(255,255,255,0.16) 30%,
+      rgba(255,255,255,0.16) 70%,
+      transparent);
+  }
   .window-strip {
     position: absolute; left: 50%; bottom: 94px; transform: translateX(-50%);
     z-index: 38; max-width: min(760px, calc(100vw - 36px));
