@@ -1279,8 +1279,23 @@
      reads as "this is the window that takes focus on Alt+Tab". */
   .dock-icon:hover .dock-running { width: 18px; box-shadow: 0 0 14px rgba(255,255,255,0.65); }
   .dock-icon:hover .dock-running.accent { box-shadow: 0 0 16px rgba(13,114,255,0.85); }
-  .dock-sep { width: 1px; height: 36px; margin: 0 6px;
-    background: linear-gradient(180deg, transparent, rgba(255,255,255,0.18), transparent); flex-shrink: 0; }
+  .dock-sep {
+    width: 1px; height: 36px; margin: 0 6px;
+    background: linear-gradient(180deg, transparent, rgba(255,255,255,0.18), transparent);
+    flex-shrink: 0;
+    transition: background 260ms ease, box-shadow 260ms ease, width 200ms ease;
+  }
+  /* When the dock is hovered, the separators brighten and pick up a
+     soft accent glow so the dividing lines feel like they're part of
+     the same surface that's "lit up" — closer to GNOME's hover
+     activation than three static greylines. */
+  .dock:hover .dock-sep {
+    background: linear-gradient(180deg,
+      transparent,
+      color-mix(in srgb, var(--dt-accent) 65%, rgba(255,255,255,0.30)),
+      transparent);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--dt-accent) 35%, transparent);
+  }
   .dock-badge { position: absolute; top: -4px; right: -4px;
     min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px;
     display: inline-flex; align-items: center; justify-content: center;
