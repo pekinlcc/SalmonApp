@@ -2225,9 +2225,24 @@
     color: white; font: 700 15px/1 var(--font-pico);
   }
   .window-switcher-empty {
-    padding: 18px; color: rgba(255,255,255,0.68);
-    font: 500 13px/1 var(--font-pico); text-align: center;
+    position: relative;
+    padding: 32px 24px; color: rgba(255,255,255,0.72);
+    font: 500 13px/1.4 var(--font-pico); text-align: center;
   }
+  /* Soft accent halo behind the empty message — same gesture the
+     ao-empty uses, scaled down for the smaller switcher panel. */
+  .window-switcher-empty::before {
+    content: "";
+    position: absolute; top: 50%; left: 50%;
+    width: 110px; height: 110px; margin: -55px 0 0 -55px;
+    border-radius: 50%; pointer-events: none;
+    background: radial-gradient(circle,
+      color-mix(in srgb, var(--dt-accent) 18%, transparent),
+      transparent 70%);
+    animation: dt-summary-glow 6s ease-in-out infinite;
+    z-index: 0;
+  }
+  .window-switcher-empty > * { position: relative; z-index: 1; }
   /* ---------- Keyboard Shortcuts Cheatsheet ---------- */
   .shortcuts-overlay {
     position: absolute; inset: 0; z-index: 225;
