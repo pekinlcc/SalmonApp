@@ -1473,12 +1473,37 @@
   }
   .desktop-file-menu { width: 220px; }
   .desktop-context-menu button, .desktop-file-menu button {
+    position: relative;
     width: 100%; height: 34px; display: flex; align-items: center;
-    padding: 0 10px; border-radius: 8px;
+    padding: 0 12px; border-radius: 8px;
     color: rgba(255,255,255,0.90); font: 500 12px/1 var(--font-pico);
     text-align: left;
+    transition: background 140ms ease, color 140ms ease, padding-left 160ms ease, transform 90ms ease;
   }
-  .desktop-context-menu button:hover, .desktop-file-menu button:hover { background: rgba(255,255,255,0.10); }
+  /* Hover: accent-tinted background + a thin accent ring on the left
+     so the highlighted row reads as "selected" the same way GNOME's
+     menus do, and the text shifts 2px right to make room for the rail. */
+  .desktop-context-menu button:hover, .desktop-file-menu button:hover {
+    background: linear-gradient(90deg,
+      color-mix(in srgb, var(--dt-accent) 22%, transparent),
+      rgba(255,255,255,0.08) 32%);
+    color: rgba(255,255,255,0.98);
+    padding-left: 16px;
+  }
+  .desktop-context-menu button:hover::before, .desktop-file-menu button:hover::before {
+    content: "";
+    position: absolute; left: 5px; top: 7px; bottom: 7px;
+    width: 3px; border-radius: 2px;
+    background: var(--dt-accent);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--dt-accent) 60%, transparent);
+  }
+  /* Active: tiny press-down so clicks feel tactile. */
+  .desktop-context-menu button:active, .desktop-file-menu button:active {
+    transform: scale(0.985);
+    background: linear-gradient(90deg,
+      color-mix(in srgb, var(--dt-accent) 30%, transparent),
+      rgba(255,255,255,0.10) 32%);
+  }
   .file-menu-title {
     padding: 7px 10px 9px;
     font: 600 12px/1.2 var(--font-pico);
