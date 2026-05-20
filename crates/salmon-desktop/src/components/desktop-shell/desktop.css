@@ -2120,7 +2120,20 @@
     background: rgba(255,255,255,0.10) !important;
     border-color: rgba(255,255,255,0.18);
     transform: translateY(-2px);
+    box-shadow: 0 8px 22px rgba(0,0,0,0.30);
   }
+  /* Same per-app halo treatment used in the dock, brief, and
+     Activities Overview — Alt+Tab cards now also light up in
+     their app's brand color when the user tabs onto them. */
+  .window-switch-card.bg-mail:hover    { box-shadow: 0 8px 22px rgba(0,0,0,0.30), 0 0 28px rgba(28,115,232,0.42); border-color: color-mix(in srgb, #1c73e8 38%, rgba(255,255,255,0.18)); }
+  .window-switch-card.bg-cal:hover     { box-shadow: 0 8px 22px rgba(0,0,0,0.30), 0 0 28px rgba(216,73,104,0.42); border-color: color-mix(in srgb, #d84968 38%, rgba(255,255,255,0.18)); }
+  .window-switch-card.bg-todo:hover    { box-shadow: 0 8px 22px rgba(0,0,0,0.30), 0 0 28px rgba(15,156,86,0.42); border-color: color-mix(in srgb, #0f9c56 38%, rgba(255,255,255,0.18)); }
+  .window-switch-card.bg-salmon:hover  { box-shadow: 0 8px 22px rgba(0,0,0,0.30), 0 0 28px rgba(232,93,117,0.45); border-color: color-mix(in srgb, #e85d75 40%, rgba(255,255,255,0.18)); }
+  .window-switch-card.bg-files:hover   { box-shadow: 0 8px 22px rgba(0,0,0,0.30), 0 0 28px rgba(233,131,46,0.42); border-color: color-mix(in srgb, #e9832e 38%, rgba(255,255,255,0.18)); }
+  .window-switch-card.bg-chrome:hover  { box-shadow: 0 8px 22px rgba(0,0,0,0.30), 0 0 28px rgba(255,255,255,0.32); border-color: rgba(255,255,255,0.30); }
+  .window-switch-card.bg-term:hover    { box-shadow: 0 8px 22px rgba(0,0,0,0.30), 0 0 26px rgba(180,180,200,0.30); border-color: rgba(255,255,255,0.22); }
+  .window-switch-card.bg-set:hover     { box-shadow: 0 8px 22px rgba(0,0,0,0.30), 0 0 28px rgba(174,184,200,0.36); border-color: color-mix(in srgb, #aeb8c8 36%, rgba(255,255,255,0.18)); }
+  .window-switch-card.bg-launcher:hover{ box-shadow: 0 8px 22px rgba(0,0,0,0.30), 0 0 26px rgba(114,123,141,0.42); border-color: color-mix(in srgb, #727b8d 38%, rgba(255,255,255,0.18)); }
   .window-switch-glyph {
     width: 44px; height: 44px; border-radius: 12px;
     display: grid; place-items: center; color: white;
