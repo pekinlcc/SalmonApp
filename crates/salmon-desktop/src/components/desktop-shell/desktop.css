@@ -752,14 +752,38 @@
     -webkit-background-clip: text; background-clip: text; color: transparent;
     animation: dt-summary-glow 5.5s ease-in-out infinite; }
 
-  .thinking-row { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; padding: 9px 12px;
+  .thinking-row {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 14px; padding: 9px 12px;
     background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px;
-    font: 400 12.5px/1.4 var(--font-ola); color: rgba(255,255,255,0.72); }
-  .typing { display: inline-flex; gap: 3px; }
-  .typing span { width: 4px; height: 4px; border-radius: 50%; background: rgba(255,255,255,0.7);
-    animation: dt-typing-bounce 1.2s ease-in-out infinite; }
-  .typing span:nth-child(2) { animation-delay: 0.15s; }
-  .typing span:nth-child(3) { animation-delay: 0.30s; }
+    font: 400 12.5px/1.4 var(--font-ola); color: rgba(255,255,255,0.78);
+    position: relative; overflow: hidden;
+  }
+  /* Slow color-sweep across the row so "Salmon is thinking" reads as
+     active even when the user's eye is on something else. 5.5s loop
+     so it stays subtle — never grabs attention from the brief items. */
+  .thinking-row::before {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background: linear-gradient(115deg,
+      transparent 30%,
+      color-mix(in srgb, var(--dt-accent) 14%, transparent) 50%,
+      transparent 70%);
+    background-size: 220% 100%;
+    animation: dt-tile-sheen 5.5s linear infinite;
+  }
+  .typing { display: inline-flex; gap: 3px; align-items: center; position: relative; z-index: 1; }
+  .typing span {
+    width: 5px; height: 5px; border-radius: 50%;
+    animation: dt-typing-bounce 1.15s ease-in-out infinite;
+    box-shadow: 0 0 6px currentColor;
+  }
+  /* Each dot wears one of the AI-orb conic-gradient colors — the
+     same orange / pink / purple that the dock AI tile and the brief
+     summary gradient draw from, so the "thinking" indicator reads
+     as a tiny slice of the orb's spectrum. */
+  .typing span:nth-child(1) { background: #ff7a59; color: #ff7a59; }
+  .typing span:nth-child(2) { background: #ff3366; color: #ff3366; animation-delay: 0.12s; }
+  .typing span:nth-child(3) { background: #9d47ff; color: #9d47ff; animation-delay: 0.24s; }
+  .thinking-row > * { position: relative; z-index: 1; }
 
   .brief-list { display: flex; flex-direction: column; gap: 6px; }
   .brief-item { display: grid; grid-template-columns: 36px 1fr auto; align-items: center; gap: 12px;
