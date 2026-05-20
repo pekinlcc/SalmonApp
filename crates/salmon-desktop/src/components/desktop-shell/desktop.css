@@ -863,6 +863,7 @@
   .tb-display-empty > * { position: relative; z-index: 1; }
   .tb-display-advanced { width: 100%; }
   .tb-display-head button:hover, .tb-display-row button:hover, .tb-display-advanced:hover { background: rgba(255,255,255,0.12); }
+  .tb-display-head button:active, .tb-display-row button:active, .tb-display-advanced:active { transform: scale(0.96); transition-duration: 90ms; }
   .tb-note-card {
     margin-top: 12px; display: flex; align-items: center; justify-content: space-between; gap: 12px;
     padding: 12px; border-radius: 12px;
@@ -975,6 +976,7 @@
                 box-shadow 220ms ease;
   }
   .tb-notification-row:hover { background: rgba(255,255,255,0.10); transform: translateY(-1px); }
+  .tb-notification-row:active { transform: translateY(0) scale(0.985); transition-duration: 90ms; }
   /* Per-kind hover halo using the same icon palettes (.kind-mail
      blue, .kind-calendar coral, .kind-task green, .kind-ai
      conic-pink) — gives the notification row the same color feedback
@@ -1792,6 +1794,7 @@
       0 0 38px rgba(240,55,118,0.34),
       0 0 22px rgba(26,121,255,0.28);
   }
+  .dock-ai-tile:active { transform: translateY(-2px) scale(0.985); transition-duration: 90ms; }
   .dock-ai-tile .sheen { position: absolute; inset: 0; border-radius: inherit; overflow: hidden; pointer-events: none; }
   /* Two-layer sheen: a slow primary highlight (9s) and a quicker
      secondary one (5.5s) at a tighter angle. The phase offset means
@@ -2014,6 +2017,7 @@
   .ai-pop-item:nth-child(4) { animation-delay: 195ms; }
   .ai-pop-item:nth-child(n+5) { animation-delay: 230ms; }
   .ai-pop-item:hover { background: rgba(255,255,255,0.08); }
+  .ai-pop-item:active { transform: scale(0.99); transition-duration: 90ms; }
   .ai-pop-item .ic {
     width: 30px; height: 30px; border-radius: 9px;
     display: grid; place-items: center;
