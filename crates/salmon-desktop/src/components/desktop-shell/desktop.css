@@ -175,7 +175,7 @@
     animation: dt-wp-drift 38s ease-in-out infinite;
     will-change: transform;
   }
-  .wp-horizon, .wp-salmon {
+  .wp-horizon, .wp-salmon, .wp-ubuntu, .wp-deep {
     animation: dt-wp-drift 52s ease-in-out infinite;
     will-change: transform;
   }
