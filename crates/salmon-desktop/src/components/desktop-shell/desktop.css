@@ -709,8 +709,35 @@
     border-radius: 12px;
     background: rgba(255,255,255,0.055); border: 1px solid rgba(255,255,255,0.075);
     color: rgba(255,255,255,0.92); text-align: left;
+    transition: background 160ms ease, border-color 160ms ease,
+                transform 200ms cubic-bezier(0.2,0.8,0.2,1),
+                box-shadow 220ms ease;
   }
-  .tb-notification-row:hover { background: rgba(255,255,255,0.10); }
+  .tb-notification-row:hover { background: rgba(255,255,255,0.10); transform: translateY(-1px); }
+  /* Per-kind hover halo using the same icon palettes (.kind-mail
+     blue, .kind-calendar coral, .kind-task green, .kind-ai
+     conic-pink) — gives the notification row the same color feedback
+     the user already sees on its leading icon. */
+  .tb-notification-row.kind-mail:hover {
+    border-color: color-mix(in srgb, #1c73e8 38%, rgba(255,255,255,0.10));
+    background: linear-gradient(135deg, rgba(28,115,232,0.14), rgba(255,255,255,0.07));
+    box-shadow: 0 0 22px rgba(28,115,232,0.25);
+  }
+  .tb-notification-row.kind-calendar:hover {
+    border-color: color-mix(in srgb, #d84968 38%, rgba(255,255,255,0.10));
+    background: linear-gradient(135deg, rgba(217,30,90,0.14), rgba(255,255,255,0.07));
+    box-shadow: 0 0 22px rgba(217,30,90,0.25);
+  }
+  .tb-notification-row.kind-task:hover {
+    border-color: color-mix(in srgb, #0f9c56 38%, rgba(255,255,255,0.10));
+    background: linear-gradient(135deg, rgba(15,156,86,0.14), rgba(255,255,255,0.07));
+    box-shadow: 0 0 22px rgba(15,156,86,0.25);
+  }
+  .tb-notification-row.kind-ai:hover {
+    border-color: color-mix(in srgb, #ff3366 38%, rgba(255,255,255,0.10));
+    background: linear-gradient(135deg, rgba(255,51,102,0.16), rgba(157,71,255,0.10) 60%, rgba(255,255,255,0.07));
+    box-shadow: 0 0 26px rgba(255,80,130,0.30);
+  }
   .tb-notification-icon {
     width: 34px; height: 34px; border-radius: 10px;
     display: grid; place-items: center; color: white;
