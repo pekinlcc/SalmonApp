@@ -27,6 +27,7 @@ import { AIPeek } from "./AIPeek";
 import { AIPopover } from "./AIPopover";
 import { ActivitiesOverview, type ActivitiesWorkspace } from "./ActivitiesOverview";
 import { WelcomeOverlay } from "./WelcomeOverlay";
+import { ShortcutsOverlay } from "./ShortcutsOverlay";
 import { useDesktopBrief, briefItemCount } from "../../lib/useDesktopBrief";
 import { isShellWindow, openAppWindow } from "../../lib/openAppWindow";
 import { api, type SystemAppKind } from "../../lib/api";
@@ -159,6 +160,7 @@ export function DesktopView(props: Props) {
   const [activitiesOpen, setActivitiesOpen] = useState(false);
   const [overviewWorkspaces, setOverviewWorkspaces] = useState<ActivitiesWorkspace[]>([]);
   const [welcomeOpen, setWelcomeOpen] = useState<boolean>(() => loadWelcomeNeeded());
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [openWindows, setOpenWindows] = useState<OpenWindowItem[]>([]);
   const [systemAppStatus, setSystemAppStatus] = useState<SystemAppStatus>(EMPTY_SYSTEM_APP_STATUS);
   const [desktopItems, setDesktopItems] = useState<FileEntry[]>([]);
@@ -502,11 +504,17 @@ export function DesktopView(props: Props) {
         e.preventDefault();
         setActivitiesOpen((v) => !v);
       }
+      // Ctrl+/ or Super+/ — keyboard shortcuts cheatsheet (GNOME-style)
+      if ((e.ctrlKey || e.metaKey) && (e.key === "/" || e.key === "?")) {
+        e.preventDefault();
+        setShortcutsOpen((v) => !v);
+      }
       if (e.key === "Escape") {
         setContextMenu(null);
         setFileMenu(null);
         setWindowSwitcherOpen(false);
         setActivitiesOpen(false);
+        setShortcutsOpen(false);
       }
     };
     window.addEventListener("keydown", onKey);
@@ -699,7 +707,7 @@ export function DesktopView(props: Props) {
 
   const onDesktopContextMenu = useCallback((e: MouseEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement | null;
-    if (target?.closest(".dock, .topbar, .launcher, .ai-anchor, .widget, .desktop-context-menu, .desktop-file-menu, .desktop-appearance-panel, .window-switcher, .window-strip, .activities-overview, .welcome-overlay")) {
+    if (target?.closest(".dock, .topbar, .launcher, .ai-anchor, .widget, .desktop-context-menu, .desktop-file-menu, .desktop-appearance-panel, .window-switcher, .window-strip, .activities-overview, .welcome-overlay, .shortcuts-overlay")) {
       return;
     }
     e.preventDefault();
@@ -1256,6 +1264,8 @@ export function DesktopView(props: Props) {
           setWelcomeOpen(false);
         }}
       />
+
+      <ShortcutsOverlay open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
     </div>
   );
 }
