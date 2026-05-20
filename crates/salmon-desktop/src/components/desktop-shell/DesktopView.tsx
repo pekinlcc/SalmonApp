@@ -843,8 +843,10 @@ export function DesktopView(props: Props) {
 
       {openWindows.length > 0 && (
         <div className="window-strip" aria-label="Open windows">
-          {openWindows.map((w) => (
-            <div key={w.key} className={`window-chip${w.kind === "external" ? " external" : ""}`}>
+          {openWindows.map((w) => {
+            const palette = paletteForWindow(w);
+            return (
+            <div key={w.key} className={`window-chip ${palette}${w.kind === "external" ? " external" : ""}`}>
               <button
                 type="button"
                 className="window-chip-main"
@@ -892,7 +894,8 @@ export function DesktopView(props: Props) {
                 ×
               </button>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

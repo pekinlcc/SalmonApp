@@ -1607,6 +1607,41 @@
     background: rgba(255,255,255,0.045);
     border-color: rgba(255,255,255,0.065);
   }
+  /* Per-app palette tint — the chip background picks up a subtle
+     gradient hint of its app color so a glance at the strip shows
+     "blue thing = Mail, green thing = Tasks" without having to read
+     the title. The .win-glyph (the 26px initial-letter square) gets
+     the full palette gradient so it reads as a tiny app tile. */
+  .window-chip.bg-mail    { background: linear-gradient(135deg, rgba(28,115,232,0.20), rgba(255,255,255,0.05)); }
+  .window-chip.bg-cal     { background: linear-gradient(135deg, rgba(216,73,104,0.20), rgba(255,255,255,0.05)); }
+  .window-chip.bg-todo    { background: linear-gradient(135deg, rgba(15,156,86,0.20), rgba(255,255,255,0.05)); }
+  .window-chip.bg-salmon  { background: linear-gradient(135deg, rgba(232,93,117,0.22), rgba(255,255,255,0.05)); }
+  .window-chip.bg-files   { background: linear-gradient(135deg, rgba(233,131,46,0.22), rgba(255,255,255,0.05)); }
+  .window-chip.bg-chrome  { background: linear-gradient(135deg, rgba(255,255,255,0.16), rgba(255,255,255,0.05)); }
+  .window-chip.bg-term    { background: linear-gradient(135deg, rgba(180,180,200,0.16), rgba(255,255,255,0.05)); }
+  .window-chip.bg-set     { background: linear-gradient(135deg, rgba(174,184,200,0.20), rgba(255,255,255,0.05)); }
+  /* External palette-tinted chips read a touch dimmer (5% lower
+     accent saturation) so Salmon's own windows still pop first. */
+  .window-chip.external.bg-mail    { background: linear-gradient(135deg, rgba(28,115,232,0.13), rgba(255,255,255,0.04)); }
+  .window-chip.external.bg-cal     { background: linear-gradient(135deg, rgba(216,73,104,0.13), rgba(255,255,255,0.04)); }
+  .window-chip.external.bg-todo    { background: linear-gradient(135deg, rgba(15,156,86,0.13), rgba(255,255,255,0.04)); }
+  .window-chip.external.bg-files   { background: linear-gradient(135deg, rgba(233,131,46,0.13), rgba(255,255,255,0.04)); }
+  .window-chip.external.bg-chrome  { background: linear-gradient(135deg, rgba(255,255,255,0.10), rgba(255,255,255,0.04)); }
+  .window-chip.external.bg-term    { background: linear-gradient(135deg, rgba(180,180,200,0.10), rgba(255,255,255,0.04)); }
+  .window-chip.external.bg-set     { background: linear-gradient(135deg, rgba(174,184,200,0.13), rgba(255,255,255,0.04)); }
+
+  /* The mini win-glyph inside a window-chip uses the full app palette
+     gradient (same as the dock icons), so the chip reads as carrying
+     a tiny version of the dock tile. */
+  .window-chip.bg-mail   .win-glyph { background: linear-gradient(135deg, #5aa7ff, #1c73e8); }
+  .window-chip.bg-cal    .win-glyph { background: linear-gradient(135deg, #ff8066, #d84968); }
+  .window-chip.bg-todo   .win-glyph { background: linear-gradient(135deg, #47c978, #0f9c56); }
+  .window-chip.bg-salmon .win-glyph { background: linear-gradient(135deg, #ff8a5f, #e85d75); }
+  .window-chip.bg-files  .win-glyph { background: linear-gradient(135deg, #f6c24d, #e9832e); }
+  .window-chip.bg-chrome .win-glyph { background: radial-gradient(circle at 50% 50%, #ffffff 30%, #d0d0d8 70%); color: #1a79ff; }
+  .window-chip.bg-term   .win-glyph { background: linear-gradient(135deg, #2c2c2c, #0e0e0e); border: 1px solid rgba(255,255,255,0.08); }
+  .window-chip.bg-set    .win-glyph { background: linear-gradient(135deg, #aeb8c8, #596170); }
+  .window-chip.bg-launcher .win-glyph { background: linear-gradient(135deg, #727b8d, #313844); }
   .window-chip-main {
     flex: 1; min-width: 0; height: 100%;
     display: flex; align-items: center; gap: 8px; padding: 0 8px;
