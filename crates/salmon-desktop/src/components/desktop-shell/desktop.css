@@ -119,6 +119,18 @@
   user-select: none;
   animation: dt-shell-boot 680ms cubic-bezier(0.2,0.8,0.2,1);
 
+  /* Selection styling — accent-tinted background so highlighting
+     text in the brief / launcher / shortcuts overlays uses the
+     same color identity as the rest of the shell. */
+  ::selection {
+    background: color-mix(in srgb, var(--dt-accent) 55%, transparent);
+    color: white;
+  }
+  ::-moz-selection {
+    background: color-mix(in srgb, var(--dt-accent) 55%, transparent);
+    color: white;
+  }
+
   &.accent-blue { --dt-accent: rgb(88, 166, 255); --dt-accent-strong: rgb(13, 114, 255); }
   &.accent-green { --dt-accent: rgb(74, 222, 128); --dt-accent-strong: rgb(0, 199, 67); }
   &.accent-purple { --dt-accent: rgb(184, 130, 255); --dt-accent-strong: rgb(157, 71, 255); }
