@@ -2504,7 +2504,18 @@
     background: linear-gradient(135deg,
       color-mix(in srgb, var(--dt-accent) 20%, rgba(255,255,255,0.06)),
       rgba(255,255,255,0.06));
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--dt-accent) 35%, transparent) inset;
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--dt-accent) 38%, transparent) inset,
+      0 0 26px color-mix(in srgb, var(--dt-accent) 30%, transparent),
+      0 8px 22px rgba(0,0,0,0.30);
+    transform: translateY(-1px);
+  }
+  /* Subtle internal pulse so the active workspace tile breathes —
+     once you see the four tiles, it's obvious which one you're on
+     even without reading the labels. Reuses the existing
+     dt-summary-glow keyframe (drop-shadow 0 → 14px). */
+  .ao-workspace.is-active .ao-ws-thumb {
+    animation: dt-summary-glow 5.5s ease-in-out infinite;
   }
   .ao-ws-thumb {
     height: 72px; border-radius: 9px;
