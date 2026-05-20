@@ -38,6 +38,11 @@
   0%, 100% { filter: drop-shadow(0 0 0 transparent); }
   50%      { filter: drop-shadow(0 0 14px rgba(255,140,170,0.28)); }
 }
+@keyframes dt-running-in {
+  0%   { width: 4px;  opacity: 0; transform: translateX(-50%) scaleY(0.4); }
+  40%  { width: 22px; opacity: 1; transform: translateX(-50%) scaleY(1.4); }
+  100% { width: 14px; opacity: 1; transform: translateX(-50%) scaleY(1); }
+}
 @keyframes dt-menu-in { from { opacity: 0; transform: translateY(-4px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
 @keyframes dt-toast-in { from { opacity: 0; transform: translateX(-50%) translateY(8px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
 @keyframes dt-tile-sheen { from { background-position: 200% 0; } to { background-position: -100% 0; } }
@@ -836,9 +841,31 @@
     opacity: 0; pointer-events: none; transition: opacity 120ms, transform 120ms;
     border: 1px solid rgba(255,255,255,0.08); box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
   .dock-icon:hover .dock-tip { opacity: 1; transform: translateX(-50%) translateY(0); }
-  .dock-running { position: absolute; bottom: -7px; left: 50%; transform: translateX(-50%);
-    width: 4px; height: 4px; border-radius: 50%; background: rgba(255,255,255,0.9); box-shadow: 0 0 6px rgba(255,255,255,0.5); }
-  .dock-running.accent { background: var(--oc-blue); box-shadow: 0 0 8px var(--oc-blue); }
+  /* Running indicator: a soft pill that breathes once when it first
+     appears so the user notices the app has launched, then settles
+     into a static highlight. Pill (vs dot) reads more "this app is
+     alive" — closer to GNOME's running marker. */
+  .dock-running {
+    position: absolute; bottom: -6px; left: 50%;
+    width: 14px; height: 4px; border-radius: 999px;
+    background: linear-gradient(90deg, rgba(255,255,255,0.35), rgba(255,255,255,0.95) 50%, rgba(255,255,255,0.35));
+    box-shadow:
+      0 0 10px rgba(255,255,255,0.45),
+      inset 0 0 0 0.5px rgba(255,255,255,0.55);
+    transform: translateX(-50%);
+    transform-origin: 50% 50%;
+    animation: dt-running-in 520ms cubic-bezier(0.22, 1.2, 0.36, 1) both;
+  }
+  .dock-running.accent {
+    background: linear-gradient(90deg, rgba(13,114,255,0.40), rgba(88,166,255,1) 50%, rgba(13,114,255,0.40));
+    box-shadow:
+      0 0 12px rgba(13,114,255,0.65),
+      inset 0 0 0 0.5px rgba(255,255,255,0.45);
+  }
+  /* Focus visual on the dock icon also brightens the indicator —
+     reads as "this is the window that takes focus on Alt+Tab". */
+  .dock-icon:hover .dock-running { width: 18px; box-shadow: 0 0 14px rgba(255,255,255,0.65); }
+  .dock-icon:hover .dock-running.accent { box-shadow: 0 0 16px rgba(13,114,255,0.85); }
   .dock-sep { width: 1px; height: 36px; margin: 0 6px;
     background: linear-gradient(180deg, transparent, rgba(255,255,255,0.18), transparent); flex-shrink: 0; }
   .dock-badge { position: absolute; top: -4px; right: -4px;
@@ -903,10 +930,21 @@
       0 0 0 1px rgba(255,255,255,0.10);
   }
   .dock-ai-tile .sheen { position: absolute; inset: 0; border-radius: inherit; overflow: hidden; pointer-events: none; }
+  /* Two-layer sheen: a slow primary highlight (9s) and a quicker
+     secondary one (5.5s) at a tighter angle. The phase offset means
+     the tile rarely looks "between sheens" — there's almost always
+     light moving across it, but never too aggressively. */
   .dock-ai-tile .sheen::before {
     content: ""; position: absolute; inset: 0;
-    background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,0.10) 50%, transparent 70%);
-    background-size: 220% 100%; animation: dt-tile-sheen 6s linear infinite;
+    background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,0.11) 50%, transparent 70%);
+    background-size: 220% 100%; animation: dt-tile-sheen 9s linear infinite;
+  }
+  .dock-ai-tile .sheen::after {
+    content: ""; position: absolute; inset: 0;
+    background: linear-gradient(100deg, transparent 42%, rgba(255,255,255,0.055) 50%, transparent 58%);
+    background-size: 260% 100%;
+    animation: dt-tile-sheen 5.5s linear infinite reverse;
+    animation-delay: 2s;
   }
   .dock-ai-tile .orb {
     position: relative; width: 40px; height: 40px; flex-shrink: 0;
