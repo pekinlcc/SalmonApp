@@ -3346,6 +3346,7 @@
     .dock-ai-tile .body, .dock-ai-tile .pips { display: none; }
     .desktop-icons { max-width: calc(100vw - 28px); grid-template-columns: repeat(auto-fill, 76px); grid-auto-rows: 90px; }
     .widget--expanded, .widget { width: min(640px, calc(100vw - 28px)); }
+    .brief-summary { font-size: 19px; line-height: 1.4; margin-bottom: 12px; }
     .brief-footer, .brief-quick { flex-wrap: wrap; }
     .brief-item { grid-template-columns: 34px minmax(0, 1fr); }
     .brief-cta { grid-column: 2; width: fit-content; }
