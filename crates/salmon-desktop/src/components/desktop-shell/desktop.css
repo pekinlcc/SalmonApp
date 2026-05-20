@@ -947,11 +947,40 @@
     vertical-align: -2px;
   }
   .brief-quick { display: flex; align-items: center; gap: 6px; }
-  .qa-chip { display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; border-radius: 999px;
+  .qa-chip {
+    display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; border-radius: 999px;
     background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
-    font: 500 12px/1 var(--font-pico); color: rgba(255,255,255,0.85); cursor: pointer; }
-  .qa-chip:hover { background: rgba(255,255,255,0.10); }
-  .qa-chip svg { width: 12px; height: 12px; stroke-width: 2; }
+    font: 500 12px/1 var(--font-pico); color: rgba(255,255,255,0.85); cursor: pointer;
+    transition: background 160ms ease, border-color 160ms ease, color 160ms ease,
+                transform 200ms cubic-bezier(0.2,0.8,0.2,1), box-shadow 220ms ease;
+  }
+  .qa-chip:hover {
+    background: rgba(255,255,255,0.10);
+    transform: translateY(-1px);
+    color: rgba(255,255,255,0.96);
+  }
+  /* Per-category hover: tint the chip with its category gradient
+     using the same brief-icon palette so hovering "收件箱" feels
+     like the same affordance as hovering a bi-mail row. */
+  .qa-chip--mail:hover {
+    background: linear-gradient(135deg, rgba(13,114,255,0.22), rgba(255,255,255,0.08));
+    border-color: color-mix(in srgb, rgb(13,114,255) 40%, transparent);
+    box-shadow: 0 0 18px rgba(13,114,255,0.28);
+  }
+  .qa-chip--cal:hover {
+    background: linear-gradient(135deg, rgba(217,30,90,0.22), rgba(255,255,255,0.08));
+    border-color: color-mix(in srgb, rgb(217,30,90) 42%, transparent);
+    box-shadow: 0 0 18px rgba(217,30,90,0.28);
+  }
+  .qa-chip--task:hover {
+    background: linear-gradient(135deg, rgba(0,166,50,0.22), rgba(255,255,255,0.08));
+    border-color: color-mix(in srgb, rgb(0,166,50) 45%, transparent);
+    box-shadow: 0 0 18px rgba(0,166,50,0.28);
+  }
+  .qa-chip svg { width: 12px; height: 12px; stroke-width: 2; transition: color 160ms ease; }
+  .qa-chip--mail:hover svg { color: #5aa7ff; }
+  .qa-chip--cal:hover  svg { color: #ff7059; }
+  .qa-chip--task:hover svg { color: #47c978; }
 
   .composer {
     display: flex; align-items: center; gap: 8px; margin-top: 14px;

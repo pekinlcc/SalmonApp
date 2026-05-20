@@ -379,13 +379,13 @@ export function Widget({ mode, snap, onModeChange, callbacks }: Props) {
               按 <span className="kbd">Super</span> 打开 Launcher · <span className="kbd">⌘ K</span> 召唤 Salmon
             </div>
             <div className="brief-quick">
-              <button className="qa-chip" type="button" onClick={callbacks.onNavigateMail}>
+              <button className="qa-chip qa-chip--mail" type="button" onClick={callbacks.onNavigateMail}>
                 <Icons.Mail /> 收件箱
               </button>
-              <button className="qa-chip" type="button" onClick={callbacks.onNavigateCalendar}>
+              <button className="qa-chip qa-chip--cal" type="button" onClick={callbacks.onNavigateCalendar}>
                 <Icons.Calendar /> 今日
               </button>
-              <button className="qa-chip" type="button" onClick={callbacks.onNavigateTasks}>
+              <button className="qa-chip qa-chip--task" type="button" onClick={callbacks.onNavigateTasks}>
                 <Icons.CheckSquare /> 待办
               </button>
             </div>
