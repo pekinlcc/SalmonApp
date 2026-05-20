@@ -461,7 +461,20 @@
   .tb-quick { right: 12px; width: 330px; }
   .tb-notifications { right: 12px; width: 320px; }
   .tb-pop-title { font: 500 14px/1.2 var(--font-pico); color: rgba(255,255,255,0.92); }
-  .tb-pop-time { margin-top: 8px; font: 700 34px/1 var(--font-pico); font-variant-numeric: tabular-nums; }
+  /* Big clock number — the hero element when the calendar popover
+     opens. Subtle vertical gradient (white → soft blue tint) so the
+     digits feel "lit" rather than flat, plus a barely-there 14px
+     bloom in the active accent so the number has presence at a
+     glance. */
+  .tb-pop-time {
+    margin-top: 8px;
+    font: 700 34px/1 var(--font-pico); font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+    background: linear-gradient(180deg, #ffffff 0%, #d9e4ff 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    filter: drop-shadow(0 0 14px color-mix(in srgb, var(--dt-accent) 30%, transparent))
+            drop-shadow(0 2px 6px rgba(0,0,0,0.35));
+  }
   .tb-month-head {
     margin-top: 13px; display: flex; align-items: center; justify-content: space-between; gap: 10px;
     font: 650 12px/1 var(--font-pico); color: rgba(255,255,255,0.86);
