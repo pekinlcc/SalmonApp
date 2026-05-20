@@ -3371,6 +3371,8 @@
   .ao-window-close:focus-visible,
   .brief-quick button:focus-visible,
   .brief-cta:focus-visible,
+  .brief-item:focus-visible,
+  .ai-pop-item:focus-visible,
   .welcome-cta.secondary:focus-visible,
   .welcome-skip:focus-visible,
   .shortcut-row:focus-visible,
