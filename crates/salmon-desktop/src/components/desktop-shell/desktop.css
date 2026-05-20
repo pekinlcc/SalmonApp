@@ -485,8 +485,33 @@
   .tb-btn span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .tb-btn.is-dim { color: rgba(255,255,255,0.52); }
   .tb-input { min-width: 34px; justify-content: center; font-weight: 700; }
-  .tb-dot { position: absolute; top: 3px; right: 4px; width: 7px; height: 7px; border-radius: 50%; background: var(--red-6); box-shadow: 0 0 8px rgba(255,51,51,0.7); }
-  .tb-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 16px; height: 16px; padding: 0 4px; margin-left: 2px; background: var(--oc-blue); color: white; border-radius: 999px; font-size: 10px; font-weight: 700; font-family: var(--font-pico); }
+  .tb-dot {
+    position: absolute; top: 3px; right: 4px;
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--red-6);
+    box-shadow: 0 0 8px rgba(255,51,51,0.7);
+    animation: dt-live-pulse 2.4s ease-in-out infinite;
+  }
+  .tb-dot::after {
+    content: ""; position: absolute; inset: 0;
+    border-radius: 50%; pointer-events: none;
+    background: rgba(255,51,51,0.55);
+    transform-origin: 50% 50%;
+    animation: dt-pulse-ring 2.4s ease-out infinite;
+  }
+  .tb-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 16px; height: 16px; padding: 0 4px; margin-left: 2px;
+    background: var(--oc-blue); color: white;
+    border-radius: 999px;
+    font-size: 10px; font-weight: 700; font-family: var(--font-pico);
+    box-shadow: 0 0 0 0 rgba(13,114,255,0.45);
+    animation: dt-badge-breath 3.2s ease-in-out infinite;
+  }
+  @keyframes dt-badge-breath {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(13,114,255,0.0); }
+    50%      { box-shadow: 0 0 0 4px rgba(13,114,255,0.18); }
+  }
   .tb-popover {
     position: absolute; top: 46px; z-index: 80;
     min-width: 260px; padding: 14px;
