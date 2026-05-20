@@ -284,7 +284,7 @@ export function Widget({ mode, snap, onModeChange, callbacks }: Props) {
           <div className="widget-label">
             <div className="ttl">
               Salmon Brief{" "}
-              <span style={{ opacity: 0.5, fontWeight: 400 }}>
+              <span className="dt-quiet">
                 ·{" "}
                 {snap.refreshedAt
                   ? new Date(snap.refreshedAt).toLocaleTimeString("en-US", {

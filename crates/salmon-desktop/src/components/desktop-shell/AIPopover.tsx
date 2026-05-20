@@ -48,7 +48,7 @@ export function AIPopover({ show, snap, callbacks, onClose, onExpand }: Props) {
             <AIOrb size="sm" pulse={true} />
             <div className="label">
               <div className="ttl">
-                Salmon Brief <span style={{ opacity: 0.5, fontWeight: 400 }}>· 实时</span>
+                Salmon Brief <span className="dt-quiet">· 实时</span>
               </div>
               <div className="sub">
                 <span className="live-dot" />

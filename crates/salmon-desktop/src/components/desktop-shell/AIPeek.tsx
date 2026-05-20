@@ -24,7 +24,7 @@ export function AIPeek({ show, snap, callbacks }: Props) {
           <div>
             <div className="ttl">
               Salmon Brief{" "}
-              <span style={{ opacity: 0.5, fontWeight: 400, marginLeft: 4 }}>· {updatedAt}</span>
+              <span className="dt-quiet" style={{ marginLeft: 4 }}>· {updatedAt}</span>
             </div>
             <div className="sub">
               {items.length > 0 ? `${items.length} 项待办` : "暂无待办"}
