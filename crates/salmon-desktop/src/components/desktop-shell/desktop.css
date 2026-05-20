@@ -2259,12 +2259,37 @@
   }
   .shortcuts-group-items { display: flex; flex-direction: column; gap: 4px; }
   .shortcuts-item {
+    position: relative;
     display: grid; grid-template-columns: minmax(0, auto) minmax(0, 1fr);
     gap: 12px; align-items: center;
-    padding: 6px 4px;
+    padding: 6px 4px 6px 10px;
     border-radius: 8px;
+    transition: background 160ms ease, color 160ms ease, padding-left 200ms ease;
   }
-  .shortcuts-item:hover { background: rgba(255,255,255,0.045); }
+  .shortcuts-item:hover {
+    background: linear-gradient(90deg,
+      color-mix(in srgb, var(--dt-accent) 14%, transparent),
+      rgba(255,255,255,0.05) 40%);
+    color: rgba(255,255,255,0.95);
+    padding-left: 14px;
+  }
+  /* Subtle accent rail on hover so the focused row reads as
+     "this is the entry you're looking at" — same gesture as the
+     context-menu rail. */
+  .shortcuts-item:hover::before {
+    content: "";
+    position: absolute; left: 3px; top: 8px; bottom: 8px;
+    width: 3px; border-radius: 2px;
+    background: var(--dt-accent);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--dt-accent) 55%, transparent);
+  }
+  /* Each .sc-key chip inside the hovered row picks up a brighter
+     tint so the keystrokes look "depressable" when scanning. */
+  .shortcuts-item:hover .sc-key {
+    background: linear-gradient(180deg, rgba(255,255,255,0.14), rgba(255,255,255,0.07));
+    border-color: rgba(255,255,255,0.20);
+    color: rgba(255,255,255,0.98);
+  }
   .shortcuts-item-keys {
     display: inline-flex; align-items: center; gap: 2px;
     min-width: 0; white-space: nowrap;
