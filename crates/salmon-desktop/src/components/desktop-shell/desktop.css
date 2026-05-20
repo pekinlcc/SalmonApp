@@ -1670,7 +1670,22 @@
   .ai-pop-item:nth-child(4) { animation-delay: 195ms; }
   .ai-pop-item:nth-child(n+5) { animation-delay: 230ms; }
   .ai-pop-item:hover { background: rgba(255,255,255,0.08); }
-  .ai-pop-item .ic { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; box-shadow: inset 0 1px 0 rgba(255,255,255,0.18); }
+  .ai-pop-item .ic {
+    width: 30px; height: 30px; border-radius: 9px;
+    display: grid; place-items: center;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.18);
+    transition: transform 220ms cubic-bezier(0.2,0.8,0.2,1), box-shadow 220ms ease;
+  }
+  /* Match the brief-item:hover .bi-* treatment from v2.0.18 — same
+     icon palette, same gradient gradients, same halo, so the AI
+     popover and the brief widget feel like the same surface. */
+  .ai-pop-item:hover .ic { transform: scale(1.06); }
+  .ai-pop-item:hover .ic.bi-mail { box-shadow: inset 0 1px 0 rgba(255,255,255,0.20), 0 0 18px rgba(13,114,255,0.50); }
+  .ai-pop-item:hover .ic.bi-cal  { box-shadow: inset 0 1px 0 rgba(255,255,255,0.20), 0 0 18px rgba(217,30,90,0.50); }
+  .ai-pop-item:hover .ic.bi-task { box-shadow: inset 0 1px 0 rgba(255,255,255,0.20), 0 0 18px rgba(0,166,50,0.50); }
+  .ai-pop-item:hover .ic.bi-doc  { box-shadow: inset 0 1px 0 rgba(255,255,255,0.20), 0 0 18px rgba(255,133,13,0.50); }
+  .ai-pop-item:hover .ic.bi-meet { box-shadow: inset 0 1px 0 rgba(255,255,255,0.20), 0 0 18px rgba(93,43,204,0.55); }
+  .ai-pop-item:hover .ic.bi-ai   { box-shadow: inset 0 1px 0 rgba(255,255,255,0.20), 0 0 24px rgba(255,80,130,0.50); }
   .ai-pop-item .ic svg { width: 15px; height: 15px; color: white; stroke-width: 2; }
   .ai-pop-item .tx { min-width: 0; }
   .ai-pop-item .tx .t {
