@@ -895,8 +895,40 @@
   .dock-icon { position: relative; width: 60px; height: 60px; border-radius: 16px;
     display: grid; place-items: center; cursor: pointer;
     transition: transform 200ms cubic-bezier(0.2,0.8,0.2,1), filter 160ms ease, box-shadow 180ms ease; color: #fff; flex-shrink: 0;
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.16), 0 5px 14px rgba(0,0,0,0.28); }
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.16), 0 5px 14px rgba(0,0,0,0.28);
+    /* Each icon fades+rises on top of the dock container's own
+       dt-dock-in (420ms with 140ms delay). Start at +560ms so the
+       container has finished, then stagger each by 35ms. */
+    animation: dt-brief-in 260ms cubic-bezier(0.2,0.8,0.2,1) both;
+    animation-delay: 560ms;
+  }
+  /* nth-of-type runs on .dock-icon specifically, ignoring the dock-sep
+     dividers and the AI live tile that share the dock as parent. */
+  .dock-icon:nth-of-type(1) { animation-delay: 560ms; }
+  .dock-icon:nth-of-type(2) { animation-delay: 595ms; }
+  .dock-icon:nth-of-type(3) { animation-delay: 625ms; }
+  .dock-icon:nth-of-type(4) { animation-delay: 655ms; }
+  .dock-icon:nth-of-type(5) { animation-delay: 685ms; }
+  .dock-icon:nth-of-type(6) { animation-delay: 710ms; }
+  .dock-icon:nth-of-type(7) { animation-delay: 735ms; }
+  .dock-icon:nth-of-type(8) { animation-delay: 758ms; }
+  .dock-icon:nth-of-type(9) { animation-delay: 780ms; }
+  .dock-icon:nth-of-type(n+10) { animation-delay: 800ms; }
   .dock-icon:hover { transform: translateY(-7px) scale(1.055); filter: saturate(1.08) brightness(1.04); box-shadow: inset 0 1px 0 rgba(255,255,255,0.22), 0 12px 28px rgba(0,0,0,0.36); }
+  /* Per-app hover halo — the icon glows in its own brand color so
+     hovering Mail feels distinctly different from hovering Terminal.
+     Inherits the lift + scale from the base :hover above, then layers
+     a colored 36px bloom on top. */
+  .dock-icon.bg-mail:hover    { box-shadow: inset 0 1px 0 rgba(255,255,255,0.22), 0 12px 28px rgba(0,0,0,0.36), 0 0 36px rgba(28,115,232,0.42); }
+  .dock-icon.bg-cal:hover     { box-shadow: inset 0 1px 0 rgba(255,255,255,0.22), 0 12px 28px rgba(0,0,0,0.36), 0 0 36px rgba(216,73,104,0.42); }
+  .dock-icon.bg-todo:hover    { box-shadow: inset 0 1px 0 rgba(255,255,255,0.22), 0 12px 28px rgba(0,0,0,0.36), 0 0 36px rgba(15,156,86,0.42); }
+  .dock-icon.bg-salmon:hover  { box-shadow: inset 0 1px 0 rgba(255,255,255,0.22), 0 12px 28px rgba(0,0,0,0.36), 0 0 36px rgba(232,93,117,0.42); }
+  .dock-icon.bg-files:hover   { box-shadow: inset 0 1px 0 rgba(255,255,255,0.22), 0 12px 28px rgba(0,0,0,0.36), 0 0 36px rgba(233,131,46,0.42); }
+  .dock-icon.bg-chrome:hover  { box-shadow: inset 0 1px 0 rgba(255,255,255,0.22), 0 12px 28px rgba(0,0,0,0.36), 0 0 36px rgba(255,255,255,0.35); }
+  .dock-icon.bg-term:hover    { box-shadow: inset 0 1px 0 rgba(255,255,255,0.22), 0 12px 28px rgba(0,0,0,0.36), 0 0 36px rgba(180,180,200,0.30); }
+  .dock-icon.bg-set:hover     { box-shadow: inset 0 1px 0 rgba(255,255,255,0.22), 0 12px 28px rgba(0,0,0,0.36), 0 0 36px rgba(174,184,200,0.36); }
+  .dock-icon.bg-launcher:hover{ box-shadow: inset 0 1px 0 rgba(255,255,255,0.22), 0 12px 28px rgba(0,0,0,0.36), 0 0 36px rgba(114,123,141,0.42); }
+  .dock-icon.bg-ai:hover      { box-shadow: inset 0 1px 0 rgba(255,255,255,0.22), 0 14px 32px rgba(0,0,0,0.40), 0 0 42px rgba(255,80,130,0.40); }
   .dock-icon svg { width: 30px; height: 30px; stroke-width: 1.8; }
   .dock-tip { position: absolute; bottom: calc(100% + 12px); left: 50%; transform: translateX(-50%) translateY(4px);
     white-space: nowrap; padding: 6px 10px; background: rgba(20,22,30,0.92); color: #fff;
