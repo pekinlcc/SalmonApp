@@ -3359,6 +3359,24 @@
     .brief-cta { grid-column: 2; width: fit-content; }
   }
 
+  .tb-activities:focus-visible,
+  .tb-clock:focus-visible,
+  .tb-btn:focus-visible,
+  .dock-icon:focus-visible,
+  .dock-ai-tile:focus-visible,
+  .window-chip:focus-visible,
+  .launcher-tile:focus-visible,
+  .ao-tile:focus-visible,
+  .brief-quick button:focus-visible,
+  .brief-cta:focus-visible,
+  .welcome-cta.secondary:focus-visible,
+  .welcome-skip:focus-visible,
+  .shortcut-row:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--dt-accent) 80%, white);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--dt-accent) 24%, transparent);
+  }
+
   @media (prefers-reduced-motion: reduce) {
     &, *, *::before, *::after {
       animation-duration: 1ms !important;
