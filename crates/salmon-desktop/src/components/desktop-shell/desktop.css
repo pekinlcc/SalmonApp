@@ -490,6 +490,8 @@
   .tb-popover {
     position: absolute; top: 46px; z-index: 80;
     min-width: 260px; padding: 14px;
+    max-height: calc(100vh - 60px);
+    overflow-y: auto;
     background: var(--dt-panel-bg);
     border: 1px solid var(--dt-panel-border);
     border-radius: 14px;
@@ -497,6 +499,18 @@
     backdrop-filter: blur(28px) saturate(1.35);
     -webkit-backdrop-filter: blur(28px) saturate(1.35);
     animation: dt-menu-in 160ms cubic-bezier(0.2,0.8,0.2,1);
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.20) transparent;
+  }
+  .tb-popover::-webkit-scrollbar { width: 8px; }
+  .tb-popover::-webkit-scrollbar-track { background: transparent; }
+  .tb-popover::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.18);
+    border-radius: 999px;
+    transition: background 200ms ease;
+  }
+  .tb-popover::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in srgb, var(--dt-accent) 50%, rgba(255,255,255,0.40));
   }
   .tb-calendar {
     left: 50%; width: 320px; max-width: calc(100vw - 24px);
