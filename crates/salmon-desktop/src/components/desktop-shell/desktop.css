@@ -493,8 +493,21 @@
     height: 26px; border-radius: 8px; padding: 0 9px;
     background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08);
     color: rgba(255,255,255,0.78); font: 600 11px/1 var(--font-pico);
+    transition: background 160ms ease, border-color 160ms ease, color 160ms ease,
+                transform 200ms cubic-bezier(0.2,0.8,0.2,1),
+                box-shadow 220ms ease;
   }
-  .tb-month-head button:hover { background: rgba(255,255,255,0.12); }
+  .tb-month-head button:hover {
+    background: linear-gradient(135deg,
+      color-mix(in srgb, var(--dt-accent) 22%, rgba(255,255,255,0.08)),
+      rgba(255,255,255,0.12));
+    border-color: color-mix(in srgb, var(--dt-accent) 38%, rgba(255,255,255,0.10));
+    color: rgba(255,255,255,0.96);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.22),
+                0 0 16px color-mix(in srgb, var(--dt-accent) 24%, transparent);
+  }
+  .tb-month-head button:active { transform: translateY(0) scale(0.96); }
   .tb-month-grid {
     margin-top: 10px; display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px;
   }
