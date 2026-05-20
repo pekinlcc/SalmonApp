@@ -1933,15 +1933,42 @@
     margin-top: 4px; display: flex; flex-direction: column; align-items: center; gap: 8px;
   }
   .welcome-cta {
+    position: relative; overflow: hidden;
     height: 38px; padding: 0 28px; border-radius: 999px;
     background: linear-gradient(135deg, #1a79ff, #0d72ff);
     color: white; font: 650 13.5px/1 var(--font-pico);
-    box-shadow: 0 8px 24px rgba(13,114,255,0.40), inset 0 1px 0 rgba(255,255,255,0.20);
-    transition: filter 140ms ease, transform 140ms ease;
+    box-shadow:
+      0 8px 24px rgba(13,114,255,0.40),
+      inset 0 1px 0 rgba(255,255,255,0.20);
+    transition: filter 160ms ease, transform 200ms cubic-bezier(0.2,0.8,0.2,1),
+                box-shadow 220ms ease;
   }
-  .welcome-cta:hover { filter: brightness(1.08); transform: translateY(-1px); }
+  /* Hover lift + stronger halo + a white sheen sweep across the
+     button. The sheen is positioned offscreen left at rest, and
+     animates rightward on :hover so it reads as the button
+     "lighting up" when the user approaches. */
+  .welcome-cta::after {
+    content: ""; position: absolute; inset: 0;
+    background: linear-gradient(115deg,
+      transparent 30%,
+      rgba(255,255,255,0.32) 50%,
+      transparent 70%);
+    background-size: 240% 100%; background-position: 200% 0;
+    transition: background-position 700ms cubic-bezier(0.2,0.8,0.2,1);
+    pointer-events: none;
+  }
+  .welcome-cta:hover {
+    filter: brightness(1.10);
+    transform: translateY(-2px);
+    box-shadow:
+      0 14px 36px rgba(13,114,255,0.55),
+      0 0 36px rgba(13,114,255,0.30),
+      inset 0 1px 0 rgba(255,255,255,0.28);
+  }
+  .welcome-cta:hover::after { background-position: -120% 0; }
+  .welcome-cta:active { transform: translateY(0) scale(0.98); }
   .welcome-cta:focus-visible {
-    outline: 2px solid rgba(255,255,255,0.5);
+    outline: 2px solid rgba(255,255,255,0.55);
     outline-offset: 2px;
   }
   .welcome-fineprint {
