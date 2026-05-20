@@ -17,8 +17,18 @@ run_first() {
 
 case "$action" in
   lock)
+    # Prefer the Salmon-themed swaylock config when it's present
+    # (installed by the .deb at /etc/salmon-desktop/swaylock.conf);
+    # fall back to a solid-color invocation if the file was removed
+    # locally or the user is testing the helper outside the package.
+    salmon_swaylock_conf=/etc/salmon-desktop/swaylock.conf
+    if [ -r "$salmon_swaylock_conf" ]; then
+      swaylock_cmd="exec swaylock -f -C $salmon_swaylock_conf"
+    else
+      swaylock_cmd='exec swaylock -f -c 080a12'
+    fi
     run_first \
-      'command -v swaylock >/dev/null 2>&1 && exec swaylock -f -c 111111' \
+      "command -v swaylock >/dev/null 2>&1 && $swaylock_cmd" \
       'command -v gtklock >/dev/null 2>&1 && exec gtklock' \
       'loginctl lock-session' \
       'xdg-screensaver lock'
