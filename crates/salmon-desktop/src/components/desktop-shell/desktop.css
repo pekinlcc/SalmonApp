@@ -2254,6 +2254,7 @@
   .launcher-tile:nth-child(21) { animation-delay: 198ms; }
   .launcher-tile:nth-child(n+22) { animation-delay: 204ms; }
   .launcher-tile:hover { background: rgba(255,255,255,0.075); transform: translateY(-2px); }
+  .launcher-tile:active { transform: translateY(0) scale(0.97); transition-duration: 90ms; }
   .launcher-tile .icon {
     width: 68px; height: 68px; border-radius: 18px; display: grid; place-items: center;
     box-shadow: inset 0 1px 0 rgba(255,255,255,0.18), 0 4px 12px rgba(0,0,0,0.3); color: #fff;
@@ -2412,6 +2413,7 @@
     transition: background 140ms ease, border-color 140ms ease, transform 140ms ease;
   }
   .window-chip:hover { transform: translateY(-1px); border-color: rgba(255,255,255,0.14); }
+  .window-chip:active { transform: translateY(0) scale(0.97); transition-duration: 90ms; }
   .window-chip.external {
     background: rgba(255,255,255,0.045);
     border-color: rgba(255,255,255,0.065);
@@ -2512,6 +2514,7 @@
     transform: translateY(-2px);
     box-shadow: 0 8px 22px rgba(0,0,0,0.30);
   }
+  .window-switch-card:active { transform: translateY(0) scale(0.985); transition-duration: 90ms; }
   /* Same per-app halo treatment used in the dock, brief, and
      Activities Overview — Alt+Tab cards now also light up in
      their app's brand color when the user tabs onto them. */
@@ -2999,6 +3002,7 @@
     background: rgba(255,255,255,0.10);
     transform: translateY(-2px);
   }
+  .ao-workspace:active { transform: translateY(0) scale(0.985); transition-duration: 90ms; }
   .ao-workspace.is-active {
     border-color: color-mix(in srgb, var(--dt-accent) 60%, transparent);
     background: linear-gradient(135deg,
@@ -3075,6 +3079,7 @@
     transform: translateY(-3px);
     box-shadow: var(--dt-shadow-md);
   }
+  .ao-window-card:active { transform: translateY(-1px) scale(0.985); transition-duration: 90ms; }
   /* Per-app hover halo — Activities cards inherit the same gesture
      as the dock icons (v2.0.15) and brief icons (v2.0.18). Mail's
      card glows blue, Terminal's glows graphite, etc. Wraps both
