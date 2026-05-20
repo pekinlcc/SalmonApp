@@ -829,9 +829,33 @@
     background: var(--oc-blue); color: white; font: 600 12px/1 var(--font-pico);
   }
   .tb-note-muted {
-    margin-top: 10px; font: 400 11px/1.45 var(--font-ola);
-    color: rgba(255,255,255,0.50);
+    position: relative;
+    margin-top: 10px; padding: 10px 12px;
+    font: 400 11.5px/1.45 var(--font-ola);
+    color: rgba(255,255,255,0.62);
+    text-align: center;
+    border-radius: 10px;
+    background: linear-gradient(135deg,
+      color-mix(in srgb, var(--dt-accent) 8%, transparent),
+      rgba(255,255,255,0.04));
+    border: 1px solid rgba(255,255,255,0.06);
+    overflow: hidden;
   }
+  /* Same gentle accent halo we use on the other empty-state surfaces
+     (ao-empty, window-switcher-empty, tb-display-empty). Tells the
+     user "Salmon is keeping an eye out, just nothing right now". */
+  .tb-note-muted::before {
+    content: ""; position: absolute; top: 50%; left: 50%;
+    width: 90px; height: 90px; margin: -45px 0 0 -45px;
+    border-radius: 50%; pointer-events: none;
+    background: radial-gradient(circle,
+      color-mix(in srgb, var(--dt-accent) 14%, transparent),
+      transparent 70%);
+    animation: dt-summary-glow 6s ease-in-out infinite;
+    z-index: 0;
+  }
+  .tb-note-muted > *,
+  .tb-note-muted::after { position: relative; z-index: 1; }
   .tb-notification-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
   .tb-notification-sub { margin-top: 4px; font: 400 12px/1.25 var(--font-ola); color: rgba(255,255,255,0.58); }
   .tb-notification-head button {
