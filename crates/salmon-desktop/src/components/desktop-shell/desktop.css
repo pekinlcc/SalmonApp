@@ -795,8 +795,17 @@
     display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px;
     border-radius: 12px;
     background: rgba(255,255,255,0.045); border: 1px solid rgba(255,255,255,0.07);
+    transition: background 220ms ease, border-color 220ms ease, box-shadow 280ms ease;
   }
-  .tb-dnd-row.is-active { border-color: color-mix(in srgb, var(--dt-accent) 55%, rgba(255,255,255,0.08)); }
+  .tb-dnd-row.is-active {
+    border-color: color-mix(in srgb, var(--dt-accent) 55%, rgba(255,255,255,0.08));
+    background: linear-gradient(135deg,
+      color-mix(in srgb, var(--dt-accent) 14%, rgba(255,255,255,0.045)),
+      rgba(255,255,255,0.045));
+    box-shadow:
+      0 0 22px color-mix(in srgb, var(--dt-accent) 25%, transparent),
+      inset 0 1px 0 rgba(255,255,255,0.06);
+  }
   .tb-dnd-row div { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
   .tb-dnd-row strong { font: 650 12.5px/1 var(--font-pico); color: rgba(255,255,255,0.94); }
   .tb-dnd-row span, .tb-dnd-row em {
@@ -808,8 +817,30 @@
     height: 30px; min-width: 64px; border-radius: 8px; padding: 0 10px;
     background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.08);
     color: rgba(255,255,255,0.86); font: 650 12px/1 var(--font-pico);
+    transition: background 200ms ease, color 200ms ease, border-color 200ms ease,
+                transform 200ms cubic-bezier(0.2,0.8,0.2,1), box-shadow 220ms ease;
   }
-  .tb-dnd-row.is-active button { background: var(--dt-accent); color: white; }
+  .tb-dnd-row button:hover {
+    background: rgba(255,255,255,0.13);
+    color: rgba(255,255,255,0.98);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.22);
+  }
+  .tb-dnd-row button:active { transform: translateY(0) scale(0.96); }
+  .tb-dnd-row.is-active button {
+    background: linear-gradient(135deg, var(--dt-accent), var(--dt-accent-strong));
+    border-color: transparent;
+    color: white;
+    box-shadow:
+      0 4px 14px color-mix(in srgb, var(--dt-accent) 45%, transparent),
+      inset 0 1px 0 rgba(255,255,255,0.22);
+  }
+  .tb-dnd-row.is-active button:hover {
+    filter: brightness(1.08);
+    box-shadow:
+      0 6px 18px color-mix(in srgb, var(--dt-accent) 60%, transparent),
+      inset 0 1px 0 rgba(255,255,255,0.28);
+  }
   .tb-dnd-row button:disabled { opacity: 0.48; cursor: not-allowed; }
   .tb-notification-list { display: flex; flex-direction: column; gap: 8px; }
   .tb-notification-row {
