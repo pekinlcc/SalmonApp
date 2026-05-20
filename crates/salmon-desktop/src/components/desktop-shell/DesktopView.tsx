@@ -26,12 +26,22 @@ import { AILiveTile } from "./AILiveTile";
 import { AIPeek } from "./AIPeek";
 import { AIPopover } from "./AIPopover";
 import { ActivitiesOverview, type ActivitiesWorkspace } from "./ActivitiesOverview";
+import { WelcomeOverlay } from "./WelcomeOverlay";
 import { useDesktopBrief, briefItemCount } from "../../lib/useDesktopBrief";
 import { isShellWindow, openAppWindow } from "../../lib/openAppWindow";
 import { api, type SystemAppKind } from "../../lib/api";
 import type { FileEntry } from "../../lib/types";
 
 const WALLPAPER_STORAGE_KEY = "salmon.desktop.wallpaper";
+const WELCOME_STORAGE_KEY = "salmon.desktop.welcomed";
+
+function loadWelcomeNeeded(): boolean {
+  try {
+    return !localStorage.getItem(WELCOME_STORAGE_KEY);
+  } catch {
+    return false;
+  }
+}
 type DesktopTheme = "system" | "dark" | "light";
 type DesktopAccent = "salmon" | "blue" | "green" | "purple";
 type WallpaperSlideshowMinutes = 0 | 5 | 15 | 30 | 60;
@@ -148,6 +158,7 @@ export function DesktopView(props: Props) {
   const [windowSwitcherOpen, setWindowSwitcherOpen] = useState(false);
   const [activitiesOpen, setActivitiesOpen] = useState(false);
   const [overviewWorkspaces, setOverviewWorkspaces] = useState<ActivitiesWorkspace[]>([]);
+  const [welcomeOpen, setWelcomeOpen] = useState<boolean>(() => loadWelcomeNeeded());
   const [openWindows, setOpenWindows] = useState<OpenWindowItem[]>([]);
   const [systemAppStatus, setSystemAppStatus] = useState<SystemAppStatus>(EMPTY_SYSTEM_APP_STATUS);
   const [desktopItems, setDesktopItems] = useState<FileEntry[]>([]);
@@ -688,7 +699,7 @@ export function DesktopView(props: Props) {
 
   const onDesktopContextMenu = useCallback((e: MouseEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement | null;
-    if (target?.closest(".dock, .topbar, .launcher, .ai-anchor, .widget, .desktop-context-menu, .desktop-file-menu, .desktop-appearance-panel, .window-switcher, .window-strip, .activities-overview")) {
+    if (target?.closest(".dock, .topbar, .launcher, .ai-anchor, .widget, .desktop-context-menu, .desktop-file-menu, .desktop-appearance-panel, .window-switcher, .window-strip, .activities-overview, .welcome-overlay")) {
       return;
     }
     e.preventDefault();
@@ -1237,6 +1248,14 @@ export function DesktopView(props: Props) {
 
 
       {desktopToast && <div className="desktop-toast">{desktopToast}</div>}
+
+      <WelcomeOverlay
+        open={welcomeOpen}
+        onClose={() => {
+          try { localStorage.setItem(WELCOME_STORAGE_KEY, String(Date.now())); } catch {}
+          setWelcomeOpen(false);
+        }}
+      />
     </div>
   );
 }
