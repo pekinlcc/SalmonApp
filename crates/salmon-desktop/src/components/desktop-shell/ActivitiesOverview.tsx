@@ -41,7 +41,7 @@ interface Props {
 
 // Map a window to a dock-palette class so the same Mail window looks
 // like Mail across the dock, window strip, and overview.
-function paletteForWindow(w: ActivitiesWindow): string {
+export function paletteForWindow(w: ActivitiesWindow): string {
   const hay = `${w.label ?? ""} ${w.appId ?? ""} ${w.title}`.toLowerCase();
   if (w.label === "salmon-mail" || /mail|gmail|thunderbird|outlook/.test(hay)) return "bg-mail";
   if (w.label === "salmon-calendar" || /calendar|日历/.test(hay)) return "bg-cal";
@@ -54,7 +54,7 @@ function paletteForWindow(w: ActivitiesWindow): string {
   return "bg-launcher";
 }
 
-function GlyphForWindow({ w }: { w: ActivitiesWindow }) {
+export function GlyphForWindow({ w }: { w: ActivitiesWindow }) {
   const hay = `${w.label ?? ""} ${w.appId ?? ""} ${w.title}`.toLowerCase();
   if (w.label === "salmon-mail" || /mail|gmail|thunderbird|outlook/.test(hay)) return <Icons.Mail />;
   if (w.label === "salmon-calendar" || /calendar|日历/.test(hay)) return <Icons.Calendar />;

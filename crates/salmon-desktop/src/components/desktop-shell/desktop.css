@@ -1140,8 +1140,32 @@
   .launcher-tile {
     display: flex; flex-direction: column; align-items: center; gap: 8px;
     padding: 10px 6px; border-radius: 14px; transition: background 140ms ease, transform 150ms ease; cursor: pointer;
-    animation: dt-rot-in 240ms cubic-bezier(0.2,0.8,0.2,1) both;
+    animation: dt-rot-in 260ms cubic-bezier(0.2,0.8,0.2,1) both;
   }
+  /* Cascade reveal — first ~28 tiles fade in with progressive delay so
+     the launcher feels like it's *populating* rather than snapping. */
+  .launcher-tile:nth-child(1)  { animation-delay: 0ms;   }
+  .launcher-tile:nth-child(2)  { animation-delay: 18ms;  }
+  .launcher-tile:nth-child(3)  { animation-delay: 32ms;  }
+  .launcher-tile:nth-child(4)  { animation-delay: 44ms;  }
+  .launcher-tile:nth-child(5)  { animation-delay: 56ms;  }
+  .launcher-tile:nth-child(6)  { animation-delay: 68ms;  }
+  .launcher-tile:nth-child(7)  { animation-delay: 80ms;  }
+  .launcher-tile:nth-child(8)  { animation-delay: 92ms;  }
+  .launcher-tile:nth-child(9)  { animation-delay: 102ms; }
+  .launcher-tile:nth-child(10) { animation-delay: 112ms; }
+  .launcher-tile:nth-child(11) { animation-delay: 122ms; }
+  .launcher-tile:nth-child(12) { animation-delay: 132ms; }
+  .launcher-tile:nth-child(13) { animation-delay: 140ms; }
+  .launcher-tile:nth-child(14) { animation-delay: 148ms; }
+  .launcher-tile:nth-child(15) { animation-delay: 156ms; }
+  .launcher-tile:nth-child(16) { animation-delay: 164ms; }
+  .launcher-tile:nth-child(17) { animation-delay: 172ms; }
+  .launcher-tile:nth-child(18) { animation-delay: 180ms; }
+  .launcher-tile:nth-child(19) { animation-delay: 186ms; }
+  .launcher-tile:nth-child(20) { animation-delay: 192ms; }
+  .launcher-tile:nth-child(21) { animation-delay: 198ms; }
+  .launcher-tile:nth-child(n+22) { animation-delay: 204ms; }
   .launcher-tile:hover { background: rgba(255,255,255,0.075); transform: translateY(-2px); }
   .launcher-tile .icon {
     width: 68px; height: 68px; border-radius: 18px; display: grid; place-items: center;
@@ -1262,6 +1286,67 @@
     color: rgba(255,255,255,0.92); font: 500 14px/1 var(--font-pico);
   }
   .window-switcher-panel button:hover { background: rgba(255,255,255,0.10); }
+
+  /* New card-style window switcher (v2.0.9) — aligns visual language
+     with the Activities Overview so Alt+Tab and Super+A read the same. */
+  .window-switcher-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 10px;
+  }
+  .window-switch-card {
+    width: 100%; min-width: 0;
+    height: auto !important;
+    padding: 12px !important;
+    border-radius: 13px !important;
+    background: rgba(255,255,255,0.045) !important;
+    border: 1px solid var(--dt-panel-border);
+    display: grid !important; grid-template-columns: 44px minmax(0, 1fr); gap: 12px !important;
+    align-items: center !important;
+    transition: background 140ms ease, transform 140ms ease, border-color 140ms ease;
+    animation: dt-widget-in 260ms cubic-bezier(0.2,0.8,0.2,1) both;
+  }
+  .window-switch-card:hover {
+    background: rgba(255,255,255,0.10) !important;
+    border-color: rgba(255,255,255,0.18);
+    transform: translateY(-2px);
+  }
+  .window-switch-glyph {
+    width: 44px; height: 44px; border-radius: 12px;
+    display: grid; place-items: center; color: white;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.18), 0 4px 12px rgba(0,0,0,0.28);
+  }
+  .window-switch-glyph svg { width: 21px; height: 21px; stroke-width: 1.9; }
+  .window-switch-card.bg-mail .window-switch-glyph { background: linear-gradient(135deg, #5aa7ff, #1c73e8); }
+  .window-switch-card.bg-cal .window-switch-glyph { background: linear-gradient(135deg, #ff8066, #d84968); }
+  .window-switch-card.bg-todo .window-switch-glyph { background: linear-gradient(135deg, #47c978, #0f9c56); }
+  .window-switch-card.bg-salmon .window-switch-glyph { background: linear-gradient(135deg, #ff8a5f, #e85d75); }
+  .window-switch-card.bg-set .window-switch-glyph { background: linear-gradient(135deg, #aeb8c8, #596170); }
+  .window-switch-card.bg-files .window-switch-glyph { background: linear-gradient(135deg, #f6c24d, #e9832e); }
+  .window-switch-card.bg-chrome .window-switch-glyph {
+    background: radial-gradient(circle at 50% 50%, #ffffff 30%, #d0d0d8 70%); color: #1a79ff;
+  }
+  .window-switch-card.bg-term .window-switch-glyph {
+    background: linear-gradient(135deg, #2c2c2c, #0e0e0e);
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+  .window-switch-card.bg-launcher .window-switch-glyph { background: linear-gradient(135deg, #727b8d, #313844); }
+
+  .window-switch-meta { min-width: 0; display: flex; flex-direction: column; gap: 3px; text-align: left; }
+  .window-switch-title {
+    font: 600 13px/1.2 var(--font-pico); color: rgba(255,255,255,0.96);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .window-switch-sub {
+    font: 400 11px/1.2 var(--font-ola); color: rgba(255,255,255,0.55);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .window-switcher-hint {
+    margin-top: 12px; padding-top: 10px;
+    border-top: 1px solid var(--dt-hairline);
+    text-align: center;
+    font: 400 11px/1.3 var(--font-ola); color: rgba(255,255,255,0.45);
+  }
+  .window-switcher-hint .kbd { margin: 0 2px; padding: 1px 5px; font-size: 10px; }
   .win-glyph {
     width: 34px; height: 34px; display: grid; place-items: center; flex-shrink: 0;
     border-radius: 10px;

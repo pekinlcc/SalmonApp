@@ -25,7 +25,7 @@ import { Icons } from "./Icons";
 import { AILiveTile } from "./AILiveTile";
 import { AIPeek } from "./AIPeek";
 import { AIPopover } from "./AIPopover";
-import { ActivitiesOverview, type ActivitiesWorkspace } from "./ActivitiesOverview";
+import { ActivitiesOverview, GlyphForWindow, paletteForWindow, type ActivitiesWorkspace } from "./ActivitiesOverview";
 import { WelcomeOverlay } from "./WelcomeOverlay";
 import { ShortcutsOverlay } from "./ShortcutsOverlay";
 import { useDesktopBrief, briefItemCount } from "../../lib/useDesktopBrief";
@@ -1222,12 +1222,36 @@ export function DesktopView(props: Props) {
           <div className="window-switcher-panel" onClick={(e) => e.stopPropagation()}>
             {openWindows.length === 0 ? (
               <div className="window-switcher-empty">没有打开的窗口</div>
-            ) : openWindows.map((w) => (
-              <button key={w.key} type="button" onClick={() => focusWindow(w)}>
-                <span className="win-glyph">{windowInitial(w.title)}</span>
-                <span>{w.title}{w.ambiguous ? " · 多窗口" : ""}</span>
-              </button>
-            ))}
+            ) : (
+              <>
+                <div className="window-switcher-grid">
+                  {openWindows.map((w, idx) => {
+                    const palette = paletteForWindow(w);
+                    return (
+                      <button
+                        key={w.key}
+                        type="button"
+                        className={`window-switch-card ${palette}`}
+                        style={{ animationDelay: `${Math.min(idx, 8) * 0.04}s` }}
+                        onClick={() => focusWindow(w)}
+                      >
+                        <span className="window-switch-glyph"><GlyphForWindow w={w} /></span>
+                        <span className="window-switch-meta">
+                          <span className="window-switch-title">{w.title}</span>
+                          <span className="window-switch-sub">
+                            {w.kind === "salmon" ? "Salmon" : (w.appId || "外部应用")}
+                            {w.ambiguous ? " · 多窗口" : ""}
+                          </span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="window-switcher-hint">
+                  <span className="kbd">Alt</span>+<span className="kbd">Tab</span> 切换 · <span className="kbd">Esc</span> 关闭
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
