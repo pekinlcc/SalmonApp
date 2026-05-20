@@ -1047,7 +1047,26 @@
   .widget-label { flex: 1; min-width: 0; }
   .widget-label .ttl { font: 500 14px/1.2 var(--font-pico); display: flex; align-items: center; gap: 8px; letter-spacing: 0.01em; }
   .widget-label .sub { font: 400 12px/1.4 var(--font-ola); color: rgba(255,255,255,0.55); margin-top: 3px; display: flex; align-items: center; gap: 6px; }
-  .live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green-6); box-shadow: 0 0 8px rgba(0,199,67,0.7); animation: dt-live-pulse 2s ease-in-out infinite; flex-shrink: 0; }
+  .live-dot {
+    position: relative;
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--green-6);
+    box-shadow: 0 0 8px rgba(0,199,67,0.7), 0 0 0 2px rgba(0,199,67,0.18);
+    animation: dt-live-pulse 2s ease-in-out infinite;
+    flex-shrink: 0;
+  }
+  /* Outward expanding ring — every 2s the ::after disc grows out
+     from the dot and fades, like a radar pulse. Tells the user
+     "this is actively updating", more presence than a simple
+     opacity blink. Reuses the existing dt-pulse-ring keyframe
+     (transform scale 0.6 → 2 + opacity 1 → 0). */
+  .live-dot::after {
+    content: ""; position: absolute; inset: 0;
+    border-radius: 50%; pointer-events: none;
+    background: rgba(0,199,67,0.55);
+    transform-origin: 50% 50%;
+    animation: dt-pulse-ring 2s ease-out infinite;
+  }
   .widget-actions { display: flex; align-items: center; gap: 6px; }
   .w-action {
     width: 28px; height: 28px; border-radius: 50%;
