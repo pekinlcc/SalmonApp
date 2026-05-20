@@ -1930,13 +1930,33 @@
 
   .desktop-toast {
     position: absolute; left: 50%; bottom: 98px; transform: translateX(-50%);
-    z-index: 220; padding: 9px 13px; border-radius: 999px;
-    background: rgba(18,18,26,0.84); border: 1px solid rgba(255,255,255,0.10);
-    box-shadow: 0 14px 40px rgba(0,0,0,0.38);
-    color: rgba(255,255,255,0.92); font: 500 12px/1 var(--font-pico);
-    backdrop-filter: blur(20px) saturate(1.2);
-    -webkit-backdrop-filter: blur(20px) saturate(1.2);
-    animation: dt-toast-in 180ms cubic-bezier(0.2,0.8,0.2,1);
+    z-index: 220;
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 10px 16px 10px 12px; border-radius: 999px;
+    background: rgba(18,18,26,0.86);
+    border: 1px solid rgba(255,255,255,0.11);
+    box-shadow:
+      0 18px 48px rgba(0,0,0,0.42),
+      0 4px 14px rgba(0,0,0,0.22),
+      inset 0 1px 0 rgba(255,255,255,0.06);
+    color: rgba(255,255,255,0.94);
+    font: 500 12.5px/1.2 var(--font-pico);
+    backdrop-filter: blur(24px) saturate(1.35);
+    -webkit-backdrop-filter: blur(24px) saturate(1.35);
+    animation: dt-toast-in 240ms cubic-bezier(0.2,0.8,0.2,1);
+  }
+  /* Leading status dot — pulses gently so the toast reads as "an
+     update happened" instead of static text. Color borrows the
+     active accent so the toast belongs to the desktop's theme. */
+  .desktop-toast::before {
+    content: "";
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--dt-accent);
+    box-shadow:
+      0 0 0 3px color-mix(in srgb, var(--dt-accent) 24%, transparent),
+      0 0 14px color-mix(in srgb, var(--dt-accent) 60%, transparent);
+    animation: dt-live-pulse 1.6s ease-in-out infinite;
+    flex-shrink: 0;
   }
 
   @media (prefers-color-scheme: light) {
