@@ -25,6 +25,7 @@ import { Icons } from "./Icons";
 import { AILiveTile } from "./AILiveTile";
 import { AIPeek } from "./AIPeek";
 import { AIPopover } from "./AIPopover";
+import { ActivitiesOverview, type ActivitiesWorkspace } from "./ActivitiesOverview";
 import { useDesktopBrief, briefItemCount } from "../../lib/useDesktopBrief";
 import { isShellWindow, openAppWindow } from "../../lib/openAppWindow";
 import { api, type SystemAppKind } from "../../lib/api";
@@ -145,6 +146,8 @@ export function DesktopView(props: Props) {
   const [fileMenu, setFileMenu] = useState<{ x: number; y: number; item: FileEntry } | null>(null);
   const [desktopToast, setDesktopToast] = useState<string | null>(null);
   const [windowSwitcherOpen, setWindowSwitcherOpen] = useState(false);
+  const [activitiesOpen, setActivitiesOpen] = useState(false);
+  const [overviewWorkspaces, setOverviewWorkspaces] = useState<ActivitiesWorkspace[]>([]);
   const [openWindows, setOpenWindows] = useState<OpenWindowItem[]>([]);
   const [systemAppStatus, setSystemAppStatus] = useState<SystemAppStatus>(EMPTY_SYSTEM_APP_STATUS);
   const [desktopItems, setDesktopItems] = useState<FileEntry[]>([]);
@@ -418,6 +421,17 @@ export function DesktopView(props: Props) {
     return () => clearInterval(t);
   }, [refreshOpenWindows]);
 
+  // Opening the Activities Overview should reflect the current
+  // compositor state — fresh window list and current workspace
+  // markers — without waiting for the 2.5s polling tick.
+  useEffect(() => {
+    if (!activitiesOpen) return;
+    refreshOpenWindows().catch(() => {});
+    api.listWorkspaces()
+      .then((rows) => setOverviewWorkspaces(rows))
+      .catch(() => setOverviewWorkspaces([]));
+  }, [activitiesOpen, refreshOpenWindows]);
+
   useEffect(() => {
     refreshSystemApps();
     const t = setInterval(refreshSystemApps, 5_000);
@@ -472,10 +486,16 @@ export function DesktopView(props: Props) {
           })
           .catch(() => {});
       }
+      // Super+A — GNOME-style Activities Overview shortcut
+      if (e.metaKey && (e.key === "a" || e.key === "A")) {
+        e.preventDefault();
+        setActivitiesOpen((v) => !v);
+      }
       if (e.key === "Escape") {
         setContextMenu(null);
         setFileMenu(null);
         setWindowSwitcherOpen(false);
+        setActivitiesOpen(false);
       }
     };
     window.addEventListener("keydown", onKey);
@@ -668,7 +688,7 @@ export function DesktopView(props: Props) {
 
   const onDesktopContextMenu = useCallback((e: MouseEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement | null;
-    if (target?.closest(".dock, .topbar, .launcher, .ai-anchor, .widget, .desktop-context-menu, .desktop-file-menu, .desktop-appearance-panel, .window-switcher, .window-strip")) {
+    if (target?.closest(".dock, .topbar, .launcher, .ai-anchor, .widget, .desktop-context-menu, .desktop-file-menu, .desktop-appearance-panel, .window-switcher, .window-strip, .activities-overview")) {
       return;
     }
     e.preventDefault();
@@ -741,7 +761,7 @@ export function DesktopView(props: Props) {
       <TopBar
         briefCount={count}
         brief={brief}
-        onActivities={() => setLauncherOpen(true)}
+        onActivities={() => setActivitiesOpen(true)}
         onNavigateMail={navigate.mail}
         onNavigateCalendar={navigate.calendar}
         onNavigateTasks={navigate.tasks}
@@ -1192,6 +1212,29 @@ export function DesktopView(props: Props) {
           </div>
         </div>
       )}
+
+      <ActivitiesOverview
+        open={activitiesOpen}
+        onClose={() => setActivitiesOpen(false)}
+        windows={openWindows}
+        onFocusWindow={focusWindow}
+        onCloseWindow={closeWindow}
+        workspaces={overviewWorkspaces}
+        onSwitchWorkspace={(idx) => {
+          api.switchWorkspace(idx).catch(() => showToast("切换工作区失败"));
+          setActivitiesOpen(false);
+        }}
+        onSearch={(q) => {
+          if (q) {
+            // Launcher has live filtering — opening it after the user
+            // typed a query effectively pre-seeds search via paste.
+            props.onOpenSearch(q);
+          } else {
+            setLauncherOpen(true);
+          }
+        }}
+      />
+
 
       {desktopToast && <div className="desktop-toast">{desktopToast}</div>}
     </div>
