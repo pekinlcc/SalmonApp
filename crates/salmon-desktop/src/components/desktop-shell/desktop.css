@@ -38,6 +38,10 @@
   0%, 100% { filter: drop-shadow(0 0 0 transparent); }
   50%      { filter: drop-shadow(0 0 14px rgba(255,140,170,0.28)); }
 }
+@keyframes dt-empty-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-6px); }
+}
 @keyframes dt-running-in {
   0%   { width: 4px;  opacity: 0; transform: translateX(-50%) scaleY(0.4); }
   40%  { width: 22px; opacity: 1; transform: translateX(-50%) scaleY(1.4); }
@@ -2742,11 +2746,29 @@
 
   .ao-empty {
     flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 10px; color: rgba(255,255,255,0.60);
+    gap: 14px; color: rgba(255,255,255,0.68);
     font: 500 14px/1.4 var(--font-pico);
+    position: relative;
   }
-  .ao-empty svg { width: 36px; height: 36px; opacity: 0.55; }
-  .ao-empty-sub { font: 400 12px/1.4 var(--font-ola); color: rgba(255,255,255,0.45); }
+  /* Soft accent halo behind the empty-state icon — gives the otherwise
+     bare center of the overlay some warmth, hinting at "Salmon is
+     still here, just quiet". */
+  .ao-empty::before {
+    content: "";
+    position: absolute; top: calc(50% - 70px); left: 50%;
+    width: 140px; height: 140px; margin-left: -70px;
+    border-radius: 50%; pointer-events: none;
+    background: radial-gradient(circle,
+      color-mix(in srgb, var(--dt-accent) 22%, transparent),
+      transparent 70%);
+    animation: dt-summary-glow 6s ease-in-out infinite;
+  }
+  .ao-empty > * { position: relative; z-index: 1; }
+  .ao-empty svg {
+    width: 44px; height: 44px; opacity: 0.72; color: rgba(255,255,255,0.85);
+    animation: dt-empty-float 5s ease-in-out infinite;
+  }
+  .ao-empty-sub { font: 400 12.5px/1.4 var(--font-ola); color: rgba(255,255,255,0.55); }
 
   .ao-search {
     position: relative;
