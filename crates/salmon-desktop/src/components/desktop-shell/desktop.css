@@ -687,8 +687,11 @@
     min-width: 32px; height: 28px; border-radius: 7px; padding: 0 9px;
     background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.08);
     color: rgba(255,255,255,0.90); font: 600 12px/1 var(--font-pico);
+    transition: background 160ms ease, border-color 160ms ease,
+                transform 200ms cubic-bezier(0.2,0.8,0.2,1), box-shadow 220ms ease;
   }
   .tb-control-row button:hover { background: rgba(255,255,255,0.12); }
+  .tb-control-row button:active { transform: scale(0.96); transition-duration: 90ms; }
   .tb-display-panel {
     margin-top: 10px; padding-top: 10px;
     border-top: 1px solid rgba(255,255,255,0.08);
@@ -3450,6 +3453,7 @@
   .tb-power-row button:focus-visible,
   .tb-pop-action:focus-visible,
   .tb-month-head button:focus-visible,
+  .tb-control-row button:focus-visible,
   .tb-notification-row:focus-visible,
   .tb-notification-head button:focus-visible,
   .tb-display-head button:focus-visible,
