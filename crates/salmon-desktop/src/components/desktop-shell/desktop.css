@@ -365,8 +365,33 @@
   .tb-clock:hover, .tb-clock.is-open { background: var(--dt-control-bg-hover); transform: translateY(-1px); }
   .tb-clock .sep { opacity: 0.35; }
   .tb-tray { display: flex; align-items: center; gap: 4px; }
-  .tb-btn { position: relative; display: inline-flex; align-items: center; gap: 5px; padding: 5px 8px; border-radius: 8px; color: var(--dt-text); font-size: 12px; max-width: 96px; transition: background 140ms ease, transform 140ms ease; }
-  .tb-btn:hover, .tb-btn.is-open { background: var(--dt-control-bg-hover); transform: translateY(-1px); }
+  .tb-btn {
+    position: relative; display: inline-flex; align-items: center; gap: 5px;
+    padding: 5px 8px; border-radius: 8px;
+    color: var(--dt-text); font-size: 12px; max-width: 96px;
+    transition: background 180ms ease, transform 180ms cubic-bezier(0.2,0.8,0.2,1),
+                box-shadow 220ms ease, color 160ms ease;
+  }
+  .tb-btn:hover {
+    background: var(--dt-control-bg-hover);
+    transform: translateY(-1px);
+    color: rgba(255,255,255,0.98);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.22);
+  }
+  /* Open state — the popover is currently anchored to this button.
+     Stronger accent ring so the user can find the source button at
+     a glance while the popover is up. */
+  .tb-btn.is-open {
+    background: linear-gradient(135deg,
+      color-mix(in srgb, var(--dt-accent) 22%, var(--dt-control-bg-hover)),
+      var(--dt-control-bg-hover));
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--dt-accent) 38%, transparent) inset,
+      0 4px 14px rgba(0,0,0,0.30),
+      0 0 18px color-mix(in srgb, var(--dt-accent) 26%, transparent);
+    color: rgba(255,255,255,0.98);
+  }
+  .tb-btn:active { transform: translateY(0) scale(0.96); }
   .tb-btn svg { width: 14px; height: 14px; stroke-width: 1.8; }
   .tb-btn span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .tb-btn.is-dim { color: rgba(255,255,255,0.52); }
