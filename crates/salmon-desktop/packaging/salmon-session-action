@@ -1,0 +1,50 @@
+#!/bin/sh
+set -eu
+
+action="${1:-}"
+
+run_first() {
+  last_status=1
+  while [ "$#" -gt 0 ]; do
+    if sh -c "$1"; then
+      exit 0
+    fi
+    last_status=$?
+    shift
+  done
+  exit "$last_status"
+}
+
+case "$action" in
+  lock)
+    run_first \
+      'command -v swaylock >/dev/null 2>&1 && exec swaylock -f -c 111111' \
+      'command -v gtklock >/dev/null 2>&1 && exec gtklock' \
+      'loginctl lock-session' \
+      'xdg-screensaver lock'
+    ;;
+  suspend)
+    run_first 'systemctl suspend' 'loginctl suspend'
+    ;;
+  reboot)
+    run_first 'systemctl reboot' 'loginctl reboot'
+    ;;
+  poweroff)
+    run_first 'systemctl poweroff' 'loginctl poweroff'
+    ;;
+  signout)
+    if [ -n "${XDG_SESSION_ID:-}" ]; then
+      loginctl terminate-session "$XDG_SESSION_ID" 2>/dev/null && exit 0
+    fi
+    if [ -n "${USER:-}" ]; then
+      loginctl terminate-user "$USER"
+    else
+      printf 'Cannot sign out: USER is not set and XDG_SESSION_ID is unavailable\n' >&2
+      exit 1
+    fi
+    ;;
+  *)
+    printf 'Usage: %s {lock|suspend|reboot|poweroff|signout}\n' "$0" >&2
+    exit 64
+    ;;
+esac

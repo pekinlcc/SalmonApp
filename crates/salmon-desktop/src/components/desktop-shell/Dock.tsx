@@ -38,12 +38,25 @@ interface Props {
   unreadMail: number;
   hasNextEvent: boolean;
   todayTasksCount: number;
+  mailRunning: boolean;
+  calendarRunning: boolean;
+  tasksRunning: boolean;
+  homeRunning: boolean;
+  settingsRunning: boolean;
+  filesRunning: boolean;
+  browserRunning: boolean;
+  terminalRunning: boolean;
+  windowCount: number;
   onLauncher: () => void;
   onNavigateMail: () => void;
   onNavigateCalendar: () => void;
   onNavigateTasks: () => void;
   onNavigateHome: () => void;
   onOpenSettings: () => void;
+  onLaunchTerminal: () => void;
+  onLaunchFiles: () => void;
+  onLaunchBrowser: () => void;
+  onLaunchSystemSettings: () => void;
 }
 
 export function Dock({
@@ -51,12 +64,25 @@ export function Dock({
   unreadMail,
   hasNextEvent,
   todayTasksCount,
+  mailRunning,
+  calendarRunning,
+  tasksRunning,
+  homeRunning,
+  settingsRunning,
+  filesRunning,
+  browserRunning,
+  terminalRunning,
+  windowCount,
   onLauncher,
   onNavigateMail,
   onNavigateCalendar,
   onNavigateTasks,
   onNavigateHome,
   onOpenSettings,
+  onLaunchTerminal,
+  onLaunchFiles,
+  onLaunchBrowser,
+  onLaunchSystemSettings,
 }: Props) {
   return (
     <div className="dock-wrap">
@@ -69,7 +95,7 @@ export function Dock({
           tip="邮件 · Mail"
           bg="bg-mail"
           badge={unreadMail > 0 ? (unreadMail > 99 ? "99+" : unreadMail) : undefined}
-          running={unreadMail > 0}
+          running={mailRunning || unreadMail > 0}
           onClick={onNavigateMail}
         >
           <Icons.Mail />
@@ -77,7 +103,7 @@ export function Dock({
         <DockIcon
           tip="日历 · Calendar"
           bg="bg-cal"
-          running={hasNextEvent}
+          running={calendarRunning || hasNextEvent}
           onClick={onNavigateCalendar}
         >
           <Icons.Calendar />
@@ -87,32 +113,39 @@ export function Dock({
           bg="bg-todo"
           badge={todayTasksCount > 0 ? todayTasksCount : undefined}
           badgeKind="blue"
+          running={tasksRunning}
           onClick={onNavigateTasks}
         >
           <Icons.CheckSquare />
         </DockIcon>
-        <DockIcon tip="SalmonApp" bg="bg-salmon" running={true} onClick={onNavigateHome}>
+        <DockIcon tip="SalmonApp" bg="bg-salmon" running={homeRunning} onClick={onNavigateHome}>
           <Icons.Salmon />
         </DockIcon>
 
         <div className="dock-sep" />
 
-        <DockIcon tip="Files" bg="bg-files">
+        <DockIcon tip="Files" bg="bg-files" running={filesRunning} onClick={onLaunchFiles}>
           <Icons.Folder />
         </DockIcon>
-        <DockIcon tip="Firefox" bg="bg-chrome">
+        <DockIcon tip="Browser" bg="bg-chrome" running={browserRunning} onClick={onLaunchBrowser}>
           <Icons.Browser />
         </DockIcon>
-        <DockIcon tip="Terminal" bg="bg-term">
+        <DockIcon tip="Terminal" bg="bg-term" running={terminalRunning} onClick={onLaunchTerminal}>
           <Icons.Terminal />
         </DockIcon>
-        <DockIcon tip="Settings" bg="bg-set" onClick={onOpenSettings}>
+        <DockIcon tip="System Settings" bg="bg-set" running={settingsRunning} onClick={onLaunchSystemSettings}>
           <Icons.Settings />
         </DockIcon>
 
         <div className="dock-sep" />
 
-        <DockIcon tip="Show Applications" bg="bg-launcher" onClick={onLauncher}>
+        <DockIcon
+          tip={windowCount > 0 ? `${windowCount} windows · Show Applications` : "Show Applications"}
+          bg="bg-launcher"
+          badge={windowCount > 0 ? windowCount : undefined}
+          badgeKind="blue"
+          onClick={onLauncher}
+        >
           <Icons.Grid />
         </DockIcon>
       </div>

@@ -31,14 +31,10 @@ body {
   font-family: var(--sans);
   color: var(--ink-900);
   background: var(--bg);
-  /* v2.0.1: bumped from 13 → 15. Earlier base was tuned for the macOS App
-     binary on 1× displays; the Linux Desktop binary lives on HiDPI laptops
-     (the X1 Carbon Gen 13 target ships a 2.8K 14" panel) where 13px renders
-     unusably small once webkit2gtk lays everything out at the logical scale
-     labwc reports. salmon-session also exports GDK_DPI_SCALE=1.25 as a
-     belt-and-suspenders, but a sane CSS base means the UI is still
-     readable if those env vars get clobbered. */
-  font-size: 15px;
+  /* v2.0.4: keep a readable CSS fallback even when WebKitGTK misses the
+     session's wl_output/GDK HiDPI scale on first paint. The session now also
+     applies integer 2x output scaling for >= 2560x1440 panels. */
+  font-size: 18px;
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
@@ -75,6 +71,54 @@ button { font-family: inherit; }
 .app.app-window.v11 { grid-template-columns: 1fr; }
 .app.app-window.v11.no-right { grid-template-columns: 1fr; }
 .app.app-window.v11.no-left.no-right { grid-template-columns: 1fr; }
+
+/* v2.0.2 — in-app titlebar for spawned per-app windows. The compositor
+   doesn't always draw decorations for webkit2gtk windows, so we render
+   our own close/minimize/maximize and ship the drag handle inline.
+   Grid offset: the titlebar sits above the normal three-pane grid; the
+   .app row height keeps using 100vh so the bar visually subtracts via a
+   padding-top compensation on the layout below. Simpler than rewriting
+   the grid template. */
+.app.app-window {
+  grid-template-rows: 36px 1fr;
+  height: 100vh;
+}
+.app-titlebar {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  height: 36px;
+  display: flex; align-items: center;
+  padding: 0 6px 0 16px;
+  background: #f5f5f7;
+  border-bottom: 1px solid var(--ink-150, #e5e5ea);
+  font-size: 13px; color: var(--ink-700, #383a42);
+  user-select: none; -webkit-user-select: none;
+}
+.app-titlebar-title {
+  flex: 1; min-width: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-weight: 600; letter-spacing: 0.01em;
+}
+.app-titlebar-btns { display: flex; align-items: center; gap: 2px; }
+.app-titlebar-btn {
+  -webkit-app-region: no-drag;
+  display: grid; place-items: center;
+  width: 32px; height: 28px;
+  background: transparent; border: 0; border-radius: 6px;
+  color: var(--ink-600, #4b4e57); cursor: pointer;
+  transition: background 100ms ease;
+}
+.app-titlebar-btn:hover { background: rgba(0, 0, 0, 0.06); }
+.app-titlebar-btn-close:hover { background: #e53935; color: #fff; }
+@media (prefers-color-scheme: dark) {
+  .app-titlebar {
+    background: #1f2024;
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.88);
+  }
+  .app-titlebar-btn { color: rgba(255, 255, 255, 0.78); }
+  .app-titlebar-btn:hover { background: rgba(255, 255, 255, 0.10); }
+}
 
 .right-rail {
   background: #FBFAF8; border-left: 1px solid var(--ink-100);
@@ -1059,25 +1103,60 @@ button { font-family: inherit; }
 }
 
 /* ===== Onboarding ===== */
-.onb { display: flex; align-items: center; justify-content: center; height: 100%; background: var(--bg); }
-.onb-card { width: 480px; padding: 30px 32px; background: var(--panel); border: 1px solid var(--ink-100); border-radius: var(--radius); box-shadow: var(--shadow); }
-.onb-title { font-size: 19px; font-weight: 700; margin: 4px 0 6px; }
-.onb-sub { color: var(--ink-500); font-size: 13px; margin-bottom: 12px; }
-.onb-hint { color: var(--ink-500); font-size: 12.5px; background: var(--ink-50); border: 1px solid var(--ink-100); border-radius: var(--radius-sm); padding: 8px 12px; margin-bottom: 16px; line-height: 1.5; }
-.onb-hint kbd { background: #fff; border: 1px solid var(--ink-200); border-bottom-width: 2px; border-radius: 3px; padding: 0 5px; font-family: var(--mono); font-size: 11px; color: var(--ink-700); }
-.onb-hint code { background: #1B1F23; color: #E6E8EB; padding: 1px 5px; border-radius: 3px; font-family: var(--mono); font-size: 11.5px; }
-.onb-cli { border: 1px solid var(--ink-100); border-radius: var(--radius-sm); padding: 12px 14px; margin-bottom: 10px; }
-.onb-cli.ok { border-color: #61C55480; background: #F6FCF3; }
-.onb-cli.warn { border-color: #F4BF4F80; background: #FFFCEC; }
-.onb-cli.miss { background: #FBFAF8; }
+.onb {
+  display: flex; align-items: center; justify-content: center;
+  height: 100%; padding: 24px;
+  background:
+    radial-gradient(ellipse 58% 46% at 22% 20%, rgba(255, 132, 96, 0.18), transparent 62%),
+    radial-gradient(ellipse 50% 42% at 78% 18%, rgba(74, 137, 255, 0.14), transparent 64%),
+    linear-gradient(135deg, #f8f7f5 0%, #f1f4f7 100%);
+}
+.onb-card {
+  position: relative;
+  width: min(520px, calc(100vw - 32px));
+  padding: 34px 34px 28px;
+  background: rgba(255,255,255,0.82);
+  border: 1px solid rgba(27,31,35,0.10);
+  border-radius: 16px;
+  box-shadow: 0 26px 70px rgba(21, 24, 30, 0.12), 0 7px 22px rgba(21, 24, 30, 0.08);
+  backdrop-filter: blur(24px) saturate(1.2);
+  -webkit-backdrop-filter: blur(24px) saturate(1.2);
+}
+.onb-mark {
+  width: 48px; height: 48px; border-radius: 14px;
+  display: grid; place-items: center; margin-bottom: 18px;
+  background: linear-gradient(135deg, #ff8a5f, #e85d75);
+  box-shadow: 0 12px 26px rgba(229,104,90,0.28), inset 0 1px 0 rgba(255,255,255,0.38);
+}
+.onb-mark span {
+  width: 24px; height: 24px; border-radius: 50%;
+  background: conic-gradient(from 200deg, #fff6ef, #ffd1c4, #ffffff, #fff6ef);
+  box-shadow: inset 0 0 0 6px rgba(255,255,255,0.36);
+}
+.onb-title { font-size: 23px; line-height: 1.2; font-weight: 750; margin: 0 0 8px; letter-spacing: 0; }
+.onb-sub { color: var(--ink-500); font-size: 14px; margin-bottom: 14px; line-height: 1.55; }
+.onb-hint { color: var(--ink-700); font-size: 13px; background: rgba(245,246,247,0.82); border: 1px solid rgba(27,31,35,0.08); border-radius: 10px; padding: 10px 12px; margin-bottom: 16px; line-height: 1.55; }
+.onb-hint kbd { background: #fff; border: 1px solid var(--ink-200); border-bottom-width: 2px; border-radius: 5px; padding: 0 6px; font-family: var(--mono); font-size: 11px; color: var(--ink-700); }
+.onb-hint code { background: #171b22; color: #edf0f5; padding: 2px 6px; border-radius: 5px; font-family: var(--mono); font-size: 11.5px; }
+.onb-cli { border: 1px solid rgba(27,31,35,0.09); border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; background: rgba(255,255,255,0.64); }
+.onb-cli.ok { border-color: rgba(76, 159, 67, 0.28); background: rgba(246,252,243,0.84); }
+.onb-cli.warn { border-color: rgba(218, 162, 35, 0.30); background: rgba(255,252,236,0.90); }
+.onb-cli.miss { background: rgba(251,250,248,0.78); }
 .onb-cli-row { display: flex; align-items: center; gap: 8px; }
 .onb-cli-name { font-weight: 600; }
 .onb-status { font-size: 10.5px; padding: 1px 6px; border-radius: 3px; font-weight: 600; }
 .onb-status.ok { background: #DCEFCF; color: #2F7D1F; }
 .onb-status.warn { background: #FFF1B8; color: #8A6700; }
 .onb-status.miss { background: var(--ink-50); color: var(--ink-500); }
-.onb-cmd { margin-top: 8px; font-family: var(--mono); font-size: 11.5px; background: #1B1F23; color: #E6E8EB; padding: 6px 10px; border-radius: 4px; display: flex; justify-content: space-between; gap: 8px; }
+.onb-cmd { margin-top: 8px; font-family: var(--mono); font-size: 11.5px; background: #171b22; color: #E6E8EB; padding: 7px 10px; border-radius: 8px; display: flex; justify-content: space-between; gap: 8px; }
 .onb-cmd .copy { color: var(--salmon-300); cursor: pointer; }
+.onb-actions { display: flex; align-items: center; gap: 8px; margin-top: 18px; }
+.onb-primary { margin-left: auto; }
+@media (max-width: 560px) {
+  .onb-card { padding: 26px 22px 22px; }
+  .onb-actions { flex-wrap: wrap; }
+  .onb-primary { width: 100%; margin-left: 0; }
+}
 
 .empty { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--ink-500); font-size: 13px; padding: 20px; text-align: center; }
 

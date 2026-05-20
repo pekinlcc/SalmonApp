@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "SalmonApp Desktop",
-  "version": "2.0.1",
+  "version": "2.0.4",
   "identifier": "app.salmonapp.desktopshell",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -44,7 +44,7 @@
     ],
     "linux": {
       "deb": {
-        "depends": ["labwc", "foot"]
+        "depends": ["labwc", "xwayland", "foot", "wlrctl", "wlr-randr", "waybar", "libappindicator3-1", "swaylock", "brightnessctl", "gammastep", "playerctl", "power-profiles-daemon", "xdg-utils", "xdg-user-dirs", "xdg-desktop-portal", "xdg-desktop-portal-wlr", "xdg-desktop-portal-gtk", "dbus-bin", "fcitx5 | ibus", "fcitx5-config-qt | ibus", "wireplumber", "pulseaudio-utils", "pavucontrol | gnome-control-center", "gnome-control-center | systemsettings | xfce4-settings | lxqt-config", "wl-clipboard", "cliphist", "libglib2.0-bin", "libgtk-3-bin", "gsettings-desktop-schemas", "fontconfig", "trash-cli", "mako | dunst", "policykit-1-gnome | lxpolkit | mate-polkit", "swaybg", "swayidle", "wlopm", "kanshi", "procps", "wdisplays | gnome-control-center | arandr", "grim", "slurp", "libnotify-bin", "util-linux", "udisks2", "udiskie", "bluez", "blueman | gnome-control-center", "network-manager", "network-manager-gnome | gnome-control-center", "cups-client", "system-config-printer | gnome-control-center"]
       }
     },
     "macOS": {

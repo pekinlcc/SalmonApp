@@ -7,6 +7,7 @@ import { api } from "./lib/api";
 import { notify, setNotifySoundEnabled, type NotifyOpts, type ToastActionTarget, type ToastEvent } from "./lib/notify";
 import { LeftSidebar } from "./components/LeftSidebar";
 import { IconRail } from "./components/IconRail";
+import { AppWindowTitleBar } from "./components/AppWindowTitleBar";
 import { ContactsView } from "./components/ContactsView";
 import { ChatStream } from "./components/ChatStream";
 import { Composer } from "./components/Composer";
@@ -1588,8 +1589,22 @@ export default function App() {
   if (!selectedTopic) layoutClasses.push("no-right");
   else if (rightCollapsed) layoutClasses.push("right-collapsed");
   if (isAppWindow) layoutClasses.push("app-window");
+  // Per-app windows (Mail / Calendar / ... spawned by the Desktop shell)
+  // each get a slim in-app titlebar — the compositor doesn't always draw
+  // close/minimize for webkit2gtk windows under labwc/GNOME Wayland, so
+  // we ship our own buttons that drive the window plugin directly.
+  const appWindowTitle =
+    initialHashView === "mail" ? "Salmon Mail" :
+    initialHashView === "calendar" ? "Salmon Calendar" :
+    initialHashView === "tasks" ? "Salmon Tasks" :
+    initialHashView === "contacts" ? "Salmon Contacts" :
+    initialHashView === "home" ? "SalmonApp" :
+    initialHashView === "settings" ? "Salmon Settings" :
+    "SalmonApp";
+
   return (
     <div className={desktopActive ? "app desktop-mode" : layoutClasses.join(" ")}>
+      {isAppWindow && <AppWindowTitleBar title={appWindowTitle} />}
       {desktopActive ? (
         <DesktopView
           onExitDesktop={() => setTopView("home")}

@@ -33,12 +33,15 @@ export function Onboarding({ cliStatus, onContinue, onRefresh }: Props) {
   return (
     <div className="onb">
       <div className="onb-card">
+        <div className="onb-mark" aria-hidden="true">
+          <span />
+        </div>
         <div className="onb-title">欢迎使用 SalmonApp</div>
         <div className="onb-sub">
-          SalmonApp 不存任何 API Key——它会复用你已经在终端登录好的 CLI。下面是检测结果：
+          SalmonApp 会复用你已经在终端登录好的 CLI，不在本机额外保存 API Key。
         </div>
         <div className="onb-hint">
-          没有终端？按 <kbd>Super</kbd>+<kbd>T</kbd> 打开 foot 终端，运行 <code>claude /login</code> 或 <code>codex login</code>，回来点"重新检测"。
+          按 <kbd>Super</kbd>+<kbd>T</kbd> 打开终端，运行 <code>claude /login</code> 或 <code>codex login</code>，然后回来重新检测。
         </div>
 
         {cliStatus.map((c) => {
@@ -76,11 +79,11 @@ export function Onboarding({ cliStatus, onContinue, onRefresh }: Props) {
           );
         })}
 
-        <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+        <div className="onb-actions">
           <button className="btn" onClick={onRefresh}>重新检测</button>
           <button className="btn" onClick={signOut}>退出会话</button>
-          <button className="btn btn-primary" disabled={!ready} onClick={onContinue} style={{ marginLeft: "auto" }}>
-            {ready ? "创建第一个 Topic →" : "至少需要一个已登录的 CLI"}
+          <button className="btn btn-primary onb-primary" disabled={!ready} onClick={onContinue}>
+            {ready ? "创建第一个 Topic" : "需要一个已登录的 CLI"}
           </button>
         </div>
       </div>

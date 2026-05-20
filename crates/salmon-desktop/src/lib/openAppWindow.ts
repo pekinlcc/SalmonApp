@@ -57,6 +57,11 @@ export async function openAppWindow(view: AppView): Promise<void> {
   // production builds (frontendDist:"../dist") don't choke on missing
   // index.html?... paths. App.tsx reads the hash on mount.
   const url = `index.html#view=${view}`;
+  // v2.0.2: decorations:false + in-app <AppWindowTitleBar>. Under labwc
+  // (SSD) it would draw a titlebar for us, but under GNOME's Wayland
+  // session webkit2gtk windows ship without one — users had no way to
+  // close or minimize Mail. Drawing our own removes the compositor
+  // dependency entirely; users get the same buttons everywhere.
   const w = new WebviewWindow(spec.label, {
     url,
     title: spec.title,
@@ -64,7 +69,7 @@ export async function openAppWindow(view: AppView): Promise<void> {
     height: spec.height,
     minWidth: 640,
     minHeight: 480,
-    decorations: true,
+    decorations: false,
     resizable: true,
     focus: true,
   });
