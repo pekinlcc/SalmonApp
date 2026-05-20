@@ -348,7 +348,7 @@ export function Widget({ mode, snap, onModeChange, callbacks }: Props) {
             {renderItems.length > 0 ? (
               renderItems.map((it, i) => <BriefRow key={i} item={it} primary={i === 0} />)
             ) : (
-              <div className="brief-item" style={{ opacity: 0.6, cursor: "default" }}>
+              <div className="brief-item brief-item--empty">
                 <BriefIconBox kind="ai" />
                 <div className="brief-text">
                   <div className="brief-title">
