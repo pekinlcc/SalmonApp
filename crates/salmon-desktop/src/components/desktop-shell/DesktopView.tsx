@@ -28,6 +28,7 @@ import { AIPopover } from "./AIPopover";
 import { ActivitiesOverview, GlyphForWindow, paletteForWindow, type ActivitiesWorkspace } from "./ActivitiesOverview";
 import { WelcomeOverlay } from "./WelcomeOverlay";
 import { ShortcutsOverlay } from "./ShortcutsOverlay";
+import { TipsTicker } from "./TipsTicker";
 import { useDesktopBrief, briefItemCount } from "../../lib/useDesktopBrief";
 import { isShellWindow, openAppWindow } from "../../lib/openAppWindow";
 import { api, type SystemAppKind } from "../../lib/api";
@@ -707,7 +708,7 @@ export function DesktopView(props: Props) {
 
   const onDesktopContextMenu = useCallback((e: MouseEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement | null;
-    if (target?.closest(".dock, .topbar, .launcher, .ai-anchor, .widget, .desktop-context-menu, .desktop-file-menu, .desktop-appearance-panel, .window-switcher, .window-strip, .activities-overview, .welcome-overlay, .shortcuts-overlay")) {
+    if (target?.closest(".dock, .topbar, .launcher, .ai-anchor, .widget, .desktop-context-menu, .desktop-file-menu, .desktop-appearance-panel, .window-switcher, .window-strip, .activities-overview, .welcome-overlay, .shortcuts-overlay, .tips-ticker")) {
       return;
     }
     e.preventDefault();
@@ -1290,6 +1291,8 @@ export function DesktopView(props: Props) {
       />
 
       <ShortcutsOverlay open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
+
+      <TipsTicker />
     </div>
   );
 }
