@@ -1360,10 +1360,14 @@
     border-color: color-mix(in srgb, rgb(0,166,50) 45%, transparent);
     box-shadow: 0 0 18px rgba(0,166,50,0.28);
   }
-  .qa-chip svg { width: 12px; height: 12px; stroke-width: 2; transition: color 160ms ease; }
+  .qa-chip:active { transform: translateY(0) scale(0.95); }
+  .qa-chip svg { width: 12px; height: 12px; stroke-width: 2; transition: color 160ms ease, transform 200ms cubic-bezier(0.2,0.8,0.2,1); }
   .qa-chip--mail:hover svg { color: #5aa7ff; }
   .qa-chip--cal:hover  svg { color: #ff7059; }
   .qa-chip--task:hover svg { color: #47c978; }
+  /* Icon nudges 1px left on hover so the chip "leans into" its
+     category — Mail icon shifts toward the 收件箱 label, etc. */
+  .qa-chip:hover svg { transform: translateX(-1px); }
 
   .composer {
     display: flex; align-items: center; gap: 8px; margin-top: 14px;
