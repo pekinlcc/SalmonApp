@@ -20,10 +20,24 @@
 @keyframes dt-orb-spin { to { transform: rotate(360deg); } }
 @keyframes dt-live-pulse { 0%,100%{opacity:1;transform:scale(1);} 50%{opacity:.55;transform:scale(.85);} }
 @keyframes dt-typing-bounce { 0%,60%,100%{transform:translateY(0);opacity:.5;} 30%{transform:translateY(-4px);opacity:1;} }
-@keyframes dt-shell-boot { from { opacity: 0; transform: scale(1.012); filter: saturate(0.86); } to { opacity: 1; transform: scale(1); filter: saturate(1); } }
+@keyframes dt-shell-boot {
+  0%   { opacity: 0; transform: scale(1.018); filter: saturate(0.78) blur(8px); }
+  55%  { opacity: 1;                          filter: saturate(0.95) blur(0); }
+  100% { opacity: 1; transform: scale(1);     filter: saturate(1) blur(0); }
+}
 @keyframes dt-launcher-in { from { opacity: 0; transform: scale(1.015); } to { opacity: 1; transform: scale(1); } }
 @keyframes dt-dock-in { from { opacity: 0; transform: translateX(-50%) translateY(18px) scale(0.96); } to { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); } }
+@keyframes dt-topbar-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes dt-widget-in { from { opacity: 0; transform: translateY(16px) scale(0.975); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes dt-wp-drift {
+  0%   { transform: scale(1.04) translate(0, 0) rotate(0deg); }
+  50%  { transform: scale(1.06) translate(-1.5%, -0.8%) rotate(0.6deg); }
+  100% { transform: scale(1.04) translate(0, 0) rotate(0deg); }
+}
+@keyframes dt-summary-glow {
+  0%, 100% { filter: drop-shadow(0 0 0 transparent); }
+  50%      { filter: drop-shadow(0 0 14px rgba(255,140,170,0.28)); }
+}
 @keyframes dt-menu-in { from { opacity: 0; transform: translateY(-4px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
 @keyframes dt-toast-in { from { opacity: 0; transform: translateX(-50%) translateY(8px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
 @keyframes dt-tile-sheen { from { background-position: 200% 0; } to { background-position: -100% 0; } }
@@ -66,7 +80,7 @@
   background: #000;
   -webkit-font-smoothing: antialiased;
   user-select: none;
-  animation: dt-shell-boot 360ms cubic-bezier(0.2,0.8,0.2,1);
+  animation: dt-shell-boot 680ms cubic-bezier(0.2,0.8,0.2,1);
 
   &.accent-blue { --dt-accent: rgb(88, 166, 255); --dt-accent-strong: rgb(13, 114, 255); }
   &.accent-green { --dt-accent: rgb(74, 222, 128); --dt-accent-strong: rgb(0, 199, 67); }
@@ -105,6 +119,12 @@
       radial-gradient(circle at 90% 88%, rgba(13,114,255,0.45), transparent 55%),
       conic-gradient(from 200deg at 70% 40%, rgba(157,71,255,0.45), rgba(13,114,255,0.30), rgba(240,55,118,0.40), rgba(157,71,255,0.45)),
       linear-gradient(160deg, #1a0e2e 0%, #0a0a18 55%, #050610 100%);
+    animation: dt-wp-drift 38s ease-in-out infinite;
+    will-change: transform;
+  }
+  .wp-horizon, .wp-salmon {
+    animation: dt-wp-drift 52s ease-in-out infinite;
+    will-change: transform;
   }
   .wp-ubuntu {
     background:
@@ -246,6 +266,7 @@
     border-bottom: 1px solid var(--dt-hairline);
     font: 500 14px/1 var(--font-pico);
     z-index: 50; color: var(--dt-text);
+    animation: dt-topbar-in 520ms cubic-bezier(0.2,0.8,0.2,1) both 120ms;
   }
   .tb-activities { display: flex; align-items: center; gap: 8px; padding: 5px 10px; border-radius: 8px; transition: background 140ms ease, transform 140ms ease; cursor: pointer; }
   .tb-activities:hover { background: var(--dt-control-bg-hover); transform: translateY(-1px); }
@@ -719,7 +740,8 @@
   }
   .brief-summary em { font-style: normal; font-weight: 600;
     background: linear-gradient(120deg, #ffb89a, #ff5fa2 45%, #9d47ff);
-    -webkit-background-clip: text; background-clip: text; color: transparent; }
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    animation: dt-summary-glow 5.5s ease-in-out infinite; }
 
   .thinking-row { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; padding: 9px 12px;
     background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px;
