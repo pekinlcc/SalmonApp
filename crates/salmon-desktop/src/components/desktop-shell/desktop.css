@@ -1142,6 +1142,13 @@
   .ai-orb.--xs { width: 22px; height: 22px; }
   .ai-orb.--xs::after { inset: 3px; }
   .ai-orb.--pulse::before { animation-duration: 1.4s; }
+  /* When the user hovers the widget or AI popover, the orb tightens
+     its inner rotation — feels like the AI is paying attention to
+     you. Settle back to 4s when the cursor leaves. */
+  .widget:hover .ai-orb::before,
+  .ai-pop:hover .ai-orb::before {
+    animation-duration: 2.2s;
+  }
 
   /* Collapsed pill */
   .collapsed-row { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; }
