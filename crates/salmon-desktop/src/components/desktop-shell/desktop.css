@@ -926,9 +926,26 @@
   .brief-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px;
     margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.06); }
   .brief-footer-left { font: 400 12px/1.4 var(--font-ola); color: rgba(255,255,255,0.5); display: flex; align-items: center; gap: 8px; }
-  .kbd { display: inline-flex; align-items: center; padding: 2px 6px; border-radius: 4px;
-    background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.10);
-    font: 500 11px/1 var(--font-mono); color: rgba(255,255,255,0.85); }
+  /* Physical keycap look — same recipe as .sc-key (shortcuts overlay)
+     so every keystroke chip in the shell reads as one product. Used
+     inline in Welcome, Tips, brief footer, shortcuts hints, activities
+     overview hint. Some callers pass inline padding/font overrides for
+     denser layouts; those still work because they override here. */
+  .kbd {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 18px; height: 19px; padding: 0 6px;
+    border-radius: 5px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.105), rgba(255,255,255,0.05));
+    border: 1px solid rgba(255,255,255,0.14);
+    border-bottom-color: rgba(255,255,255,0.06);
+    box-shadow:
+      0 1px 0 rgba(0,0,0,0.32),
+      inset 0 1px 0 rgba(255,255,255,0.10);
+    font: 600 10.5px/1 var(--font-mono);
+    color: rgba(255,255,255,0.92);
+    letter-spacing: 0;
+    vertical-align: -2px;
+  }
   .brief-quick { display: flex; align-items: center; gap: 6px; }
   .qa-chip { display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; border-radius: 999px;
     background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
