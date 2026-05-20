@@ -827,14 +827,61 @@
   .qa-chip:hover { background: rgba(255,255,255,0.10); }
   .qa-chip svg { width: 12px; height: 12px; stroke-width: 2; }
 
-  .composer { display: flex; align-items: center; gap: 8px; margin-top: 14px;
+  .composer {
+    display: flex; align-items: center; gap: 8px; margin-top: 14px;
     padding: 8px 8px 8px 14px; border-radius: 14px;
-    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); }
-  .composer input { flex: 1; background: transparent; border: 0; outline: none;
-    font: 400 14px/1.4 var(--font-ola); color: white; }
-  .composer input::placeholder { color: rgba(255,255,255,0.4); }
-  .composer-send { width: 30px; height: 30px; border-radius: 10px; display: grid; place-items: center;
-    background: linear-gradient(135deg, #1a79ff, #0d72ff); color: white; cursor: pointer; }
+    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
+    transition: background 180ms ease, border-color 180ms ease, box-shadow 220ms ease, transform 180ms ease;
+    position: relative;
+  }
+  /* Conic gradient ring revealed on focus — same colors as the AI orb
+     so "talking to Salmon" reads consistently from the dock tile down
+     to the composer. */
+  .composer::before {
+    content: ""; position: absolute; inset: -1px; border-radius: inherit; pointer-events: none;
+    padding: 1px;
+    background: linear-gradient(120deg,
+      color-mix(in srgb, var(--dt-accent) 70%, transparent),
+      rgba(13,114,255,0.55),
+      rgba(157,71,255,0.55),
+      color-mix(in srgb, var(--dt-accent) 70%, transparent));
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+            mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor; mask-composite: exclude;
+    opacity: 0; transition: opacity 220ms ease;
+  }
+  .composer:focus-within {
+    background: rgba(255,255,255,0.08);
+    border-color: transparent;
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--dt-accent) 40%, transparent),
+      0 14px 36px rgba(13,114,255,0.18),
+      inset 0 1px 0 rgba(255,255,255,0.07);
+    transform: translateY(-1px);
+  }
+  .composer:focus-within::before { opacity: 1; }
+  .composer input {
+    flex: 1; background: transparent; border: 0; outline: none;
+    font: 400 14px/1.4 var(--font-ola); color: white;
+  }
+  .composer input::placeholder {
+    color: rgba(255,255,255,0.4);
+    transition: color 200ms ease;
+  }
+  .composer:focus-within input::placeholder { color: rgba(255,255,255,0.30); }
+  .composer-send {
+    width: 30px; height: 30px; border-radius: 10px; display: grid; place-items: center;
+    background: linear-gradient(135deg, #1a79ff, #0d72ff); color: white; cursor: pointer;
+    box-shadow: 0 4px 12px rgba(13,114,255,0.30), inset 0 1px 0 rgba(255,255,255,0.18);
+    transition: filter 140ms ease, transform 180ms cubic-bezier(0.2,0.8,0.2,1), box-shadow 200ms ease;
+  }
+  .composer-send:hover { filter: brightness(1.10); transform: translateY(-1px); }
+  .composer:focus-within .composer-send {
+    box-shadow:
+      0 6px 18px rgba(13,114,255,0.42),
+      0 0 0 1px rgba(255,255,255,0.10),
+      inset 0 1px 0 rgba(255,255,255,0.22);
+  }
   .composer-send svg { width: 14px; height: 14px; }
 
   /* ---------- Dock ---------- */
