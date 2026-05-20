@@ -1010,14 +1010,52 @@
   .brief-sub .who { color: rgba(255,255,255,0.72); }
   .brief-sub .dot-sep { width: 3px; height: 3px; border-radius: 50%; background: rgba(255,255,255,0.3); flex-shrink: 0; }
 
-  .brief-cta { display: inline-flex; align-items: center; gap: 4px; padding: 6px 10px; border-radius: 8px;
+  .brief-cta {
+    position: relative; overflow: hidden;
+    display: inline-flex; align-items: center; gap: 4px; padding: 6px 10px; border-radius: 8px;
     background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08);
-    font: 500 12px/1 var(--font-pico); color: rgba(255,255,255,0.92); white-space: nowrap; flex-shrink: 0; cursor: pointer; }
-  .brief-cta:hover { background: rgba(255,255,255,0.12); }
-  .brief-cta.--primary { background: linear-gradient(135deg, #1a79ff, #0d72ff); border-color: transparent;
-    box-shadow: 0 4px 12px rgba(13,114,255,0.4); color: #fff; }
-  .brief-cta.--primary:hover { filter: brightness(1.1); }
-  .brief-cta svg { width: 12px; height: 12px; stroke-width: 2; }
+    font: 500 12px/1 var(--font-pico); color: rgba(255,255,255,0.92);
+    white-space: nowrap; flex-shrink: 0; cursor: pointer;
+    transition: background 160ms ease, border-color 160ms ease,
+                transform 200ms cubic-bezier(0.2,0.8,0.2,1),
+                box-shadow 220ms ease, color 160ms ease;
+  }
+  .brief-cta:hover {
+    background: rgba(255,255,255,0.14);
+    border-color: rgba(255,255,255,0.16);
+    color: rgba(255,255,255,0.98);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.22);
+  }
+  .brief-cta:active { transform: translateY(0) scale(0.97); }
+  .brief-cta.--primary {
+    background: linear-gradient(135deg, #1a79ff, #0d72ff);
+    border-color: transparent;
+    box-shadow: 0 4px 12px rgba(13,114,255,0.40), inset 0 1px 0 rgba(255,255,255,0.18);
+    color: #fff;
+  }
+  /* Primary variant gets a sheen sweep just like the welcome CTA so
+     the brief widget's hero action ("加入" on an imminent meeting,
+     etc.) draws the eye when the row hovers. */
+  .brief-cta.--primary::after {
+    content: ""; position: absolute; inset: 0;
+    background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,0.28) 50%, transparent 70%);
+    background-size: 240% 100%; background-position: 200% 0;
+    transition: background-position 700ms cubic-bezier(0.2,0.8,0.2,1);
+    pointer-events: none;
+  }
+  .brief-cta.--primary:hover {
+    filter: brightness(1.10);
+    box-shadow:
+      0 8px 22px rgba(13,114,255,0.55),
+      0 0 18px rgba(13,114,255,0.30),
+      inset 0 1px 0 rgba(255,255,255,0.28);
+    border-color: transparent;
+    transform: translateY(-1px);
+  }
+  .brief-cta.--primary:hover::after { background-position: -120% 0; }
+  .brief-cta svg { width: 12px; height: 12px; stroke-width: 2; position: relative; z-index: 1; }
+  .brief-cta > * { position: relative; z-index: 1; }
 
   .brief-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px;
     margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.06); }
