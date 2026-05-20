@@ -1035,7 +1035,12 @@
     grid-auto-rows: 94px;
     gap: 8px 10px; max-width: min(360px, calc(100vw - 40px));
     align-content: start; justify-content: start;
-    overflow-x: hidden; overflow-y: auto; padding-right: 6px;
+    overflow-x: hidden; overflow-y: auto;
+    /* scrollbar-gutter reserves the scrollbar track even when not
+       needed, so adding files doesn't reflow the grid sideways
+       when the scrollbar first appears. */
+    scrollbar-gutter: stable;
+    padding-right: 4px;
     pointer-events: auto; scrollbar-width: thin;
     scrollbar-color: rgba(255,255,255,0.28) transparent;
   }
@@ -2162,6 +2167,7 @@
        Feishu, Chrome, etc. can push 60+ tiles on a real machine. Let the
        container scroll instead of clipping the bottom rows. */
     scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.18) transparent;
+    scrollbar-gutter: stable;
   }
   .launcher-grid::-webkit-scrollbar { width: 8px; }
   .launcher-grid::-webkit-scrollbar-track { background: transparent; }
@@ -2996,6 +3002,7 @@
     align-content: start; padding: 4px;
     max-height: calc(100vh - 320px); overflow-y: auto;
     scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.20) transparent;
+    scrollbar-gutter: stable;
   }
   .ao-windows::-webkit-scrollbar { width: 8px; }
   .ao-windows::-webkit-scrollbar-track { background: transparent; }
