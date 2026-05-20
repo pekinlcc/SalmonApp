@@ -3459,7 +3459,11 @@
   .wallpaper-choice:focus-visible,
   .appearance-segment button:focus-visible,
   .accent-swatch:focus-visible,
-  .appearance-head button:focus-visible {
+  .appearance-head button:focus-visible,
+  .w-action:focus-visible,
+  .composer-send:focus-visible,
+  .expand-btn:focus-visible,
+  .shortcuts-close:focus-visible {
     outline: 2px solid color-mix(in srgb, var(--dt-accent) 80%, white);
     outline-offset: 2px;
     box-shadow: 0 0 0 4px color-mix(in srgb, var(--dt-accent) 24%, transparent);
