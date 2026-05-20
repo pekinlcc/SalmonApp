@@ -1441,6 +1441,7 @@
   .composer input {
     flex: 1; background: transparent; border: 0; outline: none;
     font: 400 14px/1.4 var(--font-ola); color: white;
+    caret-color: var(--dt-accent);
   }
   .composer input::placeholder {
     color: rgba(255,255,255,0.4);
@@ -2018,6 +2019,7 @@
   .launcher-search input {
     flex: 1; background: transparent; border: 0; outline: none;
     font: 400 16px/1.4 var(--font-ola); color: white;
+    caret-color: var(--dt-accent);
   }
   .launcher-search input::placeholder {
     color: rgba(255,255,255,0.4);
@@ -2976,6 +2978,7 @@
     flex: 1; min-width: 0;
     background: transparent; border: 0; outline: none;
     font: 400 15px/1.4 var(--font-ola); color: white;
+    caret-color: var(--dt-accent);
   }
   .ao-search input::placeholder {
     color: rgba(255,255,255,0.42);
