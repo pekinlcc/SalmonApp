@@ -2738,6 +2738,8 @@
   .welcome-card {
     position: relative; z-index: 1;
     width: min(620px, 100%); padding: 36px 38px 30px;
+    max-height: calc(100vh - 80px);
+    overflow-y: auto;
     border-radius: 28px;
     background: linear-gradient(180deg, rgba(28, 30, 39, 0.86), rgba(15, 17, 24, 0.82));
     border: 1px solid var(--dt-panel-border);
@@ -2748,6 +2750,18 @@
     color: var(--dt-text);
     display: flex; flex-direction: column; align-items: stretch; gap: 18px;
     animation: dt-widget-in 480ms cubic-bezier(0.2,0.8,0.2,1) both 120ms;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.20) transparent;
+  }
+  .welcome-card::-webkit-scrollbar { width: 8px; }
+  .welcome-card::-webkit-scrollbar-track { background: transparent; }
+  .welcome-card::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.18);
+    border-radius: 999px;
+    transition: background 200ms ease;
+  }
+  .welcome-card::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in srgb, var(--dt-accent) 50%, rgba(255,255,255,0.40));
   }
   .welcome-orb {
     position: relative; align-self: center;
