@@ -1,6 +1,6 @@
 [package]
 name = "salmonapp-desktop"
-version = "2.0.76"
+version = "2.0.77"
 description = "SalmonApp Desktop — Ubuntu-style desktop shell (Linux only)"
 authors = ["SalmonApp"]
 edition = "2021"
