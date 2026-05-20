@@ -1624,6 +1624,7 @@
   .dock-icon:nth-of-type(9) { animation-delay: 780ms; }
   .dock-icon:nth-of-type(n+10) { animation-delay: 800ms; }
   .dock-icon:hover { transform: translateY(-7px) scale(1.055); filter: saturate(1.08) brightness(1.04); box-shadow: inset 0 1px 0 rgba(255,255,255,0.22), 0 12px 28px rgba(0,0,0,0.36); }
+  .dock-icon:active { transform: translateY(-4px) scale(0.965); transition-duration: 90ms; }
   /* Per-app hover halo — the icon glows in its own brand color so
      hovering Mail feels distinctly different from hovering Terminal.
      Inherits the lift + scale from the base :hover above, then layers
