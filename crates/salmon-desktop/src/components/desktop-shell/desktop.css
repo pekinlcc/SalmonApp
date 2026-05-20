@@ -1578,6 +1578,14 @@
     transform: translateY(-1px);
   }
   .composer:focus-within::before { opacity: 1; }
+  .composer-leading {
+    display: inline-flex; align-items: center;
+    color: rgba(255,255,255,0.5);
+    transition: color 200ms ease;
+  }
+  .composer:focus-within .composer-leading {
+    color: color-mix(in srgb, var(--dt-accent) 70%, white);
+  }
   .composer input {
     flex: 1; background: transparent; border: 0; outline: none;
     font: 400 14px/1.4 var(--font-ola); color: white;

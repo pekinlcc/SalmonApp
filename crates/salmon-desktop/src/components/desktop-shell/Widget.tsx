@@ -364,7 +364,7 @@ export function Widget({ mode, snap, onModeChange, callbacks }: Props) {
 
           {showComposer && (
             <div className="composer">
-              <span style={{ color: "rgba(255,255,255,0.5)", display: "inline-flex" }}>
+              <span className="composer-leading">
                 <Icons.Sparkle />
               </span>
               <input placeholder="问 Salmon 任何事，或让它帮你处理…" />
