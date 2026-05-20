@@ -378,8 +378,17 @@
     min-width: 0; height: 34px; border-radius: 8px; padding: 0 10px;
     background: var(--dt-control-bg); border: 1px solid var(--dt-panel-border);
     color: var(--dt-text); font: 700 11px/1 var(--font-pico);
+    transition: background 160ms ease, border-color 160ms ease, box-shadow 220ms ease;
   }
   .appearance-select-grid select:hover { background: var(--dt-control-bg-hover); }
+  .appearance-select-grid select:focus-visible,
+  .tb-display-controls select:focus-visible {
+    outline: none;
+    border-color: color-mix(in srgb, var(--dt-accent) 60%, var(--dt-panel-border));
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--dt-accent) 50%, transparent),
+      0 0 0 4px color-mix(in srgb, var(--dt-accent) 18%, transparent);
+  }
   .accent-swatch span {
     width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0;
     background: var(--dt-accent);
@@ -771,7 +780,9 @@
     border: 1px solid rgba(255,255,255,0.08);
     color: rgba(255,255,255,0.88);
     font: 600 11px/1 var(--font-pico);
+    transition: background 160ms ease, border-color 160ms ease, box-shadow 220ms ease;
   }
+  .tb-display-controls select:hover { background: rgba(255,255,255,0.12); }
   .tb-display-controls select option {
     color: #101018;
   }
