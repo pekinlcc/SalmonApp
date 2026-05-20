@@ -3146,6 +3146,18 @@
   }
   .ao-hint .kbd { margin: 0 2px; }
 
+  /* Narrow-viewport tightening — drops the 56/110 padding and
+     hint-only gap so the Overview stays usable in narrower windows
+     (nested testing sessions, external smaller displays). */
+  @media (max-width: 760px) {
+    .activities-overview { padding: 56px 16px 90px; }
+    .ao-stage { gap: 20px; }
+    .ao-workspaces { gap: 10px; }
+    .ao-workspace { min-width: 130px; padding: 8px 11px; }
+    .ao-ws-thumb { height: 56px; }
+    .ao-windows { gap: 12px; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
+  }
+
   .desktop-toast {
     position: absolute; left: 50%; bottom: 98px; transform: translateX(-50%);
     z-index: 220;
