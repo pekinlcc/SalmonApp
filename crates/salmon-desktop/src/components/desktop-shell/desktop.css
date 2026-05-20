@@ -1912,6 +1912,7 @@
 
   .ai-pop {
     width: 420px; max-width: calc(100vw - 40px);
+    max-height: calc(100vh - 100px);
     border-radius: 22px;
     background: rgba(18,16,28,0.78);
     backdrop-filter: blur(40px) saturate(180%);
@@ -1921,7 +1922,20 @@
       0 30px 80px rgba(0,0,0,0.55),
       0 10px 28px rgba(0,0,0,0.35),
       inset 0 1px 0 rgba(255,255,255,0.08);
-    color: white; overflow: hidden; position: relative;
+    color: white; position: relative;
+    overflow-x: hidden; overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.20) transparent;
+  }
+  .ai-pop::-webkit-scrollbar { width: 8px; }
+  .ai-pop::-webkit-scrollbar-track { background: transparent; }
+  .ai-pop::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.18);
+    border-radius: 999px;
+    transition: background 200ms ease;
+  }
+  .ai-pop::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in srgb, var(--dt-accent) 50%, rgba(255,255,255,0.40));
   }
   .ai-pop .widget-glow { opacity: 0.8; }
   .ai-pop-inner { position: relative; z-index: 1; padding: 16px 16px 14px; }
