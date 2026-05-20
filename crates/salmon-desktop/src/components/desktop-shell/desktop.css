@@ -3447,6 +3447,8 @@
   .welcome-skip:focus-visible,
   .tb-pop-grid button:focus-visible,
   .tb-pop-actions button:focus-visible,
+  .tb-power-row button:focus-visible,
+  .tb-pop-action:focus-visible,
   .tb-notification-row:focus-visible,
   .tb-notification-head button:focus-visible,
   .tb-display-head button:focus-visible,
