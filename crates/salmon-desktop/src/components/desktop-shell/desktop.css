@@ -394,6 +394,7 @@
     backdrop-filter: blur(24px) saturate(160%);
     -webkit-backdrop-filter: blur(24px) saturate(160%);
     border-bottom: 1px solid var(--dt-hairline);
+    box-shadow: 0 4px 18px rgba(0,0,0,0.18);
     font: 500 14px/1 var(--font-pico);
     z-index: 50; color: var(--dt-text);
     animation: dt-topbar-in 520ms cubic-bezier(0.2,0.8,0.2,1) both 120ms;
