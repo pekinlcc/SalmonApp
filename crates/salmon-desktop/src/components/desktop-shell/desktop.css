@@ -775,9 +775,29 @@
     width: 112px; accent-color: rgb(255,138,89);
   }
   .tb-display-empty {
-    padding: 10px; border-radius: 10px;
-    background: rgba(255,255,255,0.045); border: 1px solid rgba(255,255,255,0.065);
+    position: relative;
+    padding: 14px 12px; border-radius: 10px;
+    background: linear-gradient(135deg,
+      color-mix(in srgb, var(--dt-accent) 6%, rgba(255,255,255,0.045)),
+      rgba(255,255,255,0.045));
+    border: 1px solid rgba(255,255,255,0.075);
+    overflow: hidden;
   }
+  /* Soft accent halo behind the empty message — same gesture as the
+     ao-empty / window-switcher-empty surfaces, scaled down for the
+     small in-popover empty rows used by display / wifi / bluetooth
+     / printer / vpn lists when there's nothing to show. */
+  .tb-display-empty::before {
+    content: ""; position: absolute; top: 50%; left: 50%;
+    width: 80px; height: 80px; margin: -40px 0 0 -40px;
+    border-radius: 50%; pointer-events: none;
+    background: radial-gradient(circle,
+      color-mix(in srgb, var(--dt-accent) 14%, transparent),
+      transparent 70%);
+    animation: dt-summary-glow 6s ease-in-out infinite;
+    z-index: 0;
+  }
+  .tb-display-empty > * { position: relative; z-index: 1; }
   .tb-display-advanced { width: 100%; }
   .tb-display-head button:hover, .tb-display-row button:hover, .tb-display-advanced:hover { background: rgba(255,255,255,0.12); }
   .tb-note-card {
