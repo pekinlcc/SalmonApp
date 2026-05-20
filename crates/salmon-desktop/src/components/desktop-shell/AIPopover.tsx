@@ -92,7 +92,7 @@ export function AIPopover({ show, snap, callbacks, onClose, onExpand }: Props) {
                         {it.chip && (
                           <span className={`chip${it.chipKind ? " --" + it.chipKind : ""}`}>{it.chip}</span>
                         )}
-                        <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{it.title}</span>
+                        <span className="dt-flex-truncate">{it.title}</span>
                       </div>
                       <div className="s">
                         {[it.who, it.meta, it.tail].filter(Boolean).join(" · ")}

@@ -176,7 +176,7 @@ function BriefRow({ item, primary }: { item: BriefItem; primary?: boolean }) {
           {item.chip && (
             <span className={`chip${item.chipKind ? " --" + item.chipKind : ""}`}>{item.chip}</span>
           )}
-          <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{item.title}</span>
+          <span className="dt-flex-truncate">{item.title}</span>
         </div>
         <div className="brief-sub">
           {item.who && <span className="who">{item.who}</span>}
