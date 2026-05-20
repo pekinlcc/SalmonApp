@@ -47,6 +47,16 @@
   from { opacity: 0; transform: translateY(8px) scale(0.985); }
   to   { opacity: 1; transform: translateY(0) scale(1); }
 }
+@keyframes dt-badge-in {
+  0%   { transform: scale(0); opacity: 0; }
+  55%  { transform: scale(1.18); opacity: 1; }
+  80%  { transform: scale(0.94); }
+  100% { transform: scale(1); }
+}
+@keyframes dt-badge-breath {
+  0%, 100% { box-shadow: 0 2px 6px rgba(0,0,0,0.35), 0 0 0 0 currentColor; }
+  50%      { box-shadow: 0 2px 6px rgba(0,0,0,0.35), 0 0 12px 1px currentColor; }
+}
 @keyframes dt-orb-halo {
   0%, 100% {
     box-shadow:
@@ -1382,7 +1392,8 @@
       transparent);
     box-shadow: 0 0 8px color-mix(in srgb, var(--dt-accent) 35%, transparent);
   }
-  .dock-badge { position: absolute; top: -4px; right: -4px;
+  .dock-badge {
+    position: absolute; top: -4px; right: -4px;
     min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px;
     display: inline-flex; align-items: center; justify-content: center;
     background: var(--red-6); color: #fff;
@@ -1391,9 +1402,20 @@
     border: 2px solid rgba(20,22,30,0.92);
     box-shadow: 0 2px 6px rgba(0,0,0,0.35);
     z-index: 2;
+    /* Two-stage animation: a single bounce-in on mount (520ms with
+       slight overshoot), then a slow 3s breath that pulses an outer
+       glow in the badge's own color so unread badges read as "live"
+       without being annoying. */
+    animation:
+      dt-badge-in 520ms cubic-bezier(0.22, 1.2, 0.36, 1) both,
+      dt-badge-breath 3.2s ease-in-out 520ms infinite;
+    will-change: transform, box-shadow;
   }
   .dock-badge.--blue { background: var(--oc-blue); }
-  .dock-badge.--dot { min-width: 10px; height: 10px; padding: 0; border-radius: 50%; right: 6px; top: 6px; border-width: 2px; }
+  .dock-badge.--dot {
+    min-width: 10px; height: 10px; padding: 0;
+    border-radius: 50%; right: 6px; top: 6px; border-width: 2px;
+  }
 
   /* Dock icon palettes */
   .bg-salmon  { background: linear-gradient(135deg, #ff8a5f, #e85d75); }
