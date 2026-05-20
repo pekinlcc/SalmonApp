@@ -232,7 +232,7 @@ export function Widget({ mode, snap, onModeChange, callbacks }: Props) {
     return (
       <div className={cls}>
         <div className="widget-glow" />
-        <div className="widget-inner" style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div className="widget-inner">
           <AIOrb size="sm" pulse={false} />
           <div className="idle-text">
             <b>Salmon</b> · 今天上午很安静，我帮你留意着。
@@ -246,7 +246,7 @@ export function Widget({ mode, snap, onModeChange, callbacks }: Props) {
     return (
       <div className={cls} onClick={() => onModeChange("overview")}>
         <div className="widget-glow" />
-        <div className="widget-inner" style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div className="widget-inner">
           <AIOrb size="sm" />
           <div className="collapsed-row">
             <div className="collapsed-text">
