@@ -3579,7 +3579,7 @@ dependencies = [
 
 [[package]]
 name = "salmonapp-desktop"
-version = "2.0.85"
+version = "2.0.86"
 dependencies = [
  "anyhow",
  "axum",

@@ -498,9 +498,16 @@
     -webkit-backdrop-filter: blur(28px) saturate(1.35);
     animation: dt-menu-in 160ms cubic-bezier(0.2,0.8,0.2,1);
   }
-  .tb-calendar { left: 50%; width: 320px; transform: translateX(-50%); }
-  .tb-quick { right: 12px; width: 330px; }
-  .tb-notifications { right: 12px; width: 320px; }
+  .tb-calendar {
+    left: 50%; width: 320px; max-width: calc(100vw - 24px);
+    transform: translateX(-50%);
+  }
+  .tb-quick {
+    right: 12px; width: 330px; max-width: calc(100vw - 24px);
+  }
+  .tb-notifications {
+    right: 12px; width: 320px; max-width: calc(100vw - 24px);
+  }
   .tb-pop-title { font: 500 14px/1.2 var(--font-pico); color: rgba(255,255,255,0.92); }
   /* Big clock number — the hero element when the calendar popover
      opens. Subtle vertical gradient (white → soft blue tint) so the
