@@ -405,12 +405,23 @@
   .tb-month-weekday, .tb-month-day {
     height: 28px; display: grid; place-items: center; border-radius: 8px;
     font: 650 11px/1 var(--font-pico); color: rgba(255,255,255,0.78);
+    transition: background 140ms ease, color 140ms ease, transform 180ms cubic-bezier(0.2,0.8,0.2,1);
   }
   .tb-month-weekday { height: 18px; color: rgba(255,255,255,0.40); }
+  .tb-month-day { cursor: default; }
+  .tb-month-day:not(.is-today):hover {
+    background: rgba(255,255,255,0.08);
+    color: rgba(255,255,255,0.95);
+    transform: scale(1.08);
+  }
   .tb-month-day.is-muted { color: rgba(255,255,255,0.28); }
   .tb-month-day.is-today {
     background: var(--dt-accent); color: white;
-    box-shadow: 0 0 0 1px rgba(255,255,255,0.14) inset;
+    box-shadow:
+      0 0 0 1px rgba(255,255,255,0.18) inset,
+      0 0 16px color-mix(in srgb, var(--dt-accent) 55%, transparent),
+      0 4px 12px color-mix(in srgb, var(--dt-accent) 35%, transparent);
+    animation: dt-summary-glow 4s ease-in-out infinite;
   }
   .tb-pop-row {
     display: flex; align-items: center; justify-content: space-between; gap: 14px;
