@@ -1858,9 +1858,24 @@
     -webkit-background-clip: text; background-clip: text; color: transparent;
     animation: dt-summary-glow 5.5s ease-in-out infinite; }
   .ai-peek-list { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
-  .ai-peek-row { display: flex; align-items: center; gap: 8px; padding: 6px 4px; border-radius: 8px;
-    font: 400 12px/1.3 var(--font-ola); color: rgba(255,255,255,0.85); }
-  .ai-peek-row .ic { width: 18px; height: 18px; border-radius: 5px; display: grid; place-items: center; flex-shrink: 0; }
+  .ai-peek-row {
+    display: flex; align-items: center; gap: 8px; padding: 6px 6px; border-radius: 8px;
+    font: 400 12px/1.3 var(--font-ola); color: rgba(255,255,255,0.85);
+    transition: background 160ms ease, color 160ms ease;
+  }
+  /* Hover state — even though the peek dismisses on cursor leave
+     of the AI tile, the user might hold the cursor inside the
+     peek long enough to scan it. Brightening the focused row gives
+     a sense of "this is the item you're reading". */
+  .ai-peek-row:hover {
+    background: rgba(255,255,255,0.06);
+    color: rgba(255,255,255,0.96);
+  }
+  .ai-peek-row .ic {
+    width: 18px; height: 18px; border-radius: 5px; display: grid; place-items: center; flex-shrink: 0;
+    transition: transform 220ms cubic-bezier(0.2,0.8,0.2,1);
+  }
+  .ai-peek-row:hover .ic { transform: scale(1.08); }
   .ai-peek-row .ic svg { width: 11px; height: 11px; stroke-width: 2.2; color: white; }
   .ai-peek-row .txt { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .ai-peek-row .meta { font-size: 11px; color: rgba(255,255,255,0.5); flex-shrink: 0; }
