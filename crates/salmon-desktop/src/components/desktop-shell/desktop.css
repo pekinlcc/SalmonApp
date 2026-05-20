@@ -1552,9 +1552,21 @@
   }
   .dock-ai-tile .pips i {
     height: 2px; border-radius: 1px; flex: 1;
-    background: rgba(255,255,255,0.22); transition: background 160ms;
+    background: rgba(255,255,255,0.22);
+    transform-origin: left center;
+    transition: background 260ms ease, transform 360ms cubic-bezier(0.2,0.8,0.2,1),
+                box-shadow 260ms ease;
   }
-  .dock-ai-tile .pips i.--on { background: rgba(255,255,255,0.85); }
+  /* Active pip: brightens to near-white, grows 6% taller, and gains
+     a soft accent glow so the rotation reads as a real loading bar,
+     not a static dots-pretending-to-be-active. */
+  .dock-ai-tile .pips i.--on {
+    background: linear-gradient(90deg,
+      color-mix(in srgb, var(--dt-accent) 70%, white),
+      rgba(255,255,255,0.95));
+    transform: scaleY(1.6);
+    box-shadow: 0 0 6px color-mix(in srgb, var(--dt-accent) 55%, transparent);
+  }
   .dock-ai-tile .badge {
     position: absolute; top: -6px; right: -6px;
     min-width: 22px; height: 22px; padding: 0 7px;
