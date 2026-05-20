@@ -1411,16 +1411,31 @@
     width: 30px; height: 30px; border-radius: 10px; display: grid; place-items: center;
     background: linear-gradient(135deg, #1a79ff, #0d72ff); color: white; cursor: pointer;
     box-shadow: 0 4px 12px rgba(13,114,255,0.30), inset 0 1px 0 rgba(255,255,255,0.18);
-    transition: filter 140ms ease, transform 180ms cubic-bezier(0.2,0.8,0.2,1), box-shadow 200ms ease;
+    transition: filter 140ms ease, transform 200ms cubic-bezier(0.2,0.8,0.2,1),
+                box-shadow 200ms ease;
   }
-  .composer-send:hover { filter: brightness(1.10); transform: translateY(-1px); }
+  .composer-send:hover {
+    filter: brightness(1.10);
+    transform: translateY(-2px);
+    box-shadow:
+      0 8px 22px rgba(13,114,255,0.50),
+      0 0 20px rgba(13,114,255,0.30),
+      inset 0 1px 0 rgba(255,255,255,0.28);
+  }
+  .composer-send:active { transform: translateY(0) scale(0.92); }
   .composer:focus-within .composer-send {
     box-shadow:
       0 6px 18px rgba(13,114,255,0.42),
       0 0 0 1px rgba(255,255,255,0.10),
       inset 0 1px 0 rgba(255,255,255,0.22);
   }
-  .composer-send svg { width: 14px; height: 14px; }
+  .composer-send svg {
+    width: 14px; height: 14px;
+    transition: transform 240ms cubic-bezier(0.2,0.8,0.2,1);
+  }
+  /* On hover the send arrow nudges 2px right + 1px up — reads as
+     "ready to launch", same gesture the AI-pop expand button uses. */
+  .composer-send:hover svg { transform: translate(2px, -1px) rotate(-2deg); }
 
   /* ---------- Dock ---------- */
   .dock-wrap { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 40; display: flex; pointer-events: none; }
