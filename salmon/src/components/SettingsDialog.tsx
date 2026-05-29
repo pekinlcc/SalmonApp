@@ -50,6 +50,15 @@ export function SettingsDialog({
     initialTab === "accounts" || initialTab === "about") ? initialTab : "usage";
   const [tab, setTab] = useState<Tab>(validInitial);
 
+  // U10 a11y: Escape closes Settings, same as the other modals.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
   return (
     <div className="modal-bg" onClick={onClose}>
       <div className="modal settings-modal-v2" onClick={(e) => e.stopPropagation()}>

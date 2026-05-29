@@ -50,6 +50,10 @@ pub struct AppState {
     /// "already running" instead of racing to write brief_items + clobbering
     /// briefing_state.
     pub briefing_busy: Arc<std::sync::atomic::AtomicBool>,
+    /// In-flight guard for `generate_recommendations`. Two concurrent ↻
+    /// refresh clicks would otherwise each run the two-engine pipeline and
+    /// insert overlapping pending rows. Same shape as `briefing_busy`.
+    pub recs_busy: Arc<std::sync::atomic::AtomicBool>,
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -123,6 +127,7 @@ pub fn run() {
                 oauth_cfg,
                 oauth_broker,
                 briefing_busy: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+                recs_busy: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             });
             Ok(())
         })

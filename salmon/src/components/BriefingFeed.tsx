@@ -273,14 +273,14 @@ function BriefListRow({ item, active, onClick }: { item: BriefItem; active: bool
     : item.kind === "event" ? "#E6F0FF"
     : item.kind === "task" ? "#FFF4D6"
     : item.kind === "gap"  ? "#FBE3E3"
-    : "#FFE4DA";
+    : "var(--salmon-100)";
   const pillFg =
     item.kind === "cross" ? "#266B33"
     : item.kind === "topic" ? "#6F44B4"
     : item.kind === "event" ? "#2F5BB7"
     : item.kind === "task" ? "#7A5B00"
     : item.kind === "gap"  ? "#A8302C"
-    : "#B7493D";
+    : "var(--salmon-700)";
   return (
     <div className={`topic ${active ? "active" : ""}`} onClick={onClick} style={{ cursor: "pointer" }}>
       <div className="t-row">
@@ -601,7 +601,7 @@ function BriefOverviewBar({
     if (running) return <b>评估中… {note}</b>;
     if (status?.overview) return status.overview;
     if (status && !status.engineAvailable) {
-      return <span style={{ color: "#B7493D" }}>未检测到已登录的 Claude / Codex CLI</span>;
+      return <span style={{ color: "var(--salmon-700)" }}>未检测到已登录的 Claude / Codex CLI</span>;
     }
     if (items.length === 0) return "暂无待处理事项 — 点右侧「刷新」让 AI 重新评估今天的邮件 / Topic。";
     return `共 ${items.length} 件待处理${high > 0 ? `，其中 ${high} 件高优先` : ""}。`;
@@ -703,7 +703,7 @@ function BriefAiActivity({
         <div>
           <span
             className="brief-engine-dot"
-            style={{ background: status?.engineAvailable ? "#5AA76C" : "#B7493D" }}
+            style={{ background: status?.engineAvailable ? "#5AA76C" : "var(--salmon-700)" }}
             aria-hidden="true"
           />
           {status?.engineAvailable ? "LLM 引擎在线" : "LLM 引擎不可用"}
@@ -760,7 +760,7 @@ function HomeOverview({
                     {r.topic.engine === "claude" ? "CC" : "CX"}
                   </span>
                   <span className="t-title">{r.topic.title || "(未命名)"}</span>
-                  <span style={{ fontSize: 10.5, padding: "1px 6px", borderRadius: 4, background: "#FFE5DA", color: "#B7493D" }}>
+                  <span style={{ fontSize: 10.5, padding: "1px 6px", borderRadius: 4, background: "var(--salmon-100)", color: "var(--salmon-700)" }}>
                     {r.reason}
                   </span>
                 </div>

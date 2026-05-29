@@ -155,8 +155,17 @@ pub struct OauthResult {
 }
 
 /// Persist refresh tokens outside SQLite where the platform gives us a
-/// credential store. Existing Linux installs keep the historical SQLite
-/// value; macOS stores a Keychain reference in `oauth_refresh_enc`.
+/// credential store.
+///
+/// - macOS: store in Keychain via `/usr/bin/security`; DB keeps a
+///   `keychain:<service>` reference.
+/// - Linux: store in the Secret Service (gnome-keyring / KWallet) via
+///   `secret-tool`; DB keeps a `secret:<service>` reference. If
+///   `secret-tool` is missing (minimal/headless installs without
+///   libsecret-tools) we fall back to the historical plaintext-in-SQLite
+///   behaviour so the app still works — just less securely. The fallback
+///   is logged so it's visible in salmon.log.
+/// - Other / unknown: plaintext (returns the token as the stored value).
 pub fn store_refresh_token_ref(
     provider: &str,
     account_id: &str,
@@ -186,7 +195,22 @@ pub fn store_refresh_token_ref(
         }
         Ok(Some(format!("keychain:{}", service)))
     }
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(target_os = "linux")]
+    {
+        let service = secret_service_name(provider, account_id);
+        match store_secret_linux(&service, account_id, &token) {
+            Ok(()) => Ok(Some(format!("secret:{}", service))),
+            Err(e) => {
+                eprintln!(
+                    "[salmon][oauth] secret-tool unavailable ({e}); falling back to \
+                     plaintext token storage in SQLite. Install `libsecret-tools` \
+                     (Debian/Ubuntu) or `libsecret` (Fedora) for encrypted storage."
+                );
+                Ok(Some(token))
+            }
+        }
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
     {
         let _ = provider;
         let _ = account_id;
@@ -222,12 +246,86 @@ pub fn resolve_refresh_token(
             return Ok(if token.is_empty() { None } else { Some(token) });
         }
     }
+    #[cfg(target_os = "linux")]
+    {
+        if let Some(service) = value.strip_prefix("secret:") {
+            let token = lookup_secret_linux(service, account_id)
+                .context("read refresh token from Secret Service")?;
+            return Ok(token);
+        }
+    }
+    // No recognised prefix → legacy plaintext value (or a platform without
+    // a keyring). The `account_id` arg is unused on those paths.
+    let _ = &account_id;
     Ok(Some(value))
 }
 
 #[cfg(target_os = "macos")]
 fn keychain_service(provider: &str, account_id: &str) -> String {
     format!("app.salmonapp.desktop.oauth.refresh.{}.{}", provider, account_id)
+}
+
+#[cfg(target_os = "linux")]
+fn secret_service_name(provider: &str, account_id: &str) -> String {
+    format!("app.salmonapp.desktop.oauth.refresh.{}.{}", provider, account_id)
+}
+
+/// Store a secret in the freedesktop Secret Service via `secret-tool`.
+/// The token is fed on stdin (NOT argv) so it never appears in `ps` /
+/// `/proc/<pid>/cmdline`.
+#[cfg(target_os = "linux")]
+fn store_secret_linux(service: &str, account_id: &str, token: &str) -> Result<()> {
+    use std::io::Write;
+    use std::process::{Command, Stdio};
+
+    let mut child = Command::new("secret-tool")
+        .args([
+            "store",
+            "--label=SalmonApp OAuth refresh token",
+            "service",
+            service,
+            "account",
+            account_id,
+        ])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .context("spawn secret-tool store")?;
+    {
+        let mut stdin = child
+            .stdin
+            .take()
+            .ok_or_else(|| anyhow!("secret-tool: no stdin pipe"))?;
+        stdin
+            .write_all(token.as_bytes())
+            .context("write token to secret-tool stdin")?;
+        // stdin dropped here → EOF for secret-tool.
+    }
+    let status = child.wait().context("wait for secret-tool store")?;
+    if !status.success() {
+        return Err(anyhow!("secret-tool store exited {:?}", status.code()));
+    }
+    Ok(())
+}
+
+/// Look up a secret previously stored with `store_secret_linux`. Returns
+/// None if the entry is absent (secret-tool exits non-zero with empty
+/// output) so the caller can prompt for re-login instead of erroring.
+#[cfg(target_os = "linux")]
+fn lookup_secret_linux(service: &str, account_id: &str) -> Result<Option<String>> {
+    use std::process::Command;
+
+    let out = Command::new("secret-tool")
+        .args(["lookup", "service", service, "account", account_id])
+        .output()
+        .context("spawn secret-tool lookup")?;
+    if !out.status.success() {
+        // Not found, or secret-tool unavailable — treat as "no token".
+        return Ok(None);
+    }
+    let token = String::from_utf8_lossy(&out.stdout).trim().to_string();
+    Ok(if token.is_empty() { None } else { Some(token) })
 }
 
 pub async fn run_google_oauth(

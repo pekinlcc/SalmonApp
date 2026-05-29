@@ -70,7 +70,16 @@ pub async fn sync_account_inbox(
             }
             {
                 let guard = db.lock();
-                persist_tokens(&guard, account_id, &tokens)?;
+                // A transient DB write failure here shouldn't abort the
+                // whole sync: we already hold a valid fresh access token in
+                // memory. Log and continue — the worst case is the next
+                // sync refreshes again (Google refresh tokens are reusable).
+                if let Err(e) = persist_tokens(&guard, account_id, &tokens) {
+                    eprintln!(
+                        "[salmon][mail] persist refreshed token for {account_id} failed: {e} \
+                         (continuing sync with in-memory token)"
+                    );
+                }
             }
         } else {
             return Err(anyhow!(

@@ -38,7 +38,7 @@ export function Onboarding({ cliStatus, onContinue, onRefresh }: Props) {
               </div>
               {c.installed && !c.loggedIn && (
                 <div className="onb-cmd">
-                  <span><span style={{ color: "#FFA68A" }}>$</span> {c.binary === "claude" ? "claude /login" : "codex login"}</span>
+                  <span><span style={{ color: "var(--salmon-300)" }}>$</span> {c.binary === "claude" ? "claude /login" : "codex login"}</span>
                   <span className="copy" onClick={() => copy(c.binary === "claude" ? "claude /login" : "codex login")}>复制</span>
                 </div>
               )}

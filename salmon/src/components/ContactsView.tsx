@@ -197,7 +197,7 @@ export function ContactsView() {
             <div className="empty-sub">选一个联系人查看</div>
           </div>
         )}
-        {error && <div style={{ padding: 12, color: "#B7493D", fontSize: 12 }}>{error}</div>}
+        {error && <div style={{ padding: 12, color: "var(--salmon-700)", fontSize: 12 }}>{error}</div>}
       </section>
     </div>
   );
@@ -232,8 +232,8 @@ function ContactItem({ c, selected, onClick }: { c: UnifiedContact; selected: bo
             title={`Pulse: 高 ${c.briefHigh} · 中 ${c.briefMedium} · 低 ${c.briefLow}`}
             style={{
               fontSize: 9.5, padding: "1px 5px", borderRadius: 3,
-              background: c.briefHigh > 0 ? "#FFE5D8" : "#F3E8FF",
-              color: c.briefHigh > 0 ? "#B7493D" : "#6B21A8",
+              background: c.briefHigh > 0 ? "var(--salmon-100)" : "#F3E8FF",
+              color: c.briefHigh > 0 ? "var(--salmon-700)" : "#6B21A8",
               fontWeight: 600,
               marginLeft: c.isSaved ? "auto" : 4,
             }}

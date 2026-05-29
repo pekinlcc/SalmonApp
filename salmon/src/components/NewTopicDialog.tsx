@@ -55,6 +55,15 @@ export function NewTopicDialog({ cliStatus, defaultEngine, topics, onCancel, onC
     inputRef.current?.select();
   }, []);
 
+  // U10 a11y: Escape closes the dialog, same as the other modals.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onCancel();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onCancel]);
+
   const pickDir = async () => {
     const sel = await open({ directory: true, multiple: false });
     if (typeof sel === "string") setWorkdir(sel);

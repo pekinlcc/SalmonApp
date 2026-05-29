@@ -16,7 +16,7 @@ export function PermissionCard({ tool, command, input, workdir, onApprove }: Pro
       </div>
       <div className="perm-body">
         <div className="perm-cmd">
-          <span style={{ color: "#FFA68A", marginRight: 6 }}>$</span>
+          <span style={{ color: "var(--salmon-300)", marginRight: 6 }}>$</span>
           {cmd}
         </div>
         <div className="perm-meta">

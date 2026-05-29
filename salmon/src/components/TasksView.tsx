@@ -308,7 +308,7 @@ function TaskListRow({
             className="task-due"
             style={{
               fontSize: 10, padding: "1px 6px", borderRadius: 4,
-              background: dueText.overdue ? "#FFE5DA" : "var(--ink-50)",
+              background: dueText.overdue ? "var(--salmon-100)" : "var(--ink-50)",
               color: dueText.overdue ? "var(--salmon-700)" : "var(--ink-500)",
               fontWeight: dueText.overdue ? 600 : 400,
               flexShrink: 0,

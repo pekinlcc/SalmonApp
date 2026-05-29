@@ -69,7 +69,7 @@ export function RelatedMailList({ mailIds }: { mailIds: string[] }) {
             <div style={{ padding: "10px 12px", fontSize: 12, color: "var(--ink-500)" }}>加载中…</div>
           )}
           {err && (
-            <div style={{ padding: "10px 12px", fontSize: 12, color: "#B7493D" }}>加载失败：{err}</div>
+            <div style={{ padding: "10px 12px", fontSize: 12, color: "var(--salmon-700)" }}>加载失败：{err}</div>
           )}
           {mails && mails.length === 0 && (
             <div style={{ padding: "10px 12px", fontSize: 12, color: "var(--ink-500)" }}>
