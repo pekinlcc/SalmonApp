@@ -1415,8 +1415,22 @@ export default function App() {
   const onApprove = useCallback(
     async (requestId: string, allow: boolean) => {
       if (!selectedId) return;
-      await api.approvePermission(selectedId, requestId, allow);
-      setPendingPermByTopic((p) => ({ ...p, [selectedId]: null }));
+      // Capture the topic id: selectedId can change while the IPC is in
+      // flight, and we want to clear / error the topic we actually answered.
+      const topicId = selectedId;
+      try {
+        await api.approvePermission(topicId, requestId, allow);
+        setPendingPermByTopic((p) => ({ ...p, [topicId]: null }));
+      } catch (e: any) {
+        // Without this the promise rejection was swallowed: the card stayed
+        // on screen, the agent never heard the decision, and the user had
+        // no idea why. Surface it so they can retry.
+        api.debugLog(`approvePermission failed: ${e}`);
+        setErrorByTopic((er) => ({
+          ...er,
+          [topicId]: `权限决策发送失败,请重试: ${String(e)}`,
+        }));
+      }
     },
     [selectedId]
   );

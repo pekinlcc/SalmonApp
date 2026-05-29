@@ -372,8 +372,23 @@ async fn run_session(
                 // currently-blocked command channel.
                 *pid_handle.lock() = child.id();
 
-                let stdout = child.stdout.take().unwrap();
-                let stderr = child.stderr.take().unwrap();
+                // Stdio::piped() above guarantees these are Some in normal
+                // operation; the match is defence against a tokio/platform
+                // edge case so a missing pipe degrades to a clean error
+                // event instead of panicking the whole topic session.
+                let (stdout, stderr) = match (child.stdout.take(), child.stderr.take()) {
+                    (Some(o), Some(e)) => (o, e),
+                    _ => {
+                        let _ = app.emit("salmon-stream", StreamEvent::Error {
+                            topic_id: topic_id.clone(),
+                            message: format!("{} spawned without stdio pipes", bin_name),
+                        });
+                        let _ = app.emit("salmon-stream", StreamEvent::Exited {
+                            topic_id: topic_id.clone(), code: Some(-1),
+                        });
+                        continue;
+                    }
+                };
                 let mut sid_collected: Option<String> = None;
                 let mut line_count: u32 = 0;
 

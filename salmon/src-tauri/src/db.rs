@@ -69,33 +69,31 @@ impl Db {
             );
             "#,
         )?;
-        // Lightweight migrations for existing DBs.
-        let _ = conn.execute(
-            "ALTER TABLE topics ADD COLUMN archived INTEGER NOT NULL DEFAULT 0",
-            [],
-        );
-        let _ = conn.execute(
-            "ALTER TABLE recommendations ADD COLUMN priority TEXT NOT NULL DEFAULT 'medium'",
-            [],
-        );
-        let _ = conn.execute(
-            "ALTER TABLE recommendations ADD COLUMN self_value TEXT",
-            [],
-        );
-        let _ = conn.execute(
-            "ALTER TABLE recommendations ADD COLUMN peer_value TEXT",
-            [],
-        );
-        let _ = conn.execute(
-            "ALTER TABLE recommendations ADD COLUMN payoff TEXT NOT NULL DEFAULT ''",
-            [],
-        );
+        // Lightweight migrations for existing DBs. Re-running an
+        // `ADD COLUMN` that already exists fails with "duplicate column
+        // name" — that's the expected idempotent path and we swallow it.
+        // Any OTHER error (constraint conflict, disk full, corruption) is
+        // surfaced to the log so a half-applied schema doesn't fail
+        // silently and confuse later queries.
+        let migrate = |sql: &str| {
+            if let Err(e) = conn.execute(sql, []) {
+                let msg = e.to_string();
+                if !msg.contains("duplicate column name") {
+                    eprintln!("[salmon][db] migration warning: `{sql}` → {msg}");
+                }
+            }
+        };
+        migrate("ALTER TABLE topics ADD COLUMN archived INTEGER NOT NULL DEFAULT 0");
+        migrate("ALTER TABLE recommendations ADD COLUMN priority TEXT NOT NULL DEFAULT 'medium'");
+        migrate("ALTER TABLE recommendations ADD COLUMN self_value TEXT");
+        migrate("ALTER TABLE recommendations ADD COLUMN peer_value TEXT");
+        migrate("ALTER TABLE recommendations ADD COLUMN payoff TEXT NOT NULL DEFAULT ''");
         // v0.7.2: per-turn token + duration columns. NULL is fine for
         // historical rows that predate the schema; aggregations COALESCE
         // them to 0 so old data doesn't poison the totals.
-        let _ = conn.execute("ALTER TABLE messages ADD COLUMN token_in INTEGER", []);
-        let _ = conn.execute("ALTER TABLE messages ADD COLUMN token_out INTEGER", []);
-        let _ = conn.execute("ALTER TABLE messages ADD COLUMN duration_ms INTEGER", []);
+        migrate("ALTER TABLE messages ADD COLUMN token_in INTEGER");
+        migrate("ALTER TABLE messages ADD COLUMN token_out INTEGER");
+        migrate("ALTER TABLE messages ADD COLUMN duration_ms INTEGER");
         conn.execute_batch(
             r#"
             CREATE TABLE IF NOT EXISTS recommendations (
@@ -304,22 +302,16 @@ impl Db {
             );
             "#,
         )?;
-        let _ = conn.execute(
-            "ALTER TABLE brief_items ADD COLUMN action_results TEXT",
-            [],
-        );
+        migrate("ALTER TABLE brief_items ADD COLUMN action_results TEXT");
         // v1.10.0: per-contact note. Stored locally only — not synced to
         // Google/Outlook because the People/Contacts API note semantics
         // differ across providers and we don't want our agent to overwrite
         // upstream notes that the user wrote elsewhere.
-        let _ = conn.execute("ALTER TABLE contacts ADD COLUMN note TEXT", []);
+        migrate("ALTER TABLE contacts ADD COLUMN note TEXT");
         // v1.17.0: Topic "+ 新建" (quick path) marks rows as scratch so
         // the workdir cleanup hook in delete_topic knows it owns the dir
         // and may rm -rf it. Existing rows default to non-scratch (0).
-        let _ = conn.execute(
-            "ALTER TABLE topics ADD COLUMN is_scratch INTEGER NOT NULL DEFAULT 0",
-            [],
-        );
+        migrate("ALTER TABLE topics ADD COLUMN is_scratch INTEGER NOT NULL DEFAULT 0");
         Ok(Self { conn })
     }
 

@@ -68,6 +68,13 @@ type Pending = HashMap<String, oneshot::Sender<bool>>;
 #[derive(Clone)]
 pub struct PermissionBridge {
     pub port: u16,
+    /// Per-session secret embedded in the hook URL path. A `claude` child
+    /// only learns it via the inline-settings JSON we hand it at spawn, so
+    /// any OTHER local process (browser extension, malware) that tries to
+    /// POST to the permission endpoint can't guess this 128-bit value and
+    /// gets a 403 — closing the local-privilege-escalation hole where an
+    /// attacker could auto-approve dangerous Bash/WebFetch tool calls.
+    secret: String,
     app: AppHandle,
     pending: Arc<Mutex<Pending>>,
 }
@@ -79,15 +86,20 @@ impl PermissionBridge {
     pub async fn start(app: AppHandle) -> anyhow::Result<Self> {
         let listener = TcpListener::bind("127.0.0.1:0").await?;
         let port = listener.local_addr()?.port();
+        let secret = uuid::Uuid::new_v4().to_string();
         let pending: Arc<Mutex<Pending>> = Arc::new(Mutex::new(HashMap::new()));
         let bridge = Self {
             port,
+            secret,
             app: app.clone(),
             pending: pending.clone(),
         };
 
+        // Secret is a path segment, not just a query param, so it can't be
+        // accidentally logged by a reverse proxy that strips queries — and
+        // the route won't even match without it (404 vs 403, both rejected).
         let router = Router::new()
-            .route("/permission/:topic_id", post(handle_permission))
+            .route("/permission/:secret/:topic_id", post(handle_permission))
             .with_state(bridge.clone());
 
         eprintln!(
@@ -132,7 +144,7 @@ impl PermissionBridge {
                     "matcher": "^(Bash|Edit|Write|MultiEdit|NotebookEdit|WebFetch|WebSearch|Task|mcp__.+)$",
                     "hooks": [{
                         "type": "http",
-                        "url": format!("http://127.0.0.1:{}/permission/{}", self.port, topic_id),
+                        "url": format!("http://127.0.0.1:{}/permission/{}/{}", self.port, self.secret, topic_id),
                         "timeout": 600,
                     }]
                 }]
@@ -177,9 +189,20 @@ fn read_allowlisted_tools() -> HashSet<String> {
 
 async fn handle_permission(
     State(bridge): State<PermissionBridge>,
-    Path(topic_id): Path<String>,
+    Path((secret, topic_id)): Path<(String, String)>,
     Json(body): Json<Value>,
 ) -> impl IntoResponse {
+    // Reject anything that doesn't present the per-session secret. A
+    // constant-time-ish compare isn't worth it here — the value is a v4
+    // UUID (122 random bits), brute force over a localhost socket is not
+    // a realistic threat, and timing oracles on a string eq of equal-length
+    // UUIDs give negligible signal.
+    if secret != bridge.secret {
+        eprintln!(
+            "[salmon] permission bridge: rejected request with bad secret (topic={topic_id})"
+        );
+        return (StatusCode::FORBIDDEN, Json(json!({ "error": "forbidden" })));
+    }
     let tool_name = body
         .get("tool_name")
         .and_then(|v| v.as_str())

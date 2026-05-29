@@ -174,7 +174,7 @@ export function LeftSidebar(props: Props) {
                     </button>
                     <button
                       className="btn"
-                      style={{ padding: "3px 8px", fontSize: 11, color: "#B7493D" }}
+                      style={{ padding: "3px 8px", fontSize: 11, color: "var(--salmon-700)" }}
                       onClick={async (e) => {
                         e.stopPropagation();
                         setMenuFor(null);
@@ -247,7 +247,7 @@ export function LeftSidebar(props: Props) {
                     </button>
                     <button
                       className="btn"
-                      style={{ padding: "3px 8px", fontSize: 11, color: "#B7493D" }}
+                      style={{ padding: "3px 8px", fontSize: 11, color: "var(--salmon-700)" }}
                       onClick={async (e) => {
                         e.stopPropagation();
                         setMenuFor(null);

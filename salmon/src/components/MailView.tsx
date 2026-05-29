@@ -106,8 +106,16 @@ export function MailView({
 
   useEffect(() => {
     let un: UnlistenFn | undefined;
-    listen("salmon-mail-accounts", () => { reloadAccounts(); }).then((u) => { un = u; });
-    return () => { un?.(); };
+    // If the component unmounts before `listen()` resolves, the handler
+    // would be registered after cleanup ran and leak (plus fire setState
+    // on an unmounted component). The `cancelled` flag unregisters it the
+    // moment the promise lands if we're already gone.
+    let cancelled = false;
+    listen("salmon-mail-accounts", () => { reloadAccounts(); }).then((u) => {
+      if (cancelled) u();
+      else un = u;
+    });
+    return () => { cancelled = true; un?.(); };
   }, [reloadAccounts]);
 
   // v0.9.1: BriefingFeed → AI-drafted reply handoff via App.tsx stashed
@@ -159,6 +167,7 @@ export function MailView({
 
   useEffect(() => {
     let un: UnlistenFn | undefined;
+    let cancelled = false;
     listen<MailSyncProgress>("salmon-mail-sync", (e) => {
       setSyncProgress(e.payload);
       if (e.payload.stage === "done") {
@@ -177,8 +186,11 @@ export function MailView({
         // the user back to the first account whenever any sync finished.
         api.listMailAccounts().then(setAccounts).catch(() => {});
       }
-    }).then((u) => { un = u; });
-    return () => { un?.(); };
+    }).then((u) => {
+      if (cancelled) u();
+      else un = u;
+    });
+    return () => { cancelled = true; un?.(); };
   }, []);  // eslint-disable-line react-hooks/exhaustive-deps
 
   const reloadMessages = useCallback(async (accountId: string) => {

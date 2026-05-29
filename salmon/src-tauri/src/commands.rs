@@ -771,6 +771,24 @@ const REC_FEEDBACK_HISTORY: usize = 30;
 pub async fn generate_recommendations(
     state: State<'_, AppState>,
 ) -> Result<Vec<Recommendation>, String> {
+    use std::sync::atomic::Ordering;
+    // Single-flight: a second concurrent refresh would run the two-engine
+    // pipeline again and insert overlapping pending rows. Mirror the
+    // briefing guard — claim the flag, release on every exit path via a
+    // drop guard.
+    if state
+        .recs_busy
+        .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+        .is_err()
+    {
+        return Err("推荐正在生成中,请稍候".to_string());
+    }
+    struct ReleaseGuard(Arc<std::sync::atomic::AtomicBool>);
+    impl Drop for ReleaseGuard {
+        fn drop(&mut self) { self.0.store(false, Ordering::Release); }
+    }
+    let _recs_guard = ReleaseGuard(state.recs_busy.clone());
+
     let now_ms = chrono::Utc::now().timestamp_millis();
     let lookback_ms = now_ms - REC_LOOKBACK_DAYS * 24 * 60 * 60 * 1000;
     let expire_ms = now_ms - REC_EXPIRE_AFTER_HOURS * 60 * 60 * 1000;
@@ -1265,10 +1283,9 @@ fn render_topic_block(t: &Topic, msgs: &[Message], char_budget: usize) -> String
         "─── Topic id={} · 标题={} · workdir={} · 引擎={} ───\n",
         t.id, t.title, t.workdir, t.engine
     );
-    if msgs.is_empty() {
+    let Some(first) = msgs.first() else {
         return format!("{}(尚无消息)\n", header);
-    }
-    let first = msgs.first().unwrap();
+    };
     let last_n = msgs.len().min(REC_RECENT_TURNS * 2);
     let tail = &msgs[msgs.len() - last_n..];
     let mut body = String::new();
