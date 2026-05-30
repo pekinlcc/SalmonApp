@@ -16,7 +16,7 @@
 //! and drops the guard before any HTTP call. Sync is single-threaded
 //! per-account; multiple accounts can sync in parallel.
 
-use crate::db::Db;
+use salmon_core::db::Db;
 use crate::gmail;
 use crate::graph;
 use crate::microsoft::refresh_microsoft_access;

@@ -1,0 +1,141 @@
+#!/bin/sh
+# SalmonApp Desktop session launcher. Wraps labwc with the bundled config and
+# fixes up the environment that GDM-launched Wayland sessions otherwise miss.
+set -eu
+
+export XDG_CURRENT_DESKTOP=SalmonApp:wlroots
+export XDG_SESSION_DESKTOP=SalmonApp
+export XDG_SESSION_TYPE=wayland
+export DESKTOP_SESSION=salmon-shell
+export XDG_MENU_PREFIX=gnome-
+
+ensure_system_helper_path() {
+    for d in /usr/local/sbin /usr/sbin /sbin; do
+        if [ -d "$d" ]; then
+            case ":${PATH:-}:" in
+                *":$d:"*) ;;
+                *) PATH="${PATH:+$PATH:}$d" ;;
+            esac
+        fi
+    done
+}
+
+# GDM launches us with a stripped PATH (typically /usr/bin:/bin). The user's
+# real PATH — including nvm-installed `claude`, ~/.local/bin/codex, Clash
+# proxy env, etc — lives in their login shell rc files. Source ~/.profile so
+# everything spawned from labwc (salmonapp-desktop, foot, claude/codex
+# subprocesses) inherits it. Best-effort; absence is non-fatal.
+if [ -r "$HOME/.profile" ]; then
+    # set +u around the source: under `set -u`, dash aborts during variable
+    # expansion (before `||` runs), so `|| true` doesn't actually rescue a
+    # user .profile that references e.g. $BASH_VERSION. Drop strict-unset for
+    # user rc only, then restore.
+    set +u
+    # shellcheck disable=SC1091
+    . "$HOME/.profile" || true
+    set -u
+fi
+for d in "$HOME/.local/bin" "$HOME/.cargo/bin" "$HOME/.bun/bin" "$HOME/.npm-global/bin"; do
+    if [ -d "$d" ] && case ":$PATH:" in *":$d:"*) false ;; *) true ;; esac; then
+        PATH="$d:$PATH"
+    fi
+done
+ensure_system_helper_path
+if [ -d "$HOME/.nvm/versions/node" ]; then
+    for v in "$HOME/.nvm/versions/node/"*/bin; do
+        [ -d "$v" ] || continue
+        case ":$PATH:" in *":$v:"*) ;; *) PATH="$v:$PATH" ;; esac
+    done
+fi
+export PATH
+
+# XDG discovery paths. GDM sessions can start with a minimal environment; make
+# sure desktop-file discovery, portal backend discovery, icon/theme lookup, and
+# Flatpak/Snap exported launchers see the same data dirs as normal desktops.
+if [ -z "${XDG_DATA_DIRS:-}" ]; then
+    XDG_DATA_DIRS="/usr/local/share:/usr/share"
+fi
+for d in "$HOME/.local/share/flatpak/exports/share" "/var/lib/flatpak/exports/share" "/var/lib/snapd/desktop"; do
+    if [ -d "$d" ]; then
+        case ":$XDG_DATA_DIRS:" in *":$d:"*) ;; *) XDG_DATA_DIRS="$d:$XDG_DATA_DIRS" ;; esac
+    fi
+done
+export XDG_DATA_DIRS
+if [ -z "${XDG_CONFIG_DIRS:-}" ]; then
+    export XDG_CONFIG_DIRS="/etc/xdg"
+fi
+
+# HiDPI. labwc reports logical scale on wl_output, but webkit2gtk doesn't
+# always honour it on first paint. Set sane defaults; overridable via the
+# user's per-machine env file below.
+if [ -z "${GDK_SCALE:-}" ]; then export GDK_SCALE=1; fi
+# v2.0.2: bumped 1.25 → 1.5 — the X1 Carbon Gen 13 (Salmon OS HD-2 target)
+# at 2.8K renders the previous default unreadably small. Per-user
+# ~/.config/salmon-desktop/env still wins if the user overrides this.
+if [ -z "${GDK_DPI_SCALE:-}" ]; then export GDK_DPI_SCALE=1.5; fi
+export GDK_BACKEND="${GDK_BACKEND:-wayland,x11}"
+export MOZ_ENABLE_WAYLAND="${MOZ_ENABLE_WAYLAND:-1}"
+export QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-wayland;xcb}"
+export QT_SCALE_FACTOR_ROUNDING_POLICY="${QT_SCALE_FACTOR_ROUNDING_POLICY:-PassThrough}"
+export SDL_VIDEODRIVER="${SDL_VIDEODRIVER:-wayland,x11}"
+export CLUTTER_BACKEND="${CLUTTER_BACKEND:-wayland}"
+
+# Input methods. Prefer fcitx5 when present because it covers Chinese/Japanese/
+# Korean workflows well; fall back to IBus on stock GNOME installs. Keep the
+# GTK/Qt/XIM variables as a group: display-manager environments sometimes set
+# only one of them, which leaves WebKitGTK, Qt apps, and XIM clients disagreeing.
+im_module=""
+case "${GTK_IM_MODULE:-}:${QT_IM_MODULE:-}:${XMODIFIERS:-}" in
+    *fcitx*) im_module="fcitx" ;;
+    *ibus*) im_module="ibus" ;;
+esac
+if [ -z "$im_module" ] && command -v fcitx5 >/dev/null 2>&1; then
+    im_module="fcitx"
+elif [ -z "$im_module" ] && command -v ibus-daemon >/dev/null 2>&1; then
+    im_module="ibus"
+fi
+case "$im_module" in
+    fcitx)
+        export GTK_IM_MODULE="${GTK_IM_MODULE:-fcitx}"
+        export QT_IM_MODULE="${QT_IM_MODULE:-fcitx}"
+        export XMODIFIERS="${XMODIFIERS:-@im=fcitx}"
+        ;;
+    ibus)
+        export GTK_IM_MODULE="${GTK_IM_MODULE:-ibus}"
+        export QT_IM_MODULE="${QT_IM_MODULE:-ibus}"
+        export XMODIFIERS="${XMODIFIERS:-@im=ibus}"
+        ;;
+esac
+
+# Per-user overrides — proxy vars, custom GDK_DPI_SCALE, extra PATH entries —
+# without touching the system file.
+if [ -r "$HOME/.config/salmon-desktop/env" ]; then
+    set +u
+    # shellcheck disable=SC1091
+    . "$HOME/.config/salmon-desktop/env" || true
+    set -u
+fi
+ensure_system_helper_path
+export PATH
+
+runtime_dir="${XDG_RUNTIME_DIR:-/tmp}"
+system_config="/usr/share/salmon-desktop/labwc-config"
+
+mkdir -p "$runtime_dir/salmon-session"
+
+if command -v systemctl >/dev/null 2>&1; then
+    systemctl --user import-environment PATH GDK_SCALE GDK_DPI_SCALE GDK_BACKEND \
+        MOZ_ENABLE_WAYLAND QT_QPA_PLATFORM QT_SCALE_FACTOR QT_SCALE_FACTOR_ROUNDING_POLICY \
+        SDL_VIDEODRIVER CLUTTER_BACKEND XCURSOR_SIZE \
+        GTK_IM_MODULE QT_IM_MODULE XMODIFIERS XDG_MENU_PREFIX \
+        XDG_DATA_DIRS XDG_CONFIG_DIRS \
+        http_proxy https_proxy all_proxy no_proxy \
+        XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP XDG_SESSION_TYPE DESKTOP_SESSION \
+        DBUS_SESSION_BUS_ADDRESS 2>/dev/null || true
+    dbus-update-activation-environment --systemd PATH XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP \
+        XDG_SESSION_TYPE DESKTOP_SESSION WAYLAND_DISPLAY DISPLAY DBUS_SESSION_BUS_ADDRESS \
+        GTK_IM_MODULE QT_IM_MODULE XMODIFIERS XDG_DATA_DIRS XDG_CONFIG_DIRS \
+        GDK_SCALE GDK_DPI_SCALE QT_SCALE_FACTOR QT_SCALE_FACTOR_ROUNDING_POLICY XCURSOR_SIZE 2>/dev/null || true
+fi
+
+exec labwc -C "$system_config"

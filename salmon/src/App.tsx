@@ -22,6 +22,10 @@ import { TasksView } from "./components/TasksView";
 import { Toasts } from "./components/Toasts";
 import { SearchDialog } from "./components/SearchDialog";
 import { GlobalAIButton, type GlobalAIContext } from "./components/GlobalAIButton";
+// v1.20: Ubuntu Desktop shell — high-fidelity port from Anthropic Claude Design.
+import { DesktopView } from "./components/desktop-shell/DesktopView";
+import { IS_LINUX } from "./lib/platform";
+import { viewFromHash } from "./lib/openAppWindow";
 
 interface PendingPerm {
   id: string;
@@ -161,10 +165,18 @@ export default function App() {
     // instantly instead of waiting up to 5 min on the fallback interval.
     const onTasksChanged = () => refreshBadges();
     window.addEventListener("salmon:tasks-changed", onTasksChanged);
+    // v1.19.2: same pattern for mail mutations from chat (CodeBlock
+    // mail.archive/star/mark_read/forward). The backend `salmon-mail-sync`
+    // event only fires after an actual sync — direct mutations from
+    // salmon-action don't trigger one — so the rail unread badge would
+    // otherwise lag until the next periodic refresh.
+    const onMailChanged = () => refreshBadges();
+    window.addEventListener("salmon:mail-changed", onMailChanged);
     const t = setInterval(refreshBadges, 5 * 60 * 1000);
     return () => {
       un1?.(); un2?.();
       window.removeEventListener("salmon:tasks-changed", onTasksChanged);
+      window.removeEventListener("salmon:mail-changed", onMailChanged);
       clearInterval(t);
     };
   }, [refreshBadges]);
@@ -392,8 +404,23 @@ export default function App() {
   // v0.11: top-level views now driven by IconRail. "topic" view shows
   // the Topic list pane + chat; opening a chat from any other view jumps
   // to this view via onSelect → setTopView("topic") + setSelectedId.
-  type TopView = "home" | "contacts" | "mail" | "calendar" | "tasks" | "topic";
-  const [topView, setTopView] = useState<TopView>("home");
+  type TopView = "home" | "contacts" | "mail" | "calendar" | "tasks" | "topic" | "desktop";
+  // v1.20: on Linux we boot to the Ubuntu Desktop shell by default. The
+  // actual decision is finalised after refresh() loads the persisted
+  // setting — but pre-seeding here avoids a flash of WelcomeBack before
+  // the async load settles on Linux. macOS / Windows always start in "home".
+  //
+  // Phase 3 multi-window: when this window was spawned by the Desktop shell
+  // (URL hash like #view=mail), boot straight into that view and skip the
+  // desktop chrome entirely. Each per-app window is independent.
+  const initialHashView = viewFromHash();
+  const [topView, setTopView] = useState<TopView>(
+    initialHashView ? (initialHashView as TopView) : IS_LINUX ? "desktop" : "home",
+  );
+  const isAppWindow = initialHashView !== null;
+  // True iff the desktop shell is permitted on this platform (user toggle
+  // in Settings). null while we haven't loaded the persisted value yet.
+  const [desktopModeEnabled, setDesktopModeEnabledState] = useState<boolean>(IS_LINUX);
 
   const [messagesByTopic, setMessagesByTopic] = useState<Record<string, UiMessage[]>>({});
   const [logsByTopic, setLogsByTopic] = useState<Record<string, string[]>>({});
@@ -475,8 +502,36 @@ export default function App() {
       setNotifySoundEnabledState(snd);
       setNotifySoundEnabled(snd);
     } catch {}
+    try {
+      // v1.20: desktop shell preference. null = never set → platform default.
+      // Once a user toggles it explicitly we stop second-guessing them.
+      const dm = await api.getDesktopMode();
+      const enabled = dm === null ? IS_LINUX : dm;
+      setDesktopModeEnabledState(enabled);
+      // Re-evaluate the initial view only if we haven't navigated yet.
+      // selectedId being non-null means the user already opened a topic
+      // (e.g. via deep link) — don't drag them back to the desktop.
+      setTopView((cur) => {
+        if (cur === "topic" || cur === "home" || cur === "desktop") {
+          return enabled ? "desktop" : (cur === "desktop" ? "home" : cur);
+        }
+        return cur;
+      });
+    } catch {}
     return { clis: det.clis, topics: ts };
   }, []);
+
+  // Desktop mode toggle handler (called from SettingsDialog).
+  const onChangeDesktopMode = useCallback(async (enabled: boolean) => {
+    setDesktopModeEnabledState(enabled);
+    if (!enabled && topView === "desktop") setTopView("home");
+    if (enabled && topView === "home") setTopView("desktop");
+    try {
+      await api.setDesktopMode(enabled);
+    } catch (e) {
+      api.debugLog(`setDesktopMode failed: ${e}`);
+    }
+  }, [topView]);
 
   const onChangeChatLayout = useCallback(async (layout: ChatLayout) => {
     setChatLayout(layout);
@@ -1522,17 +1577,47 @@ export default function App() {
   // on relevant events (mail-sync done, briefing done, etc).
   const briefBadgeCount = recommendations.filter((r) => r.status === "pending").length;
 
+  // v1.20: Ubuntu Desktop shell takes over the IconRail+middle layout when
+  // active. We render <DesktopView/> in place of the normal panels but
+  // keep modals (Settings / Search / Toasts) at the outer scope so they
+  // still work from inside the desktop. Conditioned on (a) the user
+  // selected the desktop view AND (b) no topic is currently open AND (c)
+  // they haven't disabled it in Settings.
+  // v1.20.2: Desktop shell is Linux-only — a non-Linux user with a stale
+  // `desktop_mode = 1` in their DB (from earlier versions where the toggle
+  // was visible everywhere) should still land on WelcomeBack. The setting
+  // can stay in DB; we just don't honour it off Linux.
+  const desktopActive =
+    !isAppWindow && IS_LINUX && topView === "desktop" && !selectedTopic && desktopModeEnabled;
+
   // v0.11: layout columns are IconRail(56) + [LeftSidebar(260)] + middle(1fr) + [RightPane(380)].
   // LeftSidebar only renders for topic view; RightPane only when a topic is selected.
   // Modifier classes drive grid-template-columns in styles.css.
-  const hasLeftSidebar = topView === "topic" || !!selectedTopic;
+  // Phase 3 multi-window: per-app windows (isAppWindow) hide the IconRail —
+  // they're focused single-purpose windows; users switch apps via the dock
+  // on the desktop shell.
+  const hasLeftSidebar = !isAppWindow && (topView === "topic" || !!selectedTopic);
   const layoutClasses = ["app", "v11"];
   if (!hasLeftSidebar) layoutClasses.push("no-left");
   if (!selectedTopic) layoutClasses.push("no-right");
   else if (rightCollapsed) layoutClasses.push("right-collapsed");
+  if (isAppWindow) layoutClasses.push("app-window");
   return (
-    <div className={layoutClasses.join(" ")}>
-      <IconRail
+    <div className={desktopActive ? "app desktop-mode" : layoutClasses.join(" ")}>
+      {desktopActive ? (
+        <DesktopView
+          onExitDesktop={() => setTopView("home")}
+          onNavigateHome={() => setTopView("home")}
+          onNavigateMail={() => setTopView("mail")}
+          onNavigateCalendar={() => setTopView("calendar")}
+          onNavigateTasks={() => setTopView("tasks")}
+          onNavigateContacts={() => setTopView("contacts")}
+          onNewTopic={() => setShowNew(true)}
+          onOpenSearch={(q) => openSearch(q)}
+          onOpenSettings={() => { setShowSettings(true); refreshUsageSummary(); }}
+        />
+      ) : (<>
+      {!isAppWindow && <IconRail
         view={(selectedTopic ? "topic" : topView) as any}
         unreadMail={unreadMailBadge}
         pendingTasks={pendingTasksBadge}
@@ -1547,12 +1632,20 @@ export default function App() {
           }
           setSelectedId(null);
           setSelectedTool(null);
-          setTopView(v);
+          // v1.20: when Ubuntu Desktop shell is enabled, "home" is the
+          // desktop — the IconRail home button doubles as "back to desktop".
+          // Settings has a toggle for users who'd rather see WelcomeBack.
+          // v1.20.2: home → desktop redirect is Linux-only.
+          if (v === "home" && desktopModeEnabled && IS_LINUX) {
+            setTopView("desktop");
+          } else {
+            setTopView(v);
+          }
           if (v === "home") refreshUsageSummary();
         }}
         onOpenSearch={() => openSearch()}
         onOpenSettings={() => { setShowSettings(true); refreshUsageSummary(); }}
-      />
+      />}
 
       {/* Topic view: show LeftSidebar (topic list) + chat + RightPane. */}
       {topView === "topic" || selectedTopic ? (
@@ -1743,6 +1836,7 @@ export default function App() {
           )}
         </>
       )}
+      </>)}
 
       {showNew && (
         <NewTopicDialog
@@ -1762,10 +1856,12 @@ export default function App() {
           cliStatus={cliStatus}
           usageSummary={usageSummary}
           notifySoundEnabled={notifySoundEnabled}
+          desktopModeEnabled={desktopModeEnabled}
           onChangeChatLayout={onChangeChatLayout}
           onChangeComposerSendMode={onChangeComposerSendMode}
           onChangeDefaultEngine={onChangeDefaultEngine}
           onChangeNotifySound={onChangeNotifySound}
+          onChangeDesktopMode={onChangeDesktopMode}
           initialTab={settingsInitialTab}
           onClose={() => { setShowSettings(false); setSettingsInitialTab(undefined); }}
         />

@@ -61,6 +61,14 @@ button { font-family: inherit; }
 .app.v11.no-right { grid-template-columns: 56px 280px 1fr; }
 .app.v11.no-left.no-right { grid-template-columns: 56px 1fr; }
 
+/* Phase 3 multi-window: when SalmonApp Desktop spawns a per-app window
+   (Mail / Calendar / Tasks / ...), the IconRail is hidden so the single
+   view fills the whole window. The desktop shell's dock owns app
+   switching in that mode. */
+.app.app-window.v11 { grid-template-columns: 1fr; }
+.app.app-window.v11.no-right { grid-template-columns: 1fr; }
+.app.app-window.v11.no-left.no-right { grid-template-columns: 1fr; }
+
 .right-rail {
   background: #FBFAF8; border-left: 1px solid var(--ink-100);
   display: flex; align-items: flex-start; justify-content: center;

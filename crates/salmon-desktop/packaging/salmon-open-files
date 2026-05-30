@@ -1,0 +1,24 @@
+#!/bin/sh
+set -eu
+
+target="${1:-${HOME:-/}}"
+
+if command -v xdg-mime >/dev/null 2>&1 && command -v gtk-launch >/dev/null 2>&1; then
+  default_manager="$(xdg-mime query default inode/directory 2>/dev/null || true)"
+  if [ -n "$default_manager" ]; then
+    gtk-launch "$default_manager" "$target" >/dev/null 2>&1 && exit 0
+  fi
+fi
+
+if command -v xdg-open >/dev/null 2>&1; then
+  xdg-open "$target" >/dev/null 2>&1 && exit 0
+fi
+
+for manager in nautilus thunar dolphin nemo pcmanfm caja; do
+  if command -v "$manager" >/dev/null 2>&1; then
+    exec "$manager" "$target"
+  fi
+done
+
+printf 'No file manager found for %s\n' "$target" >&2
+exit 1

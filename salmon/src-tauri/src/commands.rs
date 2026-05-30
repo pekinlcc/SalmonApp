@@ -1,4 +1,4 @@
-use crate::types::{CliInfo, Message, Recommendation, SearchResult, Topic};
+use salmon_core::types::{CliInfo, Message, Recommendation, SearchResult, Topic};
 use crate::AppState;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -735,6 +735,29 @@ pub fn set_notify_sound(state: State<'_, AppState>, enabled: bool) -> Result<(),
         .map_err(map_err)
 }
 
+/// v1.20: Ubuntu Desktop shell toggle. Persisted as "desktop_mode" setting.
+/// Returns Some(true|false) when the user has explicitly chosen, None when
+/// never set — App.tsx then falls back to the platform default (on for
+/// Linux, off for macOS / Windows where the metaphor is less meaningful).
+#[tauri::command]
+pub fn get_desktop_mode(state: State<'_, AppState>) -> Result<Option<bool>, String> {
+    let v = state
+        .db
+        .lock()
+        .get_setting("desktop_mode")
+        .map_err(map_err)?;
+    Ok(v.as_deref().map(|s| s == "1"))
+}
+
+#[tauri::command]
+pub fn set_desktop_mode(state: State<'_, AppState>, enabled: bool) -> Result<(), String> {
+    state
+        .db
+        .lock()
+        .set_setting("desktop_mode", if enabled { "1" } else { "0" })
+        .map_err(map_err)
+}
+
 #[tauri::command]
 pub fn get_composer_send_mode(state: State<'_, AppState>) -> Result<String, String> {
     let v = state
@@ -1143,7 +1166,7 @@ pub async fn decide_recommendation(
 }
 
 async fn guess_decision_reason(
-    db_handle: Arc<parking_lot::Mutex<crate::db::Db>>,
+    db_handle: Arc<parking_lot::Mutex<salmon_core::db::Db>>,
     rec_id: String,
     decision: String,
 ) -> Result<(), String> {
@@ -1650,7 +1673,7 @@ pub fn render_office_preview(path: String) -> Result<Vec<String>, String> {
     path.hash(&mut h);
     let key = format!("{:016x}-{}", h.finish(), mtime);
 
-    let cache_root = crate::path_dirs::cache_dir()
+    let cache_root = salmon_core::path_dirs::cache_dir()
         .unwrap_or_else(std::env::temp_dir)
         .join("preview");
     let dir = cache_root.join(&key);
@@ -1666,8 +1689,8 @@ pub fn render_office_preview(path: String) -> Result<Vec<String>, String> {
         std::fs::create_dir_all(&profile_dir).map_err(map_err)?;
         let profile_url = format!("file://{}", profile_dir.display());
 
-        let soffice_bin = crate::platform::find_soffice().ok_or_else(|| {
-            crate::platform::install_hint_for_office_preview().to_string()
+        let soffice_bin = salmon_core::platform::find_soffice().ok_or_else(|| {
+            salmon_core::platform::install_hint_for_office_preview().to_string()
         })?;
         let soffice_out = Command::new(&soffice_bin)
             .args([
@@ -1690,7 +1713,7 @@ pub fn render_office_preview(path: String) -> Result<Vec<String>, String> {
                     "无法运行 {}: {}。{}",
                     soffice_bin.display(),
                     e,
-                    crate::platform::install_hint_for_office_preview()
+                    salmon_core::platform::install_hint_for_office_preview()
                 ));
             }
         };
@@ -2131,7 +2154,7 @@ pub fn set_topic_turn_duration(
 #[tauri::command]
 pub fn get_usage_summary(
     state: State<'_, AppState>,
-) -> Result<crate::types::UsageSummary, String> {
+) -> Result<salmon_core::types::UsageSummary, String> {
     state.db.lock().usage_summary().map_err(map_err)
 }
 
@@ -2173,7 +2196,7 @@ pub fn save_pasted_image(
         return Err("topic_id 非法".into());
     }
 
-    let cache_root = crate::path_dirs::cache_dir()
+    let cache_root = salmon_core::path_dirs::cache_dir()
         .unwrap_or_else(std::env::temp_dir)
         .join("pastes")
         .join(&topic_id);

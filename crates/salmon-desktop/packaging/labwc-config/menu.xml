@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<openbox_menu>
+  <menu id="client-menu">
+    <item label="Minimize">
+      <action name="Iconify" />
+    </item>
+    <item label="Maximize">
+      <action name="ToggleMaximize" />
+    </item>
+    <item label="Fullscreen">
+      <action name="ToggleFullscreen" />
+    </item>
+    <item label="Move">
+      <action name="Move" />
+    </item>
+    <item label="Resize">
+      <action name="Resize" />
+    </item>
+    <item label="Always on Top">
+      <action name="ToggleAlwaysOnTop" />
+    </item>
+    <menu id="workspaces" label="Workspace">
+      <item label="Move to AI">
+        <action name="SendToDesktop" to="1" follow="no" />
+      </item>
+      <item label="Move to Work">
+        <action name="SendToDesktop" to="2" follow="no" />
+      </item>
+      <item label="Move to Comms">
+        <action name="SendToDesktop" to="3" follow="no" />
+      </item>
+      <item label="Move to Scratch">
+        <action name="SendToDesktop" to="4" follow="no" />
+      </item>
+      <separator />
+      <item label="Always on Visible Workspace">
+        <action name="ToggleOmnipresent" />
+      </item>
+    </menu>
+    <separator />
+    <item label="Close">
+      <action name="Close" />
+    </item>
+  </menu>
+
+  <menu id="root-menu">
+    <item label="Terminal">
+      <action name="Execute" command="salmon-open-terminal" />
+    </item>
+    <item label="Files">
+      <action name="Execute" command="salmon-open-files" />
+    </item>
+    <item label="Browser">
+      <action name="Execute" command="salmon-open-browser" />
+    </item>
+    <separator />
+    <menu id="root-workspaces" label="Workspaces">
+      <item label="AI">
+        <action name="GoToDesktop" to="1" />
+      </item>
+      <item label="Work">
+        <action name="GoToDesktop" to="2" />
+      </item>
+      <item label="Comms">
+        <action name="GoToDesktop" to="3" />
+      </item>
+      <item label="Scratch">
+        <action name="GoToDesktop" to="4" />
+      </item>
+    </menu>
+    <separator />
+    <item label="Reconfigure Salmon Desktop">
+      <action name="Reconfigure" />
+    </item>
+    <item label="Lock">
+      <action name="Execute" command="salmon-session-action lock" />
+    </item>
+    <item label="Suspend">
+      <action name="Execute" command="salmon-session-action suspend" />
+    </item>
+    <item label="Reboot">
+      <action name="Execute" command="salmon-session-action reboot" />
+    </item>
+    <item label="Power Off">
+      <action name="Execute" command="salmon-session-action poweroff" />
+    </item>
+    <item label="Sign Out">
+      <action name="Execute" command="salmon-session-action signout" />
+    </item>
+  </menu>
+</openbox_menu>

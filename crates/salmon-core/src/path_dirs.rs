@@ -17,6 +17,23 @@ use std::path::PathBuf;
 
 const BUNDLE_ID: &str = "app.salmonapp.desktop";
 
+/// App data dir. macOS: `~/Library/Application Support/<bundle>/`.
+/// Linux: `$XDG_DATA_HOME/<bundle>/` or `~/.local/share/<bundle>/`.
+pub fn data_dir() -> Option<PathBuf> {
+    let home = std::env::var_os("HOME").map(PathBuf::from)?;
+    #[cfg(target_os = "macos")]
+    {
+        Some(home.join("Library").join("Application Support").join(BUNDLE_ID))
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let base = std::env::var_os("XDG_DATA_HOME")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| home.join(".local").join("share"));
+        Some(base.join(BUNDLE_ID))
+    }
+}
+
 /// Log dir. macOS: `~/Library/Logs/<bundle>/`. Linux: `~/.local/share/<bundle>/`
 /// — same place Tauri's `app_log_dir()` resolves to on Linux for this app.
 pub fn log_dir() -> Option<PathBuf> {

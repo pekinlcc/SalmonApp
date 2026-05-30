@@ -1,12 +1,25 @@
 # Build outputs
 salmon/node_modules/
 salmon/dist/
+# v2.0 Phase 2a: Cargo's shared target/ moved to workspace root.
+/target/
 salmon/src-tauri/target/
 salmon/src-tauri/gen/schemas/
 *.tsbuildinfo
 # Compiled vite config — only the .ts source is tracked
 salmon/vite.config.js
 salmon/vite.config.d.ts
+
+# v2.0 Phase 2b: second crate (salmon-desktop) under crates/.
+# Both binaries share Cargo's workspace target/ at root, but each has
+# its own npm project that materialises node_modules / dist locally.
+crates/*/node_modules/
+crates/*/dist/
+crates/*/src-tauri/gen/schemas/
+crates/*/src-tauri/target/
+crates/*/vite.config.js
+crates/*/vite.config.d.ts
+crates/*/src-tauri/oauth_config.toml
 
 # Release artifacts (uploaded to GitHub Releases instead)
 dist/

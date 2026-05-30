@@ -1,0 +1,79 @@
+# SalmonApp Desktop — Wayland compositor skeleton (Phase 3).
+#
+# Targets Smithay 0.7 (current stable as of writing). Pin the version
+# exactly: every minor bump tends to rename handler traits or change
+# associated types. Bumping is a deliberate sweep, not an automatic
+# `cargo update`.
+#
+# To build this skeleton standalone:
+#
+#   cd docs/phase3-compositor/skeleton
+#   cargo build --features nested
+#   cargo run --features nested
+#
+# If the build fails (it likely will on first try — Smithay's API has
+# subtle generics + macro-emitted trait bounds that I couldn't validate
+# offline), paste the first 5 errors into a new Claude Code session and
+# we'll patch them one at a time. Don't fight it for hours alone —
+# Smithay API mismatches are the kind of thing a 10-min back-and-forth
+# can usually sort out.
+[package]
+name = "salmon-shell"
+version = "0.0.0"
+edition = "2021"
+rust-version = "1.77"
+description = "SalmonApp's Wayland compositor + desktop shell"
+license = "MIT OR Apache-2.0"
+
+[features]
+# v0 default: nested-only. XWayland integration requires a real rewrite
+# against Smithay 0.7's reworked `XWayland::spawn` API and is feature-gated
+# off by default until that's done. Opt in with --features xwayland.
+default = ["nested"]
+# nested: winit backend → compositor runs inside an existing Wayland
+# session (your normal GNOME). Safe to iterate on; crashes don't take
+# down your real session. Start here.
+nested = ["smithay/backend_winit"]
+# tty: udev + DRM/KMS backend → runs from a TTY as a real session.
+# Plug into a GDM session file (see ../session/salmon-shell.desktop)
+# only AFTER the nested mode is stable on your machine.
+tty = ["smithay/backend_drm", "smithay/backend_libinput", "smithay/backend_udev", "smithay/backend_session_libseat"]
+# xwayland: bridge X11 apps. Adds Xwayland as a runtime dep. Without
+# this, X11-only apps (Steam, older Electron, JetBrains IDEs) won't
+# launch. Disable for strict Wayland-only builds.
+xwayland = ["smithay/xwayland"]
+
+[dependencies]
+smithay = { version = "0.7", default-features = false, features = [
+    "wayland_frontend",
+    "renderer_gl",
+    "renderer_glow",
+    "desktop",
+] }
+calloop = "0.14"
+bitflags = "2"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Error + CLI
+anyhow = "1"
+thiserror = "1"
+clap = { version = "4", features = ["derive"] }
+
+# UI layer: we spawn salmon-app as a Wayland client and anchor it as
+# a layer-shell surface. The shell talks to it over a unix socket to
+# pass desktop-level events (workspace change, hot-corner, etc.).
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[[bin]]
+name = "salmon-shell"
+path = "src/main.rs"
+
+# Detach from the root Cargo workspace — this skeleton has its own deps
+# (Smithay, GL renderers) that don't belong in the SalmonApp App / Desktop
+# binary build graph. The empty [workspace] table marks this Cargo.toml
+# as the root of its own (one-package) workspace.
+[workspace]

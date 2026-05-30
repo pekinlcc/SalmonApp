@@ -6,7 +6,7 @@
 //! optional `context_text` here — the LLM call itself holds no DB lock.
 
 use crate::date_context::{format_local_datetime, relative_date_hint};
-use crate::db::Db;
+use salmon_core::db::Db;
 use crate::llm::{call_llm, extract_json_object, truncate_chars};
 use anyhow::{anyhow, Context, Result};
 use rusqlite::params;
