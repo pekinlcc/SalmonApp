@@ -349,7 +349,7 @@ function TaskDetail({
             ? <span style={{ textDecoration: "line-through", color: "var(--ink-500)" }}>{task.title}</span>
             : task.title}
         </div>
-        <button className="btn btn-ghost" onClick={onToggle}>
+        <button className="btn btn-sm btn-ghost" onClick={onToggle}>
           {task.completed ? "↺ 标记未完成" : "✓ 标记完成"}
         </button>
         <button className="btn btn-sm btn-danger" onClick={onDelete}>🗑 删除</button>

@@ -64,10 +64,15 @@ button { font-family: inherit; }
 .right-rail {
   background: #FBFAF8; border-left: 1px solid var(--ink-100);
   display: flex; align-items: flex-start; justify-content: center;
-  padding-top: 12px; cursor: pointer;
-  transition: background .12s;
+  padding-top: 10px;
 }
-.right-rail:hover { background: var(--salmon-50); }
+/* Only the button is the affordance — the rail strip itself is inert so
+   the whole full-height 28px column no longer lights up / acts as a giant
+   hover+click target. */
+.right-rail-btn {
+  width: 22px; height: 22px; padding: 0;
+  font-size: 13px; line-height: 1;
+}
 /* v1.19.0: .right-rail-btn and .right-collapse-btn removed — both are
    now styled by the unified .btn .btn-sm .btn-icon .btn-ghost combo. */
 .tabs { align-items: stretch; }
@@ -1107,14 +1112,14 @@ button { font-family: inherit; }
 .toggle {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  height: 30px;
-  padding: 0 10px 0 6px;
-  border-radius: 6px;
+  gap: 6px;
+  height: 24px;
+  padding: 0 8px 0 5px;
+  border-radius: 5px;
   border: 1px solid var(--ink-200);
   background: #fff;
   cursor: pointer;
-  font-size: 12.5px;
+  font-size: 11.5px;
   color: var(--ink-700);
   font-family: inherit;
   transition: background 120ms ease, border-color 120ms ease;

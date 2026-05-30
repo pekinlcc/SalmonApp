@@ -1951,8 +1951,14 @@ function buildAcceptPrompt(rec: Recommendation): string {
 function RightRail({ onExpand }: { onExpand: () => void }) {
   const mod = /mac|iphone|ipad|ipod/i.test(navigator.platform) ? "⌘" : "Ctrl";
   return (
-    <aside className="right-rail" title={`展开右栏 (${mod}+\\)`} onClick={onExpand}>
-      <button className="btn btn-sm btn-icon btn-ghost">◂</button>
+    <aside className="right-rail">
+      <button
+        className="btn btn-sm btn-icon btn-ghost right-rail-btn"
+        title={`展开右栏 (${mod}+\\)`}
+        onClick={onExpand}
+      >
+        ◂
+      </button>
     </aside>
   );
 }
