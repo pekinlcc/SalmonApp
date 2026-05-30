@@ -1,11 +1,11 @@
-mod db;
 mod engine;
 mod commands;
 mod date_context;
 mod permission_bridge;
-mod platform;
-mod path_dirs;
-mod types;
+// v2.0 Phase 2c: shared modules now live in salmon_core. Removed locally:
+//   stage 1: types
+//   stage 2: path_dirs, platform
+//   stage 3: db
 mod oauth;
 mod oauth_config;
 mod gmail;
@@ -40,7 +40,7 @@ use parking_lot::Mutex;
 use tauri::Manager;
 
 pub struct AppState {
-    pub db: Arc<Mutex<db::Db>>,
+    pub db: Arc<Mutex<salmon_core::db::Db>>,
     pub engine: Arc<engine::EngineRegistry>,
     pub bridge: permission_bridge::PermissionBridge,
     pub oauth_cfg: oauth_config::OauthConfig,
@@ -70,7 +70,7 @@ pub fn run() {
     // Repair the GUI process's PATH so child CLIs (claude/codex) can be
     // located the same way they would from a user's terminal. On macOS
     // this is mandatory; on Linux it's a no-op.
-    platform::fix_path_for_gui();
+    salmon_core::platform::fix_path_for_gui();
 
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -84,7 +84,7 @@ pub fn run() {
             std::fs::create_dir_all(&data_dir).ok();
             migrate_legacy_data_dir(&data_dir);
             let db_path = data_dir.join("salmon.db");
-            let db = db::Db::open(&db_path).expect("open salmon.db");
+            let db = salmon_core::db::Db::open(&db_path).expect("open salmon.db");
 
             // v1.1.4: one-time cleanup. Pre-v1.1.3 builds could leave pending
             // brief_items from prior Briefing runs lingering forever — the
@@ -157,6 +157,8 @@ pub fn run() {
             commands::set_chat_layout,
             commands::get_notify_sound,
             commands::set_notify_sound,
+            commands::get_desktop_mode,
+            commands::set_desktop_mode,
             commands::get_composer_send_mode,
             commands::set_composer_send_mode,
             commands::set_archived,
@@ -240,7 +242,7 @@ fn redirect_stderr_to_log_file() {
     use std::io::Write;
     use std::os::fd::AsRawFd;
 
-    let Some(dir) = path_dirs::log_dir() else { return };
+    let Some(dir) = salmon_core::path_dirs::log_dir() else { return };
     if std::fs::create_dir_all(&dir).is_err() { return }
     let path = dir.join("salmon.log");
 

@@ -395,6 +395,14 @@ impl Db {
     pub fn delete_topic(&mut self, id: &str) -> Result<()> {
         self.conn
             .execute("DELETE FROM messages WHERE topic_id = ?", params![id])?;
+        // v1.19.2: also clear brief_items referencing this topic. Without this
+        // the next briefing's pending list still shows cross-link / topic-rec
+        // cards whose topic_id points at a tombstoned row, and clicking them
+        // would fail to open the topic. The supersede sweep at lib.rs setup
+        // eventually catches these on next launch, but in the meantime they
+        // appear as "ghost cards" inside the current session.
+        self.conn
+            .execute("DELETE FROM brief_items WHERE topic_id = ?", params![id])?;
         self.conn
             .execute("DELETE FROM topics WHERE id = ?", params![id])?;
         Ok(())

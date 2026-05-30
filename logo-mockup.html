@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title>Salmon — 头像/标识 方案对比</title>
+<style>
+  :root {
+    --salmon-50:  #FFF1ED;
+    --salmon-100: #FFD9CD;
+    --salmon-300: #FFA68A;
+    --salmon-500: #FA8072;
+    --salmon-600: #E5685A;
+    --salmon-700: #B7493D;
+    --ink-900: #1B1F23;
+    --ink-700: #3A4047;
+    --ink-500: #6B7280;
+    --ink-100: #E5E7EB;
+    --ink-50:  #F3F4F6;
+    --cream:   #F0EBE3;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 32px 28px 60px;
+    font: 13px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif;
+    background: #FAFAF8; color: var(--ink-900);
+  }
+  h1 { margin: 0 0 4px; font-size: 22px; font-weight: 600; }
+  .sub { color: var(--ink-500); margin: 0 0 24px; font-size: 12.5px; max-width: 920px; }
+
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 28px;
+    max-width: 1100px;
+  }
+  .col h2 { margin: 0 0 4px; font-size: 14px; font-weight: 600; }
+  .col .desc { color: var(--ink-500); font-size: 12px; margin: 0 0 16px; min-height: 36px; }
+
+  .card {
+    background: white;
+    border: 1px solid var(--ink-100);
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+  }
+  .card-label {
+    font-size: 10.5px; text-transform: uppercase; letter-spacing: .8px;
+    color: var(--ink-500); margin-bottom: 8px;
+  }
+
+  /* —— Logo block (current = salmon gradient rounded square) —— */
+  .logo {
+    width: 28px; height: 28px; border-radius: 6px;
+    background: linear-gradient(135deg, var(--salmon-500), var(--salmon-700));
+    display:flex; align-items:center; justify-content:center;
+    color:white; font-weight:700; font-size:13px;
+    box-shadow: 0 1px 2px rgba(183,73,61,.4);
+    flex-shrink: 0;
+  }
+  /* Variant: fish-icon (mini app icon, no salmon gradient — uses the SVG's own cream bg) */
+  .logo.fish {
+    background: transparent;
+    border-radius: 0;
+    box-shadow: none;
+    overflow: hidden;
+  }
+  .logo.fish svg {
+    width: 28px; height: 28px;
+    border-radius: 6px;
+    box-shadow: 0 1px 2px rgba(183,73,61,.25);
+    display: block;
+  }
+
+  .left-head {
+    display: flex; align-items: center; gap: 10px;
+  }
+  .left-head .name { font-weight: 600; font-size: 14px; }
+  .left-head .ver { margin-left: auto; color: var(--ink-500); font-size: 11px; }
+
+  /* —— Topic list row (LeftSidebar) —— */
+  .topic-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 10px; border-radius: 6px;
+    background: var(--salmon-50);
+    box-shadow: inset 2px 0 0 var(--salmon-500);
+    margin-top: 8px;
+  }
+  .topic-row .small-logo {
+    width: 22px; height: 22px; border-radius: 5px;
+    background: linear-gradient(135deg, var(--salmon-500), var(--salmon-700));
+    display: flex; align-items: center; justify-content: center;
+    color: white; font-weight: 700; font-size: 11px;
+    flex-shrink: 0;
+  }
+  .topic-row .small-logo.fish { background: transparent; }
+  .topic-row .small-logo.fish svg {
+    width: 22px; height: 22px; border-radius: 5px; display: block;
+  }
+  .topic-row .t-title { font-size: 13px; font-weight: 600; color: var(--salmon-700); }
+
+  /* —— Chat AI avatar —— */
+  .chat-row {
+    display: flex; gap: 10px; align-items: flex-start;
+    padding: 10px 0;
+  }
+  .avatar {
+    width: 28px; height: 28px; border-radius: 50%;
+    display:flex; align-items:center; justify-content:center;
+    color:white; font-weight:700; font-size:12px;
+    flex-shrink: 0;
+  }
+  .avatar.ai { background: linear-gradient(135deg, var(--salmon-500), var(--salmon-700)); }
+  .avatar.user { background: var(--ink-700); }
+  .avatar.fish {
+    background: transparent;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(183,73,61,.25);
+  }
+  .avatar.fish svg { width: 28px; height: 28px; display: block; }
+  .msg-body { flex: 1; }
+  .msg-name { font-weight: 600; font-size: 12.5px; margin-bottom: 4px; }
+  .msg-name .ts { color: var(--ink-500); font-weight: 400; margin-left: 6px; font-size: 11px; }
+  .msg-body p { margin: 0; font-size: 13px; line-height: 1.55; }
+
+  .legend {
+    margin-top: 32px; padding: 14px 18px; max-width: 1100px;
+    background: white; border: 1px solid var(--ink-100); border-radius: 8px;
+    font-size: 12.5px; color: var(--ink-700);
+  }
+  .legend b { color: var(--ink-900); }
+  .legend ul { margin: 6px 0 0; padding-left: 20px; }
+  .legend li { margin: 2px 0; }
+</style>
+</head>
+<body>
+
+<h1>头像/标识 方案对比</h1>
+<p class="sub">
+  当前 4 个视图（首页 / 联系人 / 待办 / Topic）的 left-head 是 <code>salmon 渐变方块 + 不同 emoji</code>，
+  跨平台显示不一致。Chat 里 AI 头像已经是 <code>S</code>。把所有「Salmon 标识位」统一成一种东西。
+</p>
+
+<!-- Fish SVG sprite for reuse -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="salmon-fish" viewBox="0 0 1024 1024">
+    <defs>
+      <linearGradient id="bg-fish" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#FFF7F2"/>
+        <stop offset="1" stop-color="#FFEAE0"/>
+      </linearGradient>
+    </defs>
+    <rect width="1024" height="1024" rx="224" fill="url(#bg-fish)"/>
+    <g>
+      <polygon points="160,512 480,256 640,512" fill="#FFA68A"/>
+      <polygon points="160,512 480,768 640,512" fill="#FA8072"/>
+      <polygon points="640,512 480,256 800,400" fill="#E5685A"/>
+      <polygon points="640,512 480,768 800,624" fill="#B7493D"/>
+      <polygon points="800,400 800,624 960,272" fill="#B7493D"/>
+      <polygon points="800,400 800,624 960,752" fill="#E5685A"/>
+      <g stroke="#FFF1ED" stroke-width="3" opacity="0.55" fill="none" stroke-linejoin="round">
+        <path d="M160 512 L 640 512"/>
+        <path d="M480 256 L 480 768"/>
+        <path d="M640 512 L 800 400"/>
+        <path d="M640 512 L 800 624"/>
+      </g>
+    </g>
+    <circle cx="352" cy="476" r="34" fill="#1B1F23"/>
+    <circle cx="342" cy="466" r="11" fill="#FFFFFF"/>
+  </symbol>
+</svg>
+
+<div class="grid">
+
+  <!-- ============================ Option A ============================ -->
+  <div class="col">
+    <h2>方案 A · 统一 S 字母</h2>
+    <p class="desc">所有 left-head 和 chat AI 头像都用 <code>S</code>（salmon 渐变 + 白字），跟现在的 Topic 列表 / 聊天头像保持一致。</p>
+
+    <div class="card">
+      <div class="card-label">首页 (BriefingFeed)</div>
+      <div class="left-head">
+        <div class="logo">S</div>
+        <div class="name">今日聚焦</div>
+        <div class="ver">11</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">联系人 (ContactsView)</div>
+      <div class="left-head">
+        <div class="logo">S</div>
+        <div class="name">联系人</div>
+        <div class="ver">302</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">待办 (TasksView)</div>
+      <div class="left-head">
+        <div class="logo">S</div>
+        <div class="name">待办</div>
+        <div class="ver">7</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">Topic 列表 (LeftSidebar) · 已经是 S</div>
+      <div class="left-head">
+        <div class="logo">S</div>
+        <div class="name">Topic</div>
+        <div class="ver">v1.1.1</div>
+      </div>
+      <div class="topic-row">
+        <span class="small-logo">S</span>
+        <span class="t-title">META 期权今日到期需处理</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">对话头像 (ChatStream) · 已经是 S</div>
+      <div class="chat-row">
+        <div class="avatar user">你</div>
+        <div class="msg-body">
+          <div class="msg-name">User <span class="ts">10:24</span></div>
+          <p>把这个文件整理一下，按模块分组。</p>
+        </div>
+      </div>
+      <div class="chat-row">
+        <div class="avatar ai">S</div>
+        <div class="msg-body">
+          <div class="msg-name">Salmon <span class="ts">10:24</span></div>
+          <p>好的。我先扫一遍目录看看现在的结构，再给个分组方案。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================ Option B ============================ -->
+  <div class="col">
+    <h2>方案 B · 用 App logo (折纸鱼)</h2>
+    <p class="desc">所有 left-head 和 chat AI 头像都换成 28×28 的 mini app logo，跟 Dock / Finder 里看到的是同一个标识。视觉更"品牌"。</p>
+
+    <div class="card">
+      <div class="card-label">首页 (BriefingFeed)</div>
+      <div class="left-head">
+        <div class="logo fish"><svg><use href="#salmon-fish"/></svg></div>
+        <div class="name">今日聚焦</div>
+        <div class="ver">11</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">联系人 (ContactsView)</div>
+      <div class="left-head">
+        <div class="logo fish"><svg><use href="#salmon-fish"/></svg></div>
+        <div class="name">联系人</div>
+        <div class="ver">302</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">待办 (TasksView)</div>
+      <div class="left-head">
+        <div class="logo fish"><svg><use href="#salmon-fish"/></svg></div>
+        <div class="name">待办</div>
+        <div class="ver">7</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">Topic 列表 (LeftSidebar)</div>
+      <div class="left-head">
+        <div class="logo fish"><svg><use href="#salmon-fish"/></svg></div>
+        <div class="name">Topic</div>
+        <div class="ver">v1.1.1</div>
+      </div>
+      <div class="topic-row">
+        <span class="small-logo fish"><svg><use href="#salmon-fish"/></svg></span>
+        <span class="t-title">META 期权今日到期需处理</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">对话头像 (ChatStream)</div>
+      <div class="chat-row">
+        <div class="avatar user">你</div>
+        <div class="msg-body">
+          <div class="msg-name">User <span class="ts">10:24</span></div>
+          <p>把这个文件整理一下，按模块分组。</p>
+        </div>
+      </div>
+      <div class="chat-row">
+        <div class="avatar fish"><svg><use href="#salmon-fish"/></svg></div>
+        <div class="msg-body">
+          <div class="msg-name">Salmon <span class="ts">10:24</span></div>
+          <p>好的。我先扫一遍目录看看现在的结构，再给个分组方案。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="legend">
+  <b>方案对比</b>
+  <ul>
+    <li><b>A · S 字母</b>：最克制、字符化、跟正文同一种笔画。识别成本几乎为零，但"品牌"感弱。所有 list-head 看起来都是同一个东西 — 强调"这就是 Salmon 应用界面"，但区分不出 view。</li>
+    <li><b>B · 折纸鱼 logo</b>：跟桌面/任务栏的应用图标是同一个标识，「品牌一致性」最强。28×28 下鱼形仍可辨。代价：彩色比纯字母的视觉重量大，并排放在 list-head 里会比 S 抢眼一些。</li>
+    <li>无论选哪个，IconRail（左侧 56px 导航栏）的 8 个 view 图标 <b>不变</b> — 那是 view-distinguishing icon（不同形状区分功能），跟这里的 "Salmon 标识位" 是两件事。</li>
+    <li>头像圆形 / 方块圆角的形状没变 — A 用渐变填色，B 用鱼形 + 圆角裁切。</li>
+  </ul>
+</div>
+
+</body>
+</html>

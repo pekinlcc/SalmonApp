@@ -1,0 +1,19 @@
+# v2.0 workspace root — Phase 2a + 2b of the three-product split.
+# See docs/refactor-three-products/README.md for the full plan.
+#
+# Members:
+#   - salmon/src-tauri        → the SalmonApp binary (Mac + Linux App)
+#   - crates/salmon-desktop   → SalmonApp Desktop binary (Linux only, Phase 2b)
+#
+# Phase 2c will extract shared backend code into crates/salmon-core/ so
+# both binaries depend on it instead of carrying duplicated source.
+# Phase 2d will split the React frontend likewise.
+#
+# Cargo's shared target directory lives at `/target/` (workspace root).
+[workspace]
+members = [
+    "salmon/src-tauri",
+    "crates/salmon-desktop/src-tauri",
+    "crates/salmon-core",
+]
+resolver = "2"

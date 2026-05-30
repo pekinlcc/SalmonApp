@@ -3,6 +3,7 @@ import type { ChatLayout, CliInfo, ComposerSendMode, DailyUsage, UsageSummary } 
 import type { MailAccount, OauthStatus } from "../lib/types";
 import { api } from "../lib/api";
 import { playChime } from "../lib/notify";
+import { IS_LINUX } from "../lib/platform";
 import pkg from "../../package.json";
 
 interface Props {
@@ -12,10 +13,13 @@ interface Props {
   cliStatus: CliInfo[];
   usageSummary: UsageSummary | null;
   notifySoundEnabled: boolean;
+  /** v1.20: Ubuntu Desktop shell — Phase 1 in-app desktop view. */
+  desktopModeEnabled: boolean;
   onChangeChatLayout: (layout: ChatLayout) => void;
   onChangeComposerSendMode: (mode: ComposerSendMode) => void;
   onChangeDefaultEngine: (engine: string) => void;
   onChangeNotifySound: (enabled: boolean) => void;
+  onChangeDesktopMode: (enabled: boolean) => void;
   /** When set, settings opens on this tab instead of the default 用量. */
   initialTab?: string;
   onClose: () => void;
@@ -37,10 +41,12 @@ export function SettingsDialog({
   cliStatus,
   usageSummary,
   notifySoundEnabled,
+  desktopModeEnabled,
   onChangeChatLayout,
   onChangeComposerSendMode,
   onChangeDefaultEngine,
   onChangeNotifySound,
+  onChangeDesktopMode,
   initialTab,
   onClose,
 }: Props) {
@@ -87,10 +93,12 @@ export function SettingsDialog({
               defaultEngine={defaultEngine}
               cliStatus={cliStatus}
               notifySoundEnabled={notifySoundEnabled}
+              desktopModeEnabled={desktopModeEnabled}
               onChangeChatLayout={onChangeChatLayout}
               onChangeComposerSendMode={onChangeComposerSendMode}
               onChangeDefaultEngine={onChangeDefaultEngine}
               onChangeNotifySound={onChangeNotifySound}
+              onChangeDesktopMode={onChangeDesktopMode}
             />
           )}
           {tab === "accounts" && <AccountsTab />}
@@ -192,20 +200,24 @@ function PreferencesTab({
   defaultEngine,
   cliStatus,
   notifySoundEnabled,
+  desktopModeEnabled,
   onChangeChatLayout,
   onChangeComposerSendMode,
   onChangeDefaultEngine,
   onChangeNotifySound,
+  onChangeDesktopMode,
 }: {
   chatLayout: ChatLayout;
   composerSendMode: ComposerSendMode;
   defaultEngine: string;
   cliStatus: CliInfo[];
   notifySoundEnabled: boolean;
+  desktopModeEnabled: boolean;
   onChangeChatLayout: (layout: ChatLayout) => void;
   onChangeComposerSendMode: (mode: ComposerSendMode) => void;
   onChangeDefaultEngine: (engine: string) => void;
   onChangeNotifySound: (enabled: boolean) => void;
+  onChangeDesktopMode: (enabled: boolean) => void;
 }) {
   return (
     <>
@@ -358,6 +370,26 @@ function PreferencesTab({
           </button>
         </label>
       </section>
+
+      {IS_LINUX && (
+        <section className="settings-section">
+          <div className="settings-section-title">Ubuntu 桌面模式 · 实验性</div>
+          <div className="settings-section-desc">
+            把 Salmon 主页换成一个 GNOME 风格的桌面壳：壁纸 + AI Brief widget + 底部
+            Dock。<strong>这是一个过渡形态</strong>——v2 起这部分会拆成独立的
+            <code>SalmonApp Desktop</code> 包，普通的 SalmonApp 不再包含桌面视图。
+            届时你装哪个包就是哪个体验，不再靠开关切换。
+          </div>
+          <label className="toggle-row">
+            <input
+              type="checkbox"
+              checked={desktopModeEnabled}
+              onChange={(e) => onChangeDesktopMode(e.target.checked)}
+            />
+            <span className="toggle-label">启用桌面视图</span>
+          </label>
+        </section>
+      )}
     </>
   );
 }

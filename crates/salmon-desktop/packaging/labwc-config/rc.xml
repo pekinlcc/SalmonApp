@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<labwc_config>
+  <core>
+    <decoration>server</decoration>
+    <gap>0</gap>
+  </core>
+
+  <desktops number="4">
+    <names>
+      <name>AI</name>
+      <name>Work</name>
+      <name>Comms</name>
+      <name>Scratch</name>
+    </names>
+    <popupTime>900</popupTime>
+  </desktops>
+
+  <theme>
+    <font place="ActiveWindow" name="sans" size="11" />
+    <font place="MenuItem" name="sans" size="11" />
+  </theme>
+
+  <keyboard>
+    <default />
+    <!-- Super+T / Super+Return: open the user's terminal preference. -->
+    <keybind key="W-t">
+      <action name="Execute" command="salmon-open-terminal" />
+    </keybind>
+    <keybind key="W-Return">
+      <action name="Execute" command="salmon-open-terminal" />
+    </keybind>
+    <keybind key="C-A-t">
+      <action name="Execute" command="salmon-open-terminal" />
+    </keybind>
+    <keybind key="W-f">
+      <action name="Execute" command="salmon-open-files" />
+    </keybind>
+    <keybind key="W-b">
+      <action name="Execute" command="salmon-open-browser" />
+    </keybind>
+    <keybind key="W-space">
+      <action name="Execute" command="salmon-input-toggle" />
+    </keybind>
+    <keybind key="W-l">
+      <action name="Execute" command="salmon-session-action lock" />
+    </keybind>
+    <keybind key="XF86AudioRaiseVolume">
+      <action name="Execute" command="sh -c 'if command -v wpctl >/dev/null 2>&amp;1 &amp;&amp; wpctl set-volume -l 1.5 @DEFAULT_AUDIO_SINK@ 5%+; then exit 0; fi; exec pactl set-sink-volume @DEFAULT_SINK@ +5%'" />
+    </keybind>
+    <keybind key="XF86AudioLowerVolume">
+      <action name="Execute" command="sh -c 'if command -v wpctl >/dev/null 2>&amp;1 &amp;&amp; wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-; then exit 0; fi; exec pactl set-sink-volume @DEFAULT_SINK@ -5%'" />
+    </keybind>
+    <keybind key="XF86AudioMute">
+      <action name="Execute" command="sh -c 'if command -v wpctl >/dev/null 2>&amp;1 &amp;&amp; wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle; then exit 0; fi; exec pactl set-sink-mute @DEFAULT_SINK@ toggle'" />
+    </keybind>
+    <keybind key="XF86AudioMicMute">
+      <action name="Execute" command="sh -c 'if command -v wpctl >/dev/null 2>&amp;1 &amp;&amp; wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle; then exit 0; fi; exec pactl set-source-mute @DEFAULT_SOURCE@ toggle'" />
+    </keybind>
+    <keybind key="XF86AudioPlay">
+      <action name="Execute" command="sh -c 'command -v playerctl >/dev/null 2>&amp;1 &amp;&amp; exec playerctl play-pause; true'" />
+    </keybind>
+    <keybind key="XF86AudioPause">
+      <action name="Execute" command="sh -c 'command -v playerctl >/dev/null 2>&amp;1 &amp;&amp; exec playerctl pause; true'" />
+    </keybind>
+    <keybind key="XF86AudioNext">
+      <action name="Execute" command="sh -c 'command -v playerctl >/dev/null 2>&amp;1 &amp;&amp; exec playerctl next; true'" />
+    </keybind>
+    <keybind key="XF86AudioPrev">
+      <action name="Execute" command="sh -c 'command -v playerctl >/dev/null 2>&amp;1 &amp;&amp; exec playerctl previous; true'" />
+    </keybind>
+    <keybind key="XF86AudioStop">
+      <action name="Execute" command="sh -c 'command -v playerctl >/dev/null 2>&amp;1 &amp;&amp; exec playerctl stop; true'" />
+    </keybind>
+    <keybind key="XF86MonBrightnessUp">
+      <action name="Execute" command="salmon-brightness up" />
+    </keybind>
+    <keybind key="XF86MonBrightnessDown">
+      <action name="Execute" command="salmon-brightness down" />
+    </keybind>
+    <keybind key="Print">
+      <action name="Execute" command="salmon-screenshot full" />
+    </keybind>
+    <keybind key="S-Print">
+      <action name="Execute" command="salmon-screenshot select" />
+    </keybind>
+    <keybind key="XF86Sleep">
+      <action name="Execute" command="salmon-session-action suspend" />
+    </keybind>
+    <keybind key="A-Tab">
+      <action name="NextWindow" />
+    </keybind>
+    <keybind key="A-S-Tab">
+      <action name="PreviousWindow" />
+    </keybind>
+    <keybind key="A-space">
+      <action name="ShowMenu" menu="client-menu" />
+    </keybind>
+    <keybind key="W-Left">
+      <action name="SnapToEdge" direction="left" />
+    </keybind>
+    <keybind key="W-Right">
+      <action name="SnapToEdge" direction="right" />
+    </keybind>
+    <keybind key="W-Up">
+      <action name="ToggleMaximize" />
+    </keybind>
+    <keybind key="W-Down">
+      <action name="Iconify" />
+    </keybind>
+    <keybind key="W-d">
+      <action name="ToggleShowDesktop" />
+    </keybind>
+    <keybind key="W-F11">
+      <action name="ToggleFullscreen" />
+    </keybind>
+    <keybind key="W-m">
+      <action name="Move" />
+    </keybind>
+    <keybind key="W-r">
+      <action name="Resize" />
+    </keybind>
+    <keybind key="W-Page_Up">
+      <action name="GoToDesktop" to="left" />
+    </keybind>
+    <keybind key="W-Page_Down">
+      <action name="GoToDesktop" to="right" />
+    </keybind>
+    <keybind key="W-1">
+      <action name="GoToDesktop" to="1" />
+    </keybind>
+    <keybind key="W-2">
+      <action name="GoToDesktop" to="2" />
+    </keybind>
+    <keybind key="W-3">
+      <action name="GoToDesktop" to="3" />
+    </keybind>
+    <keybind key="W-4">
+      <action name="GoToDesktop" to="4" />
+    </keybind>
+    <keybind key="W-S-1">
+      <action name="SendToDesktop" to="1" follow="no" />
+    </keybind>
+    <keybind key="W-S-2">
+      <action name="SendToDesktop" to="2" follow="no" />
+    </keybind>
+    <keybind key="W-S-3">
+      <action name="SendToDesktop" to="3" follow="no" />
+    </keybind>
+    <keybind key="W-S-4">
+      <action name="SendToDesktop" to="4" follow="no" />
+    </keybind>
+    <keybind key="W-q">
+      <action name="Close" />
+    </keybind>
+    <keybind key="A-F4">
+      <action name="Close" />
+    </keybind>
+    <!-- Super+Shift+Q: sign out of the SalmonApp session (returns to GDM). -->
+    <keybind key="W-S-q">
+      <action name="Execute" command="salmon-session-action signout" />
+    </keybind>
+    <keybind key="W-Escape">
+      <action name="Exit" />
+    </keybind>
+  </keyboard>
+
+  <mouse>
+    <default />
+    <context name="Root">
+      <mousebind button="Right" action="Press">
+        <action name="ShowMenu" menu="root-menu" />
+      </mousebind>
+    </context>
+  </mouse>
+
+  <windowRules>
+    <windowRule title="SalmonApp Desktop" matchOnce="true">
+      <skipTaskbar>yes</skipTaskbar>
+      <skipWindowSwitcher>yes</skipWindowSwitcher>
+      <fixedPosition>yes</fixedPosition>
+      <action name="MoveTo" x="0" y="0" />
+      <action name="ToggleAlwaysOnBottom" />
+    </windowRule>
+  </windowRules>
+</labwc_config>

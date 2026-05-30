@@ -202,6 +202,20 @@ export function MailView({
     }
   }, []);
 
+  // v1.19.2: refresh the open inbox + unread counts when chat-side
+  // salmon-action mail.archive/star/mark_read/forward fires. Without
+  // this, the just-archived mail keeps showing in the list and the
+  // user has to switch accounts or hit ↻ to see it gone.
+  useEffect(() => {
+    const onMailChanged = () => {
+      const acct = selectedAccountIdRef.current;
+      if (acct) reloadMessages(acct);
+      api.listMailAccounts().then(setAccounts).catch(() => {});
+    };
+    window.addEventListener("salmon:mail-changed", onMailChanged);
+    return () => window.removeEventListener("salmon:mail-changed", onMailChanged);
+  }, [reloadMessages]);
+
   // Guards the account-change effect below: when pendingOpenMail (from a
   // brief-card click) lands on a mail in a DIFFERENT account, we need to
   // switch account AND keep the just-set selectedMessageId. Without this

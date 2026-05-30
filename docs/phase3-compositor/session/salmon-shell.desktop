@@ -1,0 +1,27 @@
+[Desktop Entry]
+Name=SalmonApp Desktop
+Comment=AI-first desktop shell — replaces GNOME with Salmon's Brief widget + dock
+Exec=/usr/bin/salmon-shell
+TryExec=/usr/bin/salmon-shell
+Type=Application
+DesktopNames=Salmon
+Keywords=ai;desktop;shell;wayland
+
+# Install this file at:
+#   /usr/share/wayland-sessions/salmon-shell.desktop
+#
+# GDM scans that directory at every boot and lists each .desktop file
+# as a session in the gear-menu next to the password field. After
+# installation:
+#
+#   1. Log out of GNOME (or reboot).
+#   2. Click the gear icon next to the password field.
+#   3. Pick "SalmonApp Desktop".
+#   4. Log in.
+#
+# GDM remembers your last choice, so subsequent logins default to Salmon
+# until you switch back in the same way.
+#
+# To force GDM to re-scan after install without a reboot:
+#   sudo systemctl restart gdm
+# (will kick you out of your current session)

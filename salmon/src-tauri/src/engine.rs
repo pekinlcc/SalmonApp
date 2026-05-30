@@ -1,5 +1,5 @@
 use crate::permission_bridge::PermissionBridge;
-use crate::types::{StreamEvent, ToolCall};
+use salmon_core::types::{StreamEvent, ToolCall};
 use anyhow::{anyhow, Result};
 use parking_lot::Mutex;
 use serde_json::json;

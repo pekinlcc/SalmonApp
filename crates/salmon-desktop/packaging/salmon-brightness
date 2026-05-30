@@ -1,0 +1,30 @@
+#!/bin/sh
+set -eu
+
+action="${1:-}"
+
+case "$action" in
+  up)
+    amount="+5%"
+    ;;
+  down)
+    amount="5%-"
+    ;;
+  *)
+    printf 'Usage: %s {up|down}\n' "$0" >&2
+    exit 64
+    ;;
+esac
+
+if ! command -v brightnessctl >/dev/null 2>&1; then
+  printf 'brightnessctl is not installed\n' >&2
+  exit 127
+fi
+
+# Prefer real display backlights; some machines also expose keyboard LEDs or
+# platform LEDs through brightnessctl, and the default device can be ambiguous.
+if brightnessctl --class=backlight set "$amount" >/dev/null 2>&1; then
+  exit 0
+fi
+
+exec brightnessctl set "$amount"

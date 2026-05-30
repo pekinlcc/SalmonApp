@@ -1,0 +1,54 @@
+#!/bin/sh
+set -eu
+
+mode="${1:-full}"
+case "$mode" in
+  full|select) ;;
+  *)
+    notify-send "Screenshot failed" "invalid screenshot mode: $mode" >/dev/null 2>&1 || true
+    exit 2
+    ;;
+esac
+
+if ! command -v grim >/dev/null 2>&1; then
+  notify-send "Screenshot failed" "grim is not installed" >/dev/null 2>&1 || true
+  exit 1
+fi
+
+pictures_dir="${XDG_PICTURES_DIR:-}"
+if [ -z "$pictures_dir" ] && command -v xdg-user-dir >/dev/null 2>&1; then
+  pictures_dir="$(xdg-user-dir PICTURES 2>/dev/null || true)"
+fi
+if [ -z "$pictures_dir" ] || [ "$pictures_dir" = "$HOME" ]; then
+  pictures_dir="$HOME/Pictures"
+fi
+dir="$pictures_dir/Screenshots"
+mkdir -p "$dir"
+
+stamp="$(date +%Y-%m-%d_%H-%M-%S)"
+file="$dir/$stamp.png"
+suffix=2
+while [ -e "$file" ]; do
+  file="$dir/$stamp $suffix.png"
+  suffix=$((suffix + 1))
+done
+
+if [ "$mode" = "select" ]; then
+  if ! command -v slurp >/dev/null 2>&1; then
+    notify-send "Screenshot failed" "slurp is not installed" >/dev/null 2>&1 || true
+    exit 1
+  fi
+  geometry="$(slurp)" || exit 1
+  grim -g "$geometry" "$file"
+else
+  grim "$file"
+fi
+
+if command -v wl-copy >/dev/null 2>&1; then
+  if wl-copy -t image/png < "$file" >/dev/null 2>&1; then
+    notify-send "Screenshot saved" "$file copied to clipboard" >/dev/null 2>&1 || true
+    exit 0
+  fi
+fi
+
+notify-send "Screenshot saved" "$file" >/dev/null 2>&1 || true

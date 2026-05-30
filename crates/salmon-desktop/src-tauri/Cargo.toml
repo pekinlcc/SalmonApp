@@ -1,0 +1,56 @@
+[package]
+name = "salmonapp-desktop"
+version = "2.0.123"
+description = "SalmonApp Desktop — Ubuntu-style desktop shell (Linux only)"
+authors = ["SalmonApp"]
+edition = "2021"
+rust-version = "1.77"
+
+[lib]
+name = "salmonapp_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+# v2.0 Phase 2c: shared backend code, mirrors the App crate's dependency.
+salmon-core = { path = "../../salmon-core" }
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+tauri-plugin-notification = "2"
+tauri-plugin-clipboard-manager = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+rusqlite = { version = "0.32", features = ["bundled"] }
+anyhow = "1"
+thiserror = "1"
+uuid = { version = "1", features = ["v4"] }
+chrono = { version = "0.4", features = ["serde"] }
+parking_lot = "0.12"
+which = "6"
+log = "0.4"
+env_logger = "0.11"
+zip = { version = "2", default-features = false, features = ["deflate"] }
+base64 = "0.22"
+axum = { version = "0.7", default-features = false, features = ["tokio", "http1", "json", "matched-path", "query"] }
+libc = "0.2"
+# v0.9.0-alpha.2: OAuth + Gmail API client.
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
+url = "2"
+toml = "0.8"
+sha2 = "0.10"
+rand = "0.8"
+hex = "0.4"
+urlencoding = "2"
+
+[profile.release]
+panic = "abort"
+# v0.11.1 — fat LTO + codegen-units=1 让链接阶段瞬间吃 6-10GB RAM，
+# 在 30GB 桌面上叠加 Chrome/SalmonApp 会触发 OOM 把桌面会话杀掉。
+# 改为 thin LTO + 16 个 codegen unit：链接峰值 ~2GB，二进制只大几 MB。
+codegen-units = 16
+lto = "thin"
+opt-level = "s"
+strip = true

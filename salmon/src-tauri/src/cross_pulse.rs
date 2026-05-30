@@ -15,7 +15,7 @@ use crate::calendar::list_events_window;
 use crate::date_context::{
     format_local_date, format_local_datetime, relative_date_hint, RELATIVE_DATE_POLICY,
 };
-use crate::db::Db;
+use salmon_core::db::Db;
 use crate::llm::{call_llm, extract_json_object, truncate_chars};
 use crate::pulse::{ActionStep, PulseItem, SuggestedAction};
 use crate::tasks::list_tasks_local;
