@@ -1,8 +1,0 @@
-[Desktop Entry]
-Name=SalmonApp Desktop
-Comment=Personal AI workspace as a Wayland session
-Exec=/usr/bin/salmon-session
-TryExec=/usr/bin/salmon-session
-Type=Application
-DesktopNames=SalmonApp
-
